@@ -243,7 +243,10 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
   };
 
   return (
-    <header className="no-imprimir flex h-14 shrink-0 items-center gap-3 border-b border-borde bg-superficie/80 px-6 backdrop-blur-md lg:px-8">
+    <header className="no-imprimir relative isolate flex h-14 shrink-0 items-center gap-3 border-b border-borde px-6 lg:px-8">
+      {/* El desenfoque va en una capa hermana: si el header mismo tuviera backdrop-filter,
+          WebView2 deja restos del menú (que desborda el header) al cerrarse. */}
+      <div aria-hidden className="absolute inset-0 -z-10 bg-superficie/80 backdrop-blur-md" />
       <button
         onClick={onBuscar}
         className="flex h-9 w-full max-w-sm items-center gap-2.5 rounded-[10px] border border-borde bg-superficie-2 px-3 text-sm text-texto-3 transition-colors hover:border-borde-fuerte"
