@@ -5,49 +5,55 @@
 
 ---
 
-MEDORA — Enterprise Multi-Tenant Health Operating System
-Infraestructura de Gestión Hospitalaria Unificada de Alta Disponibilidad, Seguridad Residencial de Datos y Gobierno Multiorganizacional.
+# MEDORA — Enterprise Multi-Tenant Health Operating System
 
-🏛️ Resumen Ejecutivo
-MEDORA es la plataforma SaaS de orquestación hospitalaria de clase Enterprise diseñada para operar, escalar y proteger redes de salud complejas, grupos clínicos distribuidos y consorcios médicos multilocalización desde un único núcleo de software soberano.
+> **INFRAESTRUCTURA DE GESTIÓN HOSPITALARIA UNIFICADA DE ALTA DISPONIBILIDAD, SEGURIDAD RESIDENCIAL DE DATOS Y GIERNO MULTIORGANIZACIONAL.**
 
-Concebido bajo los estándares más exigentes de la industria HealthTech, MEDORA resuelve el desafío crítico de la fragmentación operativa: permite a las organizaciones administrar múltiples sistemas hospitalarios autónomos sobre una infraestructura unificada, garantizando la independencia absoluta de datos, la continuidad de negocio ininterrumpida y una soberanía de permisos sin precedentes.
+---
 
-🛡️ Arquitectura de Seguridad Elevada & Soberanía de Datos
-La seguridad en MEDORA no es un módulo adicional; es el cimiento estructural sobre el cual se ejecuta cada instrucción del sistema.
+## 🏛️ **1. RESUMEN EJECUTIVO**
 
-1. Aislamiento Multi-Tenant Estricto a Nivel de Base de Datos
-Segregación Lógica y Física: Cada sistema hospitalario dentro de MEDORA funciona en un entorno totalmente aislado. La información médica sensible, los registros contables, el inventario de farmacia y la base de pacientes de una entidad son completamente invisibles e inaccesibles para otras organizaciones alojadas en la misma plataforma.
+**MEDORA** es la plataforma SaaS de orquestación hospitalaria de clase **Enterprise** diseñada para operar, escalar y proteger redes de salud complejas, grupos clínicos distribuidos y consorcios médicos multilocalización desde un único núcleo de software soberano.
 
-Cero Filtración Cruzada (Zero Cross-Tenant Leakage): Protocolos de cifrado nativo en reposo (AES-256) y en tránsito (TLS 1.3), garantizando que las consultas a la base de datos incorporen tokens de aislamiento no falsificables a nivel de protocolo.
+Concebido bajo los estándares más exigentes de la industria **HealthTech**, MEDORA resuelve el desafío crítico de la fragmentación operativa: permite a las organizaciones administrar múltiples sistemas hospitalarios autónomos sobre una infraestructura unificada, garantizando la **independencia absoluta de datos**, la **continuidad de negocio ininterrumpida** y una **soberanía de permisos sin precedentes**.
 
-2. Control de Acceso Granular (Contextual RBAC)
-Identidad Unificada con Permisos Contextuales: Un profesional de la salud puede pertenecer a múltiples redes hospitalarias dentro de MEDORA utilizando una única credencial segura. Sin embargo, sus privilegios de acceso, roles (ej. Cirujano en Sistema A vs. Consultor en Sistema B) y ámbito de visibilidad se revalúan dinámicamente según el contexto de la organización en la que esté operando en tiempo real.
+---
 
-Matriz de Privilegios Minimizados (Least Privilege Principle): Módulos parametrizables que aseguran que el personal administrativo, médico y financiero solo interactúe con los datos estrictamente necesarios para su función.
+## 🛡️ **2. ARQUITECTURA DE SEGURIDAD ELEVADA & SOBERANÍA DE DATOS**
 
-3. Trazabilidad Forense & Auditoría Inmutable
-Registros de Auditoría Inalterables (Audit Logs): Cada lectura, modificación, exportación o eliminación de un expediente clínico o transacción financiera genera una firma digital en un registro de eventos inmutable.
+La seguridad en **MEDORA** no es un módulo adicional; es el cimiento estructural sobre el cual se ejecuta cada instrucción del sistema.
 
-Cumplimiento Normativo de Clase Mundial: Diseñado para alinearse con los marcos internacionales de protección de datos de salud más rigurosos (HIPAA, GDPR, e ISO 27001).
+### 🔹 **Aislamiento Multi-Tenant Estricto a Nivel de Base de Datos**
+* **Segregación Lógica y Física:** Cada sistema hospitalario dentro de MEDORA funciona en un entorno totalmente aislado. La información médica sensible, los registros contables, el inventario de farmacia y la base de pacientes de una entidad son **completamente invisibles e inaccesibles** para otras organizaciones alojadas en la misma plataforma.
+* **Cero Filtración Cruzada (*Zero Cross-Tenant Leakage*):** Protocolos de cifrado nativo en reposo (**AES-256**) y en tránsito (**TLS 1.3**), garantizando que las consultas a la base de datos incorporen tokens de aislamiento no falsificables a nivel de protocolo.
 
-⚡ Disponibilidad Crítica & Alta Resiliencia Operativa
-En el sector salud, la latencia cuesta tiempo y la inactividad cuesta vidas. MEDORA está construido sobre una arquitectura distribuida orientada a la tolerancia a fallos.
+### 🔹 **Control de Acceso Granular (*Contextual RBAC*)**
+* **Identidad Unificada con Permisos Contextuales:** Un profesional de la salud puede pertenecer a múltiples redes hospitalarias dentro de MEDORA utilizando una única credencial segura. Sin embargo, sus privilegios de acceso, roles (ej. *Cirujano* en Sistema A vs. *Consultor* en Sistema B) y ámbito de visibilidad se revalúan dinámicamente según el contexto de la organización en la que esté operando en tiempo real.
+* **Matriz de Privilegios Minimizados (*Least Privilege Principle*):** Módulos parametrizables que aseguran que el personal administrativo, médico y financiero solo interactúe con los datos estrictamente necesarios para su función.
 
-Arquitectura de Misión Crítica (99.99% Uptime SLA): Diseñado para operar en entornos de alta demanda sin interrupciones, soportando despliegues redundantes con conmutación por error (failover) automática.
+### 🔹 **Trazabilidad Forense & Auditoría Inmutable**
+* **Registros de Auditoría Inalterables (*Audit Logs*):** Cada lectura, modificación, exportación o eliminación de un expediente clínico o transacción financiera genera una firma digital en un registro de eventos inmutable.
+* **Cumplimiento Normativo de Clase Mundial:** Diseñado para alinearse con los marcos internacionales de protección de datos de salud más rigurosos (**HIPAA**, **GDPR**, e **ISO 27001**).
 
-Alta Disponibilidad y Replicación Multirregión: Infraestructura con balanceo de carga elástico capaz de responder a picos masivos de tráfico (ej. emergencias sanitarias, jornadas de vacunación masiva o cierres contables de fin de mes).
+---
 
-Estrategia de Respaldo y Recuperación (DRP/RPO/RTO): Copias de seguridad continuas y automatizadas con tiempos de recuperación casi instantáneos (Near-Zero Recovery Time Objective), protegiendo la operación hospitalaria ante desastres de infraestructura o ciberataques.
+## ⚡ **3. DISPONIBILIDAD CRÍTICA & ALTA RESILIENCIA OPERATIVA**
 
-📊 Gobierno Operativo, Financiero y Clínico Unificado
-MEDORA consolida todos los ejes de la gestión hospitalaria en un ecosistema cohesivo:
+En el sector salud, la latencia cuesta tiempo y la inactividad cuesta vidas. **MEDORA** está construido sobre una arquitectura distribuida orientada a la tolerancia a fallos.
 
-Ecosistema Financiero Aislado: Cada red de salud mantiene su propia contabilidad, centros de costos, ciclos de facturación, aranceles de aseguradoras y nómina de personal sin interferencias financieras externas.
+* 🟢 **Arquitectura de Misión Crítica (*99.99% Uptime SLA*):** Diseñado para operar en entornos de alta demanda sin interrupciones, soportando despliegues redundantes con conmutación por error (*failover*) automática.
+* 🟢 **Alta Disponibilidad y Replicación Multirregión:** Infraestructura con balanceo de carga elástico capaz de responder a picos masivos de tráfico (ej. emergencias sanitarias, jornadas de vacunación masiva o cierres contables de fin de mes).
+* 🟢 **Estrategia de Respaldo y Recuperación (*DRP / RPO / RTO*):** Copias de seguridad continuas y automatizadas con tiempos de recuperación casi instantáneos (*Near-Zero Recovery Time Objective*), protegiendo la operación hospitalaria ante desastres de infraestructura o ciberataques.
 
-Gestión de Expediente Clínico Electrónico (ECE): Centralización del historial médico con controles de privacidad avanzados para garantizar la confidencialidad del paciente.
+---
 
-Gestión de Sedes y Logística: Control centralizado o distribuido de camas, quirófanos, citas médicas, inventario farmacéutico y suministros quirúrgicos en tiempo real.
+## 📊 **4. GOBIERNO OPERATIVO, FINANCIERO Y CLÍNICO UNIFICADO**
+
+**MEDORA** consolida todos los ejes de la gestión hospitalaria en un ecosistema cohesivo:
+
+* **Ecosistema Financiero Aislado:** Cada red de salud mantiene su propia contabilidad, centros de costos, ciclos de facturación, aranceles de aseguradoras y nómina de personal sin interferencias financieras externas.
+* **Gestión de Expediente Clínico Electrónico (*ECE*):** Centralización del historial médico con controles de privacidad avanzados para garantizar la confidencialidad del paciente.
+* **Gestión de Sedes y Logística:** Control centralizado o distribuido de camas, quirófanos, citas médicas, inventario farmacéutico y suministros quirúrgicos en tiempo real.
 
 ### Roles (por sistema)
 
