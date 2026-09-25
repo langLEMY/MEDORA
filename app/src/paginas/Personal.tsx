@@ -111,7 +111,7 @@ export default function Personal() {
   );
 }
 
-function SelectorRoles({ valor, onChange }: { valor: Rol[]; onChange: (r: Rol[]) => void }) {
+export function SelectorRoles({ valor, onChange }: { valor: Rol[]; onChange: (r: Rol[]) => void }) {
   return (
     <Campo etiqueta="Roles">
       {() => (
@@ -325,7 +325,7 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
   );
 }
 
-function MostrarCredenciales({ datos, onCerrar }: { datos: { email: string; password: string } | null; onCerrar: () => void }) {
+export function MostrarCredenciales({ datos, onCerrar }: { datos: { email: string; password: string } | null; onCerrar: () => void }) {
   const [copiado, setCopiado] = useState(false);
   const copiar = async () => {
     await navigator.clipboard.writeText(`MEDORA\nUsuario: ${datos?.email}\nContraseña temporal: ${datos?.password}`);

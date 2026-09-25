@@ -489,6 +489,69 @@ export type Database = {
           },
         ]
       }
+      codigos_invitacion: {
+        Row: {
+          codigo_hash: string
+          creado_en: string
+          creado_por: string | null
+          descripcion: string | null
+          expira_en: string
+          id: string
+          otorga_superadmin: boolean
+          pista: string
+          revocado_en: string | null
+          roles: Database["public"]["Enums"]["rol_sistema"][]
+          sistema_id: string | null
+          usos: number
+          usos_maximos: number
+        }
+        Insert: {
+          codigo_hash: string
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          expira_en: string
+          id?: string
+          otorga_superadmin?: boolean
+          pista: string
+          revocado_en?: string | null
+          roles?: Database["public"]["Enums"]["rol_sistema"][]
+          sistema_id?: string | null
+          usos?: number
+          usos_maximos?: number
+        }
+        Update: {
+          codigo_hash?: string
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          expira_en?: string
+          id?: string
+          otorga_superadmin?: boolean
+          pista?: string
+          revocado_en?: string | null
+          roles?: Database["public"]["Enums"]["rol_sistema"][]
+          sistema_id?: string | null
+          usos?: number
+          usos_maximos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "codigos_invitacion_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "codigos_invitacion_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contadores: {
         Row: {
           clave: string
@@ -994,6 +1057,7 @@ export type Database = {
       }
       perfiles: {
         Row: {
+          activo: boolean
           actualizado_en: string
           actualizado_por: string | null
           avatar_url: string | null
@@ -1007,6 +1071,7 @@ export type Database = {
           ultimo_sistema_id: string | null
         }
         Insert: {
+          activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
@@ -1020,6 +1085,7 @@ export type Database = {
           ultimo_sistema_id?: string | null
         }
         Update: {
+          activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
@@ -1310,6 +1376,10 @@ export type Database = {
         Args: { p_cobro: string; p_motivo: string }
         Returns: undefined
       }
+      canjear_codigo_invitacion: {
+        Args: { p_codigo: string; p_usuario: string }
+        Returns: Json
+      }
       cerrar_turno_caja: {
         Args: { p_monto_declarado: number; p_notas?: string; p_turno: string }
         Returns: {
@@ -1332,7 +1402,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      consultar_codigo_invitacion: { Args: { p_codigo: string }; Returns: Json }
       estado_instalacion: { Args: never; Returns: Json }
+      generar_codigo_invitacion: {
+        Args: {
+          p_descripcion: string
+          p_dias: number
+          p_roles: Database["public"]["Enums"]["rol_sistema"][]
+          p_sistema: string
+          p_superadmin: boolean
+          p_usos: number
+        }
+        Returns: string
+      }
       marcar_password_actualizada: { Args: never; Returns: undefined }
       mis_sistemas_detalle: {
         Args: never
@@ -1346,6 +1428,20 @@ export type Database = {
           roles: Database["public"]["Enums"]["rol_sistema"][]
           slug: string
           zona_horaria: string
+        }[]
+      }
+      plataforma_usuarios: {
+        Args: never
+        Returns: {
+          activo: boolean
+          creado_en: string
+          email: string
+          es_superadmin: boolean
+          id: string
+          nombre_completo: string
+          sistemas: number
+          telefono: string
+          ultimo_acceso: string
         }[]
       }
       registrar_cobro: {
@@ -1398,6 +1494,11 @@ export type Database = {
         }
       }
       resumen_dashboard: { Args: { p_sistema: string }; Returns: Json }
+      revocar_codigo_invitacion: { Args: { p_id: string }; Returns: undefined }
+      verificar_codigo_instalacion: {
+        Args: { p_codigo: string }
+        Returns: boolean
+      }
     }
     Enums: {
       estado_cita:

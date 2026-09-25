@@ -8,6 +8,7 @@ import { Boton } from "@/components/ui/boton";
 import { Entrada } from "@/components/ui/campos";
 import { mensajeError, supabase } from "@/lib/supabase";
 import { PantallaAcceso } from "./PantallaAcceso";
+import { Registro } from "./Registro";
 
 const esquema = z.object({
   email: z.email("Correo inválido"),
@@ -17,6 +18,7 @@ type Datos = z.infer<typeof esquema>;
 
 export function Login() {
   const [error, setError] = useState<string | null>(null);
+  const [registro, setRegistro] = useState(false);
   const sacudir = useAnimation();
   const { register, handleSubmit, formState } = useForm<Datos>({ resolver: zodResolver(esquema) });
 
@@ -31,6 +33,13 @@ export function Login() {
     }
     void supabase.rpc("registrar_evento", { p_accion: "LOGIN" });
   });
+
+  if (registro)
+    return (
+      <PantallaAcceso>
+        <Registro onVolver={() => setRegistro(false)} />
+      </PantallaAcceso>
+    );
 
   return (
     <PantallaAcceso>
@@ -70,8 +79,14 @@ export function Login() {
         </Boton>
       </motion.form>
 
-      <p className="mt-8 text-center text-xs text-texto-3">
-        ¿Olvidaste tu contraseña? Pide a la administración de tu sistema que la restablezca.
+      <div className="mt-8 border-t border-borde pt-6 text-center text-sm text-texto-2">
+        ¿Tienes un código de invitación?{" "}
+        <button onClick={() => setRegistro(true)} className="font-medium text-marca-texto hover:underline">
+          Crear cuenta
+        </button>
+      </div>
+      <p className="mt-3 text-center text-xs text-texto-3">
+        ¿Olvidaste tu contraseña? Pide a la administración que la restablezca.
       </p>
     </PantallaAcceso>
   );

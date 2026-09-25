@@ -35,6 +35,9 @@ sistemas ─┬─ sedes
 - **Edge Functions**
   - `configuracion-inicial` (sin JWT): crea el primer superadmin; exige el código de instalación y deja de funcionar para siempre cuando ya existe uno.
   - `gestion-usuarios` (JWT): alta de personal y restablecimiento de contraseñas; valida que quien llama sea admin del sistema o superadmin.
+  - `plataforma-usuarios` (JWT, solo superadmin): crear, editar (incl. correo y superadmin), desactivar/reactivar (ban en Auth + `perfiles.activo`) y restablecer contraseñas. Nunca deja la plataforma sin superadmin activo.
+  - `registro-invitacion` (sin JWT): alta con código de invitación; el canje es atómico y los códigos solo se guardan como hash.
+- **Desactivación**: además del ban en Auth, los helpers de RLS exigen `perfiles.activo`, así que el corte de acceso a datos es inmediato.
 - **Realtime** en `citas` (sala de espera en vivo), filtrado por RLS.
 
 ## Pendientes recomendados

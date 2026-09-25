@@ -34,5 +34,5 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/catalogos", etiqueta: "Servicios y seguros", icono: Tags, modulo: "catalogos", grupo: "Gestión" },
   { ruta: "/auditoria", etiqueta: "Auditoría", icono: ScrollText, modulo: "auditoria", grupo: "Gestión" },
   { ruta: "/configuracion", etiqueta: "Sistema y sedes", icono: Building2, modulo: "configuracion", grupo: "Gestión" },
-  { ruta: "/plataforma", etiqueta: "Sistemas hospitalarios", icono: Network, soloSuperadmin: true, grupo: "Plataforma" },
+  { ruta: "/plataforma", etiqueta: "Plataforma", icono: Network, soloSuperadmin: true, grupo: "Plataforma" },
 ];

@@ -22,7 +22,7 @@ MEDORA administra **varios sistemas hospitalarios** desde una sola instalación.
 | Servicios y seguros | Catálogo de precios, aseguradoras y tarifario de coberturas. |
 | Auditoría | Bitácora automática de cada cambio (antes/después), inalterable, exportable a CSV. |
 | Sistema y sedes | Datos del sistema, color de marca (tiñe toda la interfaz), sedes. |
-| Sistemas hospitalarios | (Superadmin) Alta y activación de sistemas en la plataforma. |
+| Plataforma | (Superadmin) Sistemas hospitalarios; usuarios globales (datos, superadmin, acceso y roles por sistema, restablecer contraseña, desactivar); códigos de invitación. |
 
 ### Roles (por sistema)
 
@@ -55,6 +55,8 @@ Más detalle en [docs/arquitectura.md](docs/arquitectura.md).
 1. Descargar `MEDORA-X.Y.Z-Setup-x64.exe` de la [última release](../../releases/latest).
 2. Ejecutarlo: instala por usuario, sin permisos de administrador, e instala WebView2 si falta.
 3. Primer arranque de la plataforma: el asistente pide el **código de instalación** (entregado por separado), crea la cuenta de superadmin y el primer sistema hospitalario.
+
+**Más cuentas:** desde *Plataforma → Códigos de invitación* se generan códigos (para un sistema con ciertos roles, o para otro superadmin) con vigencia y usos máximos; la persona elige "Crear cuenta" en el login y escribe el código. También se pueden crear cuentas directamente (con contraseña temporal) desde *Plataforma → Usuarios* o *Personal*.
 
 Las PCs se actualizan solas: al detectar una release nueva, MEDORA muestra un aviso; con "Actualizar ahora" descarga, verifica el SHA256, instala en silencio y vuelve a abrir.
 

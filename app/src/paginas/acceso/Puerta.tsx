@@ -31,6 +31,22 @@ export function Puerta() {
     vista = instalacion.data?.requiere_configuracion
       ? { clave: "config", nodo: <ConfiguracionInicial /> }
       : { clave: "login", nodo: <Login /> };
+  } else if (perfil && !perfil.activo) {
+    vista = {
+      clave: "desactivado",
+      nodo: (
+        <PantallaAcceso>
+          <div className="mb-4 grid size-11 place-items-center rounded-xl bg-superficie-2 text-peligro">
+            <ShieldAlert className="size-5" />
+          </div>
+          <h2 className="text-xl font-semibold tracking-[-0.02em]">Cuenta desactivada</h2>
+          <p className="mt-2 text-sm text-texto-2">Tu acceso a MEDORA fue desactivado. Contacta a la administración de la plataforma.</p>
+          <Boton variante="secundario" className="mt-6" onClick={() => void cerrarSesion()}>
+            Cerrar sesión
+          </Boton>
+        </PantallaAcceso>
+      ),
+    };
   } else if (perfil?.debe_cambiar_password) {
     vista = { clave: "pwd", nodo: <CambiarPassword /> };
   } else if (sistemas.length === 0 && !esSuperadmin) {

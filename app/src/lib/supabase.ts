@@ -34,6 +34,7 @@ export function mensajeError(e: unknown): string {
       return err.message ?? "Operación no permitida.";
   }
   if (err.message === "Invalid login credentials") return "Correo o contraseña incorrectos.";
+  if (err.message?.toLowerCase().includes("banned")) return "Tu cuenta está desactivada. Contacta a la administración de MEDORA.";
   if (err.message?.includes("Failed to fetch")) return "Sin conexión con el servidor. Revisa tu internet.";
   return err.message ?? "Ocurrió un error inesperado.";
 }

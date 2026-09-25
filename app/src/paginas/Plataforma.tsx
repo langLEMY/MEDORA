@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Network, Plus, Power } from "lucide-react";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
-import { Entrada, Interruptor } from "@/components/ui/campos";
+import { Entrada, Interruptor, Segmentado } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
@@ -13,9 +13,53 @@ import { datos, mensajeError, supabase } from "@/lib/supabase";
 import { cn, fecha, slugificar } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 import { COLORES_MARCA } from "./Configuracion";
+import { CodigosInvitacion } from "./plataforma/CodigosInvitacion";
+import { UsuariosPlataforma } from "./plataforma/UsuariosPlataforma";
 
-/** Superadministración: todos los sistemas hospitalarios de la plataforma. */
+type Pestana = "sistemas" | "usuarios" | "codigos";
+
+/** Superadministración: sistemas hospitalarios, usuarios y códigos de invitación. */
 export default function Plataforma() {
+  const { esSuperadmin } = useSesion();
+  const [pestana, setPestana] = useState<Pestana>("sistemas");
+  if (!esSuperadmin) return <Navigate to="/" replace />;
+
+  return (
+    <>
+      <EncabezadoPagina
+        titulo="Plataforma"
+        descripcion="Administración global de MEDORA: sistemas hospitalarios, cuentas de usuario y códigos de invitación."
+      />
+      <div className="mb-5">
+        <Segmentado
+          id="plataforma"
+          valor={pestana}
+          onChange={setPestana}
+          opciones={[
+            { valor: "sistemas", etiqueta: "Sistemas hospitalarios" },
+            { valor: "usuarios", etiqueta: "Usuarios" },
+            { valor: "codigos", etiqueta: "Códigos de invitación" },
+          ]}
+        />
+      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={pestana}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.08 } }}
+          transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+        >
+          {pestana === "sistemas" && <SistemasPlataforma />}
+          {pestana === "usuarios" && <UsuariosPlataforma />}
+          {pestana === "codigos" && <CodigosInvitacion />}
+        </motion.div>
+      </AnimatePresence>
+    </>
+  );
+}
+
+function SistemasPlataforma() {
   const { esSuperadmin, cambiarSistema, recargar, sesion } = useSesion();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -50,19 +94,14 @@ export default function Plataforma() {
     onError: (e) => toast.error(mensajeError(e)),
   });
 
-  if (!esSuperadmin) return <Navigate to="/" replace />;
-
   return (
     <>
-      <EncabezadoPagina
-        titulo="Sistemas hospitalarios"
-        descripcion="Cada sistema está aislado: su personal, pacientes y finanzas no se cruzan con los demás."
-        acciones={
-          <Boton icono={<Plus className="size-4" />} onClick={() => setNuevo(true)}>
-            Nuevo sistema
-          </Boton>
-        }
-      />
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <p className="text-sm text-texto-2">Cada sistema está aislado: su personal, pacientes y finanzas no se cruzan con los demás.</p>
+        <Boton icono={<Plus className="size-4" />} onClick={() => setNuevo(true)}>
+          Nuevo sistema
+        </Boton>
+      </div>
 
       {q.isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
