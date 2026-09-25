@@ -14,6 +14,19 @@ import { ETIQUETA_ROL, ROLES, ROLES_PROFESIONALES } from "@/lib/permisos";
 import { invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
+import { IMPORTACIONES } from "@/lib/importaciones";
+
+const COLUMNAS_PERSONAL: ColumnaDatos<Miembro>[] = [
+  { titulo: "Nombre", valor: (m) => m.perfil?.nombre_completo },
+  { titulo: "Correo", valor: (m) => m.perfil?.email },
+  { titulo: "Roles", valor: (m) => m.roles.map((r) => ETIQUETA_ROL[r]).join(", ") },
+  { titulo: "Especialidad", valor: (m) => m.especialidad },
+  { titulo: "Exequátur", valor: (m) => m.exequatur },
+  { titulo: "Atiende citas", valor: (m) => m.atiende_agenda },
+  { titulo: "Estado", valor: (m) => (m.activo ? "Activo" : "Inactivo") },
+  { titulo: "Desde", valor: (m) => m.creado_en, tipo: "fecha" },
+];
 
 export default function Personal() {
   const { sistema, sistemaId } = useSistema();
@@ -46,6 +59,13 @@ export default function Personal() {
         acciones={
           <>
             <Interruptor activo={verInactivos} onChange={setVerInactivos} etiqueta="Mostrar inactivos" />
+            <AccionesDatos
+              titulo="Personal"
+              columnas={COLUMNAS_PERSONAL}
+              importaciones={[IMPORTACIONES.personal]}
+              onImportado={() => void personal.refetch()}
+              obtener={async () => personal.data ?? []}
+            />
             <Boton icono={<UserPlus className="size-4" />} onClick={() => setNuevo(true)}>
               Agregar personal
             </Boton>

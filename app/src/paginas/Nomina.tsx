@@ -14,6 +14,8 @@ import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
+import { IMPORTACIONES } from "@/lib/importaciones";
 
 type Vista = "nominas" | "empleados" | "parametros";
 
@@ -495,6 +497,20 @@ function FilaNomina({ l, editable, onGuardar, moneda_ }: { l: Linea; editable: b
 }
 
 // ---------------------------------------------------------------------------
+const COLUMNAS_EMPLEADOS: ColumnaDatos<Fila<"empleados">>[] = [
+  { titulo: "Nombres", valor: (e) => e.nombres },
+  { titulo: "Apellidos", valor: (e) => e.apellidos },
+  { titulo: "Cédula", valor: (e) => e.cedula },
+  { titulo: "Cargo", valor: (e) => e.cargo },
+  { titulo: "Departamento", valor: (e) => e.departamento },
+  { titulo: "Fecha de ingreso", valor: (e) => e.fecha_ingreso, tipo: "fecha" },
+  { titulo: "Salario mensual", valor: (e) => e.salario_mensual, tipo: "moneda" },
+  { titulo: "Frecuencia de pago", valor: (e) => e.frecuencia },
+  { titulo: "Banco", valor: (e) => e.banco, soloExcel: true },
+  { titulo: "Cuenta bancaria", valor: (e) => e.cuenta_bancaria, soloExcel: true },
+  { titulo: "Activo", valor: (e) => e.activo, soloExcel: true },
+];
+
 function Empleados() {
   const { sistema, sistemaId, roles } = useSistema();
   const qc = useQueryClient();
@@ -585,13 +601,20 @@ function Empleados() {
 
   return (
     <Tarjeta className="overflow-hidden">
-      {escribir && (
-        <div className="flex justify-end border-b border-borde p-3">
+      <div className="flex justify-end gap-2 border-b border-borde p-3">
+        <AccionesDatos
+          titulo="Empleados"
+          columnas={COLUMNAS_EMPLEADOS}
+          importaciones={escribir ? [IMPORTACIONES.empleados] : []}
+          onImportado={() => void qc.invalidateQueries({ queryKey: ["empleados", sistemaId] })}
+          obtener={async () => q.data ?? []}
+        />
+        {escribir && (
           <Boton icono={<UserPlus className="size-4" />} onClick={() => setEditar("nuevo")}>
             Nuevo empleado
           </Boton>
-        </div>
-      )}
+        )}
+      </div>
       {q.isLoading ? (
         <FilasEsqueleto />
       ) : (q.data?.length ?? 0) === 0 ? (

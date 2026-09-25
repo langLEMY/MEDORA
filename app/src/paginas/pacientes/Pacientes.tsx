@@ -12,7 +12,51 @@ import { puedeEscribir } from "@/lib/permisos";
 import { supabase } from "@/lib/supabase";
 import { edad, fecha, patronBusqueda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos, obtenerTodo, type ColumnaDatos } from "@/components/AccionesDatos";
+import { IMPORTACIONES } from "@/lib/importaciones";
+import { useQueryClient } from "@tanstack/react-query";
 import { FormPaciente } from "./FormPaciente";
+
+interface PacienteExport {
+  expediente: string;
+  nombres: string;
+  apellidos: string;
+  documento_tipo: string;
+  documento: string | null;
+  fecha_nacimiento: string | null;
+  sexo: string | null;
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+  tipo_sangre: string | null;
+  alergias: string | null;
+  condiciones_cronicas: string | null;
+  numero_afiliado: string | null;
+  contacto_emergencia_nombre: string | null;
+  contacto_emergencia_telefono: string | null;
+  creado_en: string;
+  aseguradora: { nombre: string } | null;
+}
+
+const COLUMNAS_PACIENTES: ColumnaDatos<PacienteExport>[] = [
+  { titulo: "Expediente", valor: (p) => p.expediente },
+  { titulo: "Nombres", valor: (p) => p.nombres },
+  { titulo: "Apellidos", valor: (p) => p.apellidos },
+  { titulo: "Cédula", valor: (p) => p.documento },
+  { titulo: "Fecha de nacimiento", valor: (p) => p.fecha_nacimiento, tipo: "fecha" },
+  { titulo: "Sexo", valor: (p) => p.sexo },
+  { titulo: "Teléfono", valor: (p) => p.telefono },
+  { titulo: "Correo", valor: (p) => p.email, soloExcel: true },
+  { titulo: "Dirección", valor: (p) => p.direccion, soloExcel: true },
+  { titulo: "Tipo de sangre", valor: (p) => p.tipo_sangre, soloExcel: true },
+  { titulo: "Alergias", valor: (p) => p.alergias, soloExcel: true },
+  { titulo: "Condiciones crónicas", valor: (p) => p.condiciones_cronicas, soloExcel: true },
+  { titulo: "Aseguradora", valor: (p) => p.aseguradora?.nombre },
+  { titulo: "No. afiliado", valor: (p) => p.numero_afiliado, soloExcel: true },
+  { titulo: "Contacto de emergencia", valor: (p) => p.contacto_emergencia_nombre, soloExcel: true },
+  { titulo: "Teléfono de emergencia", valor: (p) => p.contacto_emergencia_telefono, soloExcel: true },
+  { titulo: "Registrado", valor: (p) => p.creado_en, tipo: "fechaHora", soloExcel: true },
+];
 
 const POR_PAGINA = 25;
 
@@ -24,6 +68,7 @@ export default function Pacientes() {
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(0);
   const [nuevo, setNuevo] = useState(params.get("nuevo") === "1");
+  const qc = useQueryClient();
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -62,11 +107,30 @@ export default function Pacientes() {
         titulo="Pacientes"
         descripcion={q.data ? `${total.toLocaleString("es-DO")} pacientes registrados` : " "}
         acciones={
-          puedeEscribir.pacientes(roles) && (
-            <Boton icono={<Plus className="size-4" />} onClick={() => setNuevo(true)}>
-              Nuevo paciente
-            </Boton>
-          )
+          <>
+            <AccionesDatos
+              titulo="Pacientes"
+              columnas={COLUMNAS_PACIENTES}
+              importaciones={puedeEscribir.pacientes(roles) ? [IMPORTACIONES.pacientes] : []}
+              onImportado={() => void qc.invalidateQueries({ queryKey: claves.pacientes(sistemaId) })}
+              obtener={() =>
+                obtenerTodo<PacienteExport>((d, h) =>
+                  supabase
+                    .from("pacientes")
+                    .select("expediente, nombres, apellidos, documento_tipo, documento, fecha_nacimiento, sexo, telefono, email, direccion, tipo_sangre, alergias, condiciones_cronicas, numero_afiliado, contacto_emergencia_nombre, contacto_emergencia_telefono, creado_en, aseguradora:aseguradoras!pacientes_sistema_id_aseguradora_id_fkey(nombre)")
+                    .eq("sistema_id", sistemaId)
+                    .is("eliminado_en", null)
+                    .order("apellidos")
+                    .range(d, h) as unknown as PromiseLike<{ data: PacienteExport[] | null; error: unknown }>,
+                )
+              }
+            />
+            {puedeEscribir.pacientes(roles) && (
+              <Boton icono={<Plus className="size-4" />} onClick={() => setNuevo(true)}>
+                Nuevo paciente
+              </Boton>
+            )}
+          </>
         }
       />
 

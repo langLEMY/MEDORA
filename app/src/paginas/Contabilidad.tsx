@@ -14,6 +14,7 @@ import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos } from "@/components/AccionesDatos";
 
 type Vista = "diario" | "balanza" | "catalogo" | "configuracion" | "ncf";
 
@@ -63,6 +64,25 @@ const ORIGENES: Record<string, string> = {
   comision: "Comisiones",
   reverso: "Reverso",
 };
+
+interface LineaDiario {
+  fecha: string;
+  numero: number;
+  concepto: string;
+  origen: string;
+  cuenta: string;
+  debe: number;
+  haber: number;
+}
+
+interface FilaBalanza {
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  debe: number;
+  haber: number;
+  saldo: number;
+}
 
 interface Asiento {
   id: string;
@@ -119,6 +139,24 @@ function LibroDiario() {
             ))}
           </Selector>
           <div className="ml-auto flex gap-2">
+            <AccionesDatos
+              titulo={`Libro diario ${desde} a ${hasta}`}
+              columnas={[
+                { titulo: "Fecha", valor: (l: LineaDiario) => l.fecha, tipo: "fecha" },
+                { titulo: "Asiento", valor: (l) => l.numero, tipo: "numero" },
+                { titulo: "Concepto", valor: (l) => l.concepto },
+                { titulo: "Origen", valor: (l) => ORIGENES[l.origen] },
+                { titulo: "Cuenta", valor: (l) => l.cuenta },
+                { titulo: "Nombre de la cuenta", valor: (l) => nombre(l.cuenta) },
+                { titulo: "Debe", valor: (l) => l.debe, tipo: "moneda" },
+                { titulo: "Haber", valor: (l) => l.haber, tipo: "moneda" },
+              ]}
+              obtener={async () =>
+                [...(q.data ?? [])].reverse().flatMap((a) =>
+                  a.lineas.map((l) => ({ fecha: a.fecha, numero: a.numero, concepto: a.concepto, origen: a.origen, cuenta: l.cuenta_codigo, debe: Number(l.debe), haber: Number(l.haber) })),
+                )
+              }
+            />
             <Boton variante="secundario" icono={<FileDown className="size-4" />} onClick={() => setPdf(true)} disabled={!q.data?.length}>
               PDF
             </Boton>
@@ -364,9 +402,23 @@ function Balanza() {
         <div className="flex flex-wrap items-end gap-3 border-b border-borde p-3">
           <Entrada etiqueta="Desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} contenedor="w-40" />
           <Entrada etiqueta="Hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} contenedor="w-40" />
-          <Boton className="ml-auto" variante="secundario" icono={<FileDown className="size-4" />} onClick={() => setPdf(true)} disabled={!filas.length}>
-            PDF
-          </Boton>
+          <div className="ml-auto flex gap-2">
+            <AccionesDatos
+              titulo={`Balanza ${desde} a ${hasta}`}
+              columnas={[
+                { titulo: "Código", valor: (f: FilaBalanza) => f.codigo },
+                { titulo: "Cuenta", valor: (f) => f.nombre },
+                { titulo: "Tipo", valor: (f) => f.tipo },
+                { titulo: "Debe", valor: (f) => f.debe, tipo: "moneda" },
+                { titulo: "Haber", valor: (f) => f.haber, tipo: "moneda" },
+                { titulo: "Saldo", valor: (f) => f.saldo, tipo: "moneda" },
+              ]}
+              obtener={async () => filas}
+            />
+            <Boton variante="secundario" icono={<FileDown className="size-4" />} onClick={() => setPdf(true)} disabled={!filas.length}>
+              PDF
+            </Boton>
+          </div>
         </div>
         {q.isLoading ? (
           <FilasEsqueleto />

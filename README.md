@@ -7,13 +7,13 @@
 
 # MEDORA — Enterprise Multi-Tenant Health Operating System
 
-> **INFRAESTRUCTURA DE GESTIÓN HOSPITALARIA UNIFICADA DE ALTA DISPONIBILIDAD, SEGURIDAD RESIDENCIAL DE DATOS Y GIERNO MULTIORGANIZACIONAL.**
+> **Infraestructura unificada de gestión hospitalaria con aislamiento de datos por organización y gobierno multiorganizacional.**
 
 ---
 
 ## 🏛️ **1. RESUMEN EJECUTIVO**
 
-**MEDORA** es la plataforma SaaS de orquestación hospitalaria de clase **Enterprise** diseñada para operar, escalar y proteger redes de salud complejas, grupos clínicos distribuidos y consorcios médicos multilocalización desde un único núcleo de software soberano.
+**MEDORA** es una plataforma de gestión hospitalaria diseñada para operar redes de salud, grupos clínicos y consorcios médicos con varias sedes desde una sola aplicación.
 
 Concebido bajo los estándares más exigentes de la industria **HealthTech**, MEDORA resuelve el desafío crítico de la fragmentación operativa: permite a las organizaciones administrar múltiples sistemas hospitalarios autónomos sobre una infraestructura unificada, garantizando la **independencia absoluta de datos**, la **continuidad de negocio ininterrumpida** y una **soberanía de permisos sin precedentes**.
 
@@ -24,26 +24,26 @@ Concebido bajo los estándares más exigentes de la industria **HealthTech**, ME
 La seguridad en **MEDORA** no es un módulo adicional; es el cimiento estructural sobre el cual se ejecuta cada instrucción del sistema.
 
 ### 🔹 **Aislamiento Multi-Tenant Estricto a Nivel de Base de Datos**
-* **Segregación Lógica y Física:** Cada sistema hospitalario dentro de MEDORA funciona en un entorno totalmente aislado. La información médica sensible, los registros contables, el inventario de farmacia y la base de pacientes de una entidad son **completamente invisibles e inaccesibles** para otras organizaciones alojadas en la misma plataforma.
-* **Cero Filtración Cruzada (*Zero Cross-Tenant Leakage*):** Protocolos de cifrado nativo en reposo (**AES-256**) y en tránsito (**TLS 1.3**), garantizando que las consultas a la base de datos incorporen tokens de aislamiento no falsificables a nivel de protocolo.
+* **Segregación lógica a nivel de base de datos:** Cada sistema hospitalario dentro de MEDORA funciona en un entorno aislado mediante políticas de seguridad por fila (RLS) de PostgreSQL. La información médica sensible, los registros contables, el inventario de farmacia y la base de pacientes de una entidad son **completamente invisibles e inaccesibles** para otras organizaciones alojadas en la misma plataforma.
+* **Sin filtración cruzada entre sistemas:** Cada consulta se evalúa con el token firmado (JWT) del usuario y sus membresías; las llaves foráneas compuestas impiden mezclar datos de sistemas distintos. Cifrado en tránsito (TLS) y en reposo provisto por la infraestructura de Supabase.
 
 ### 🔹 **Control de Acceso Granular (*Contextual RBAC*)**
 * **Identidad Unificada con Permisos Contextuales:** Un profesional de la salud puede pertenecer a múltiples redes hospitalarias dentro de MEDORA utilizando una única credencial segura. Sin embargo, sus privilegios de acceso, roles (ej. *Cirujano* en Sistema A vs. *Consultor* en Sistema B) y ámbito de visibilidad se revalúan dinámicamente según el contexto de la organización en la que esté operando en tiempo real.
 * **Matriz de Privilegios Minimizados (*Least Privilege Principle*):** Módulos parametrizables que aseguran que el personal administrativo, médico y financiero solo interactúe con los datos estrictamente necesarios para su función.
 
 ### 🔹 **Trazabilidad Forense & Auditoría Inmutable**
-* **Registros de Auditoría Inalterables (*Audit Logs*):** Cada lectura, modificación, exportación o eliminación de un expediente clínico o transacción financiera genera una firma digital en un registro de eventos inmutable.
-* **Cumplimiento Normativo de Clase Mundial:** Diseñado para alinearse con los marcos internacionales de protección de datos de salud más rigurosos (**HIPAA**, **GDPR**, e **ISO 27001**).
+* **Bitácora de auditoría inalterable:** Cada creación, modificación o eliminación de datos (incluidos expedientes clínicos y transacciones financieras) y los eventos de sesión y exportación quedan registrados en una bitácora que la base de datos impide editar o borrar.
+* **Orientado a buenas prácticas de protección de datos de salud:** Mínimo privilegio, trazabilidad y confidencialidad (p. ej. notas de psicología visibles solo para psicología). La certificación formal (HIPAA, ISO 27001) requiere contratos y auditorías aparte.
 
 ---
 
 ## ⚡ **3. DISPONIBILIDAD CRÍTICA & ALTA RESILIENCIA OPERATIVA**
 
-En el sector salud, la latencia cuesta tiempo y la inactividad cuesta vidas. **MEDORA** está construido sobre una arquitectura distribuida orientada a la tolerancia a fallos.
+En el sector salud la continuidad es crítica. **MEDORA** se apoya en Supabase (PostgreSQL gestionado) y en una app de escritorio que se actualiza sola.
 
-* 🟢 **Arquitectura de Misión Crítica (*99.99% Uptime SLA*):** Diseñado para operar en entornos de alta demanda sin interrupciones, soportando despliegues redundantes con conmutación por error (*failover*) automática.
-* 🟢 **Alta Disponibilidad y Replicación Multirregión:** Infraestructura con balanceo de carga elástico capaz de responder a picos masivos de tráfico (ej. emergencias sanitarias, jornadas de vacunación masiva o cierres contables de fin de mes).
-* 🟢 **Estrategia de Respaldo y Recuperación (*DRP / RPO / RTO*):** Copias de seguridad continuas y automatizadas con tiempos de recuperación casi instantáneos (*Near-Zero Recovery Time Objective*), protegiendo la operación hospitalaria ante desastres de infraestructura o ciberataques.
+* 🟢 **Infraestructura gestionada:** La disponibilidad depende del plan de Supabase contratado; para producción se recomienda el plan Pro o superior (sin pausas por inactividad y con soporte).
+* 🟢 **Escalabilidad:** Índices en todas las llaves foráneas y políticas de seguridad evaluadas una vez por consulta, pensadas para crecer en pacientes, citas y movimientos.
+* 🟢 **Respaldos:** Copias diarias automáticas en planes pagos de Supabase; la recuperación a un punto en el tiempo (PITR) está disponible como complemento.
 
 ---
 

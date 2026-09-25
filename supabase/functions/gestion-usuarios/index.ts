@@ -5,6 +5,7 @@
 // Acciones:
 //   { accion: "crear", sistema_id, email, nombre_completo, roles[], especialidad?, exequatur?, sede_id? }
 //   { accion: "restablecer_password", sistema_id, usuario_id }
+//   { accion: "importar", sistema_id, filas: [{ _fila, nombre_completo, email, roles[], especialidad?, exequatur? }] }
 import { clienteServicio, cors, EMAIL_RE, error, json, passwordTemporal } from "../_shared/comun.ts";
 
 const ROLES = new Set([
@@ -47,8 +48,19 @@ Deno.serve(async (req) => {
   if (!perfil?.es_superadmin && !esAdmin) return error("No tienes permiso para gestionar personal en este sistema.", 403);
 
   switch (cuerpo.accion) {
-    case "crear":
-      return await crear(admin, llamanteId, sistemaId, cuerpo);
+    case "crear": {
+      const r = await crear(admin, llamanteId, sistemaId, cuerpo);
+      return "error" in r ? error(r.error) : json({ ok: true, ...r });
+    }
+    case "importar": {
+      const filas = Array.isArray(cuerpo.filas) ? (cuerpo.filas as Record<string, unknown>[]).slice(0, 200) : [];
+      const resultados = [];
+      for (const f of filas) {
+        const r = await crear(admin, llamanteId, sistemaId, f);
+        resultados.push({ fila: f._fila, email: f.email, nombre: f.nombre_completo, ...r });
+      }
+      return json({ resultados });
+    }
     case "restablecer_password":
       return await restablecer(admin, sistemaId, String(cuerpo.usuario_id ?? ""));
     default:
@@ -56,18 +68,20 @@ Deno.serve(async (req) => {
   }
 });
 
+type ResultadoCrear = { usuario_id: string; password_temporal: string | null; ya_existia: boolean } | { error: string };
+
 async function crear(
   admin: ReturnType<typeof clienteServicio>,
   llamanteId: string,
   sistemaId: string,
   cuerpo: Record<string, unknown>,
-) {
+): Promise<ResultadoCrear> {
   const email = String(cuerpo.email ?? "").trim().toLowerCase();
   const nombre = String(cuerpo.nombre_completo ?? "").trim();
   const roles = Array.isArray(cuerpo.roles) ? (cuerpo.roles as string[]).filter((r) => ROLES.has(r)) : [];
-  if (!EMAIL_RE.test(email)) return error("Correo electrónico inválido.");
-  if (nombre.length < 3) return error("Escribe el nombre completo.");
-  if (roles.length === 0) return error("Asigna al menos un rol.");
+  if (!EMAIL_RE.test(email)) return { error: "Correo electrónico inválido." };
+  if (nombre.length < 3) return { error: "Escribe el nombre completo." };
+  if (roles.length === 0) return { error: "Asigna al menos un rol." };
 
   // ¿Ya existe la persona en MEDORA (p. ej. trabaja en otro sistema)? Entonces
   // solo se le agrega la membresía, sin tocar su contraseña.
@@ -84,7 +98,7 @@ async function crear(
       email_confirm: true,
       user_metadata: { nombre_completo: nombre, debe_cambiar_password: true },
     });
-    if (errCrear || !creado.user) return error(errCrear?.message ?? "No se pudo crear la cuenta.");
+    if (errCrear || !creado.user) return { error: errCrear?.message ?? "No se pudo crear la cuenta." };
     usuarioId = creado.user.id;
   }
 
@@ -105,9 +119,9 @@ async function crear(
     },
     { onConflict: "sistema_id,usuario_id" },
   );
-  if (errMembresia) return error("No se pudo asignar la membresía: " + errMembresia.message);
+  if (errMembresia) return { error: "No se pudo asignar la membresía: " + errMembresia.message };
 
-  return json({ ok: true, usuario_id: usuarioId, password_temporal: password, ya_existia: !!existente });
+  return { usuario_id: usuarioId!, password_temporal: password, ya_existia: !!existente };
 }
 
 async function restablecer(admin: ReturnType<typeof clienteServicio>, sistemaId: string, usuarioId: string) {

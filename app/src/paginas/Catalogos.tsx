@@ -12,6 +12,17 @@ import { claves, useAseguradoras, useServicios } from "@/lib/consultas";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
+import { IMPORTACIONES } from "@/lib/importaciones";
+
+const COLUMNAS_SERVICIOS: ColumnaDatos<Fila<"servicios">>[] = [
+  { titulo: "Código", valor: (s) => s.codigo },
+  { titulo: "Servicio", valor: (s) => s.nombre },
+  { titulo: "Categoría", valor: (s) => s.categoria },
+  { titulo: "Precio", valor: (s) => s.precio, tipo: "moneda" },
+  { titulo: "Duración (min)", valor: (s) => s.duracion_min, tipo: "numero" },
+  { titulo: "Activo", valor: (s) => s.activo, soloExcel: true },
+];
 
 const CATEGORIAS = ["consulta", "procedimiento", "laboratorio", "imagen", "emergencia", "hospitalizacion", "farmacia", "otro"];
 
@@ -49,7 +60,14 @@ function Servicios() {
   const [editar, setEditar] = useState<Fila<"servicios"> | "nuevo" | null>(null);
   return (
     <Tarjeta className="overflow-hidden">
-      <div className="flex justify-end border-b border-borde p-3">
+      <div className="flex justify-end gap-2 border-b border-borde p-3">
+        <AccionesDatos
+          titulo="Servicios y precios"
+          columnas={COLUMNAS_SERVICIOS}
+          importaciones={[IMPORTACIONES.servicios]}
+          onImportado={() => void q.refetch()}
+          obtener={async () => q.data ?? []}
+        />
         <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nuevo")}>
           Nuevo servicio
         </Boton>
@@ -172,7 +190,17 @@ function Aseguradoras() {
 
   return (
     <Tarjeta className="overflow-hidden">
-      <div className="flex justify-end border-b border-borde p-3">
+      <div className="flex justify-end gap-2 border-b border-borde p-3">
+        <AccionesDatos
+          titulo="Aseguradoras"
+          columnas={[
+            { titulo: "Nombre", valor: (a: Fila<"aseguradoras">) => a.nombre },
+            { titulo: "Código", valor: (a) => a.codigo },
+            { titulo: "Teléfono", valor: (a) => a.telefono },
+            { titulo: "Activa", valor: (a) => a.activo },
+          ]}
+          obtener={async () => q.data ?? []}
+        />
         <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nuevo")}>
           Nueva aseguradora
         </Boton>
@@ -262,6 +290,21 @@ function Coberturas() {
           ))}
         </Selector>
         <p className="text-xs text-texto-3">Monto que cubre la aseguradora por unidad. Se guarda al salir del campo.</p>
+        <div className="ml-auto">
+          <AccionesDatos
+            titulo={`Tarifario ${aseguradoras.data?.find((a) => a.id === aseg)?.nombre ?? ""}`}
+            columnas={[
+              { titulo: "Código", valor: (s: Fila<"servicios">) => s.codigo },
+              { titulo: "Servicio", valor: (s) => s.nombre },
+              { titulo: "Precio", valor: (s) => s.precio, tipo: "moneda" },
+              { titulo: "Monto cubierto", valor: (s) => coberturas.data?.find((c) => c.servicio_id === s.id)?.monto_cubierto ?? null, tipo: "moneda" },
+            ]}
+            importaciones={[IMPORTACIONES.coberturas]}
+            extraImportacion={{ p_aseguradora: aseg }}
+            onImportado={() => void qc.invalidateQueries({ queryKey: ["coberturas", sistemaId, aseg] })}
+            obtener={async () => (servicios.data ?? []).filter((s) => s.activo)}
+          />
+        </div>
       </div>
       <ul className="divide-y divide-borde">
         {servicios.data!.filter((s) => s.activo).map((s) => (

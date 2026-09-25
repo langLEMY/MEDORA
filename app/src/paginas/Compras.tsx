@@ -15,6 +15,8 @@ import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
+import { IMPORTACIONES } from "@/lib/importaciones";
 
 const FORMAS: Record<string, string> = {
   efectivo: "Efectivo",
@@ -38,6 +40,19 @@ interface CompraFila {
   anulacion: { motivo: string }[] | null;
   items: { descripcion: string; cantidad: number; costo_unitario: number; itbis: number; total: number; cuenta_codigo: string | null; item_id: string | null }[];
 }
+
+const COLUMNAS_COMPRAS: ColumnaDatos<CompraFila>[] = [
+  { titulo: "Número", valor: (c) => c.numero },
+  { titulo: "Fecha", valor: (c) => c.fecha, tipo: "fecha" },
+  { titulo: "Proveedor", valor: (c) => c.proveedor?.nombre ?? "Sin proveedor (efectivo)" },
+  { titulo: "RNC", valor: (c) => c.proveedor?.rnc },
+  { titulo: "NCF", valor: (c) => c.ncf_proveedor },
+  { titulo: "Forma de pago", valor: (c) => FORMAS[c.forma_pago] },
+  { titulo: "Subtotal", valor: (c) => c.subtotal, tipo: "moneda" },
+  { titulo: "ITBIS", valor: (c) => c.itbis, tipo: "moneda" },
+  { titulo: "Total", valor: (c) => c.total, tipo: "moneda" },
+  { titulo: "Estado", valor: (c) => (c.anulacion?.length ? "Anulada" : "Vigente") },
+];
 
 export default function Compras() {
   const { roles } = useSistema();
@@ -115,6 +130,9 @@ function ListaCompras() {
 
   return (
     <Tarjeta className="overflow-hidden">
+      <div className="flex justify-end border-b border-borde p-3">
+        <AccionesDatos titulo="Compras" columnas={COLUMNAS_COMPRAS} obtener={async () => q.data ?? []} />
+      </div>
       {q.isLoading ? (
         <FilasEsqueleto />
       ) : (q.data?.length ?? 0) === 0 ? (
@@ -482,13 +500,28 @@ function Proveedores() {
 
   return (
     <Tarjeta className="overflow-hidden">
-      {escribir && (
-        <div className="flex justify-end border-b border-borde p-3">
+      <div className="flex justify-end gap-2 border-b border-borde p-3">
+        <AccionesDatos
+          titulo="Proveedores"
+          columnas={[
+            { titulo: "Nombre", valor: (p: Fila<"proveedores">) => p.nombre },
+            { titulo: "RNC", valor: (p) => p.rnc },
+            { titulo: "Teléfono", valor: (p) => p.telefono },
+            { titulo: "Correo", valor: (p) => p.email },
+            { titulo: "Contacto", valor: (p) => p.contacto },
+            { titulo: "Dirección", valor: (p) => p.direccion, soloExcel: true },
+            { titulo: "Activo", valor: (p) => p.activo, soloExcel: true },
+          ]}
+          importaciones={escribir ? [IMPORTACIONES.proveedores] : []}
+          onImportado={() => void qc.invalidateQueries({ queryKey: ["proveedores", sistemaId] })}
+          obtener={async () => q.data ?? []}
+        />
+        {escribir && (
           <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nuevo")}>
             Nuevo proveedor
           </Boton>
-        </div>
-      )}
+        )}
+      </div>
       {q.isLoading ? (
         <FilasEsqueleto />
       ) : (q.data?.length ?? 0) === 0 ? (

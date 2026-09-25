@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Documento } from "@/components/Documento";
+import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
 import { EstadoCuenta, type ContactoCuenta } from "@/components/EstadoCuenta";
 import { SelectorPaciente, type PacienteBreve } from "@/components/SelectorPaciente";
 import { Boton } from "@/components/ui/boton";
@@ -29,6 +29,7 @@ import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type MetodoPago } from "@/lib/supabase";
 import { cn, fecha, fechaHora, hora, isoDia, moneda, relativo } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 
 const METODOS_DINERO: MetodoPago[] = ["efectivo", "tarjeta", "transferencia", "cheque", "otro"];
 
@@ -63,6 +64,22 @@ const SELECT_COBRO =
   "anulacion:anulaciones_cobro(motivo), pagos:cobro_pagos(metodo, monto, referencia), detalles:cobro_detalles(descripcion, categoria, cantidad, precio_unitario, cobertura, total)";
 
 type Vista = "cobros" | "anticipos" | "cxc" | "movimientos" | "turnos";
+
+const COLUMNAS_COBROS: ColumnaDatos<CobroFila>[] = [
+  { titulo: "Recibo", valor: (c) => c.numero },
+  { titulo: "NCF", valor: (c) => c.ncf },
+  { titulo: "Fecha", valor: (c) => c.creado_en, tipo: "fechaHora" },
+  { titulo: "Paciente", valor: (c) => `${c.paciente?.nombres ?? ""} ${c.paciente?.apellidos ?? ""}` },
+  { titulo: "Expediente", valor: (c) => c.paciente?.expediente, soloExcel: true },
+  { titulo: "Métodos", valor: (c) => (c.pagos ?? []).map((p) => `${METODOS_PAGO[p.metodo]} ${p.monto}`).join(" + ") },
+  { titulo: "Subtotal", valor: (c) => c.subtotal, tipo: "moneda", soloExcel: true },
+  { titulo: "Seguro", valor: (c) => c.cobertura_seguro, tipo: "moneda" },
+  { titulo: "Descuento", valor: (c) => c.descuento, tipo: "moneda", soloExcel: true },
+  { titulo: "Total", valor: (c) => c.total, tipo: "moneda" },
+  { titulo: "Crédito", valor: (c) => c.monto_credito, tipo: "moneda" },
+  { titulo: "Cajero", valor: (c) => c.cajero?.nombre_completo, soloExcel: true },
+  { titulo: "Estado", valor: (c) => (c.anulacion?.length ? "Anulado" : "Vigente") },
+];
 
 export default function Caja() {
   const { sesion } = useSesion();
@@ -209,9 +226,12 @@ export default function Caja() {
           ]}
         />
         {vista === "cobros" && (
-          <p className="text-sm text-texto-2">
-            Facturado hoy: <span className="font-semibold text-texto tabular">{moneda(totalHoy, sistema.moneda)}</span>
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-texto-2">
+              Facturado hoy: <span className="font-semibold text-texto tabular">{moneda(totalHoy, sistema.moneda)}</span>
+            </p>
+            <AccionesDatos titulo="Cobros del día" columnas={COLUMNAS_COBROS} obtener={async () => cobros.data ?? []} />
+          </div>
         )}
       </div>
 
@@ -339,6 +359,7 @@ export default function Caja() {
 // ---------------------------------------------------------------------------
 function Turnos() {
   const { sistema, sistemaId } = useSistema();
+  const [arqueo, setArqueo] = useState<{ id: string; cajero: string; abierto_en: string; cerrado_en: string | null; apertura: number; esperado: number | null; declarado: number | null; notas: string | null } | null>(null);
   const turnos = useQuery({
     queryKey: [...claves.caja(sistemaId), "turnos"],
     queryFn: async () =>
@@ -379,12 +400,105 @@ function Turnos() {
                   <Insignia tono="neutro">Cuadrado</Insignia>
                 )}
                 <span className="w-32 text-right tabular">{x.monto_esperado !== null ? moneda(x.monto_esperado, sistema.moneda) : "—"}</span>
+                <button
+                  title="Reporte de arqueo"
+                  onClick={() =>
+                    setArqueo({
+                      id: x.id,
+                      cajero: x.cajero?.nombre_completo ?? "",
+                      abierto_en: x.abierto_en,
+                      cerrado_en: x.cerrado_en,
+                      apertura: Number(x.monto_apertura),
+                      esperado: x.monto_esperado === null ? null : Number(x.monto_esperado),
+                      declarado: x.monto_declarado === null ? null : Number(x.monto_declarado),
+                      notas: x.notas_cierre,
+                    })
+                  }
+                  className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto"
+                >
+                  <Printer className="size-4" />
+                </button>
               </li>
             );
           })}
         </ul>
       )}
+      <Arqueo turno={arqueo} onCerrar={() => setArqueo(null)} />
     </Tarjeta>
+  );
+}
+
+/** Reporte de cierre de turno: movimientos por método y cuadre del efectivo. */
+function Arqueo({
+  turno,
+  onCerrar,
+}: {
+  turno: { id: string; cajero: string; abierto_en: string; cerrado_en: string | null; apertura: number; esperado: number | null; declarado: number | null; notas: string | null } | null;
+  onCerrar: () => void;
+}) {
+  const { sistema } = useSistema();
+  const q = useQuery({
+    queryKey: ["arqueo", turno?.id],
+    enabled: !!turno,
+    queryFn: async () =>
+      datos(await supabase.from("movimientos_financieros").select("tipo, categoria, concepto, monto, metodo, creado_en").eq("turno_id", turno!.id).order("creado_en")) ?? [],
+  });
+  const $ = (v: number) => moneda(v, sistema.moneda);
+  const movs = q.data ?? [];
+  const metodos = [...new Set(movs.map((m) => m.metodo))];
+  const suma = (tipo: string, metodo?: string) => movs.filter((m) => m.tipo === tipo && (!metodo || m.metodo === metodo)).reduce((s, m) => s + Number(m.monto), 0);
+  const esperadoEfectivo = turno ? turno.apertura + suma("ingreso", "efectivo") - suma("egreso", "efectivo") : 0;
+  const esperado = turno?.esperado ?? esperadoEfectivo;
+  const dif = turno?.declarado !== null && turno?.declarado !== undefined ? turno.declarado - esperado : null;
+
+  return (
+    <Documento abierto={!!turno} onCerrar={onCerrar} titulo="Arqueo de caja" nombreArchivo={`Arqueo ${turno?.cajero ?? ""} ${turno?.abierto_en.slice(0, 10) ?? ""}`}>
+      {turno && (
+        <>
+          <EncabezadoDocumento
+            titulo="Arqueo de caja"
+            subtitulo={
+              <>
+                {turno.cajero} · {fechaHora(turno.abierto_en)} → {turno.cerrado_en ? fechaHora(turno.cerrado_en) : "turno abierto"}
+              </>
+            }
+          />
+          <TablaDocumento
+            encabezados={["Método", "Ingresos", "Egresos", "Neto"]}
+            filas={metodos.map((m) => [METODOS_PAGO[m], $(suma("ingreso", m)), $(suma("egreso", m)), $(suma("ingreso", m) - suma("egreso", m))])}
+            pie={["Total", $(suma("ingreso")), $(suma("egreso")), $(suma("ingreso") - suma("egreso"))]}
+          />
+          <div className="mt-6 grid grid-cols-2 gap-8">
+            <TablaDocumento
+              encabezados={["Cuadre de efectivo", "Monto"]}
+              filas={[
+                ["Fondo de apertura", $(turno.apertura)],
+                ["Ingresos en efectivo", $(suma("ingreso", "efectivo"))],
+                ["Egresos en efectivo", $(-suma("egreso", "efectivo"))],
+                ["Efectivo esperado", $(esperado)],
+                ["Efectivo contado", turno.declarado !== null ? $(turno.declarado) : "—"],
+              ]}
+              pie={["Diferencia", dif === null ? "—" : `${dif < 0 ? "Faltante " : dif > 0 ? "Sobrante " : ""}${$(Math.abs(dif))}`]}
+            />
+            <div className="text-[12px]">
+              {turno.notas && (
+                <p>
+                  <b>Notas de cierre:</b> {turno.notas}
+                </p>
+              )}
+              <p className="mt-16 w-56 border-t border-[#101828] pt-1 text-center text-[11px]">Cajero</p>
+              <p className="mt-12 w-56 border-t border-[#101828] pt-1 text-center text-[11px]">Supervisor</p>
+            </div>
+          </div>
+          <div className="mt-6">
+            <TablaDocumento
+              encabezados={["Hora", "Concepto", "Método", "Ingreso", "Egreso"]}
+              filas={movs.map((m) => [hora(m.creado_en), m.concepto, METODOS_PAGO[m.metodo], m.tipo === "ingreso" ? $(m.monto) : "", m.tipo === "egreso" ? $(m.monto) : ""])}
+            />
+          </div>
+        </>
+      )}
+    </Documento>
   );
 }
 

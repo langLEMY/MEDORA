@@ -14,6 +14,7 @@ import { ETIQUETA_ROL, puedeEscribir, ROLES } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila, type Rol } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos } from "@/components/AccionesDatos";
 
 export default function Comisiones() {
   const [vista, setVista] = useState<"reporte" | "reglas">("reporte");
@@ -101,9 +102,22 @@ function Reporte() {
         <div className="flex flex-wrap items-end gap-3 border-b border-borde p-3">
           <Entrada etiqueta="Desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} contenedor="w-40" />
           <Entrada etiqueta="Hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} contenedor="w-40" />
-          <Boton className="ml-auto" variante="secundario" icono={<FileDown className="size-4" />} onClick={() => setPdf(true)} disabled={filas.length === 0}>
-            Reporte PDF
-          </Boton>
+          <div className="ml-auto flex gap-2">
+            <AccionesDatos
+              titulo={`Comisiones ${desde} a ${hasta}`}
+              columnas={[
+                { titulo: "Beneficiario", valor: (f: FilaReporte) => f.nombre },
+                { titulo: "Operaciones", valor: (f) => f.operaciones, tipo: "numero" },
+                { titulo: "Generado", valor: (f) => f.generado, tipo: "moneda" },
+                { titulo: "Liquidado", valor: (f) => f.liquidado, tipo: "moneda" },
+                { titulo: "Pendiente", valor: (f) => f.pendiente, tipo: "moneda" },
+              ]}
+              obtener={async () => filas}
+            />
+            <Boton variante="secundario" icono={<FileDown className="size-4" />} onClick={() => setPdf(true)} disabled={filas.length === 0}>
+              Reporte PDF
+            </Boton>
+          </div>
         </div>
         {q.isLoading ? (
           <FilasEsqueleto />

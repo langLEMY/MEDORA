@@ -13,10 +13,20 @@ import type { EstadoCita } from "@/lib/supabase";
 import { useTiempoReal } from "@/lib/tiempoReal";
 import { cn, hora, isoDia } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 
 const HORA_INICIO = 7;
 const HORA_FIN = 21;
 const ALTO_HORA = 68;
+
+const COLUMNAS_AGENDA: ColumnaDatos<CitaConRelaciones>[] = [
+  { titulo: "Hora", valor: (c) => `${hora(c.inicio)} – ${hora(c.fin)}` },
+  { titulo: "Profesional", valor: (c) => c.medico?.nombre_completo },
+  { titulo: "Paciente", valor: (c) => `${c.paciente?.nombres ?? ""} ${c.paciente?.apellidos ?? ""}` },
+  { titulo: "Expediente", valor: (c) => c.paciente?.expediente },
+  { titulo: "Servicio / motivo", valor: (c) => c.servicio?.nombre ?? c.motivo },
+  { titulo: "Estado", valor: (c) => ESTADO_CITA[c.estado].etiqueta },
+];
 
 const COLOR_ESTADO: Record<EstadoCita, string> = {
   programada: "border-l-[var(--borde-fuerte)]",
@@ -83,6 +93,11 @@ export default function Agenda() {
                 </option>
               ))}
             </Selector>
+            <AccionesDatos
+              titulo={`Agenda del ${new Intl.DateTimeFormat("es-DO", { weekday: "long", day: "numeric", month: "long" }).format(new Date(dia + "T00:00:00"))}`}
+              columnas={COLUMNAS_AGENDA}
+              obtener={async () => (citas.data ?? []).filter((c) => !medico || c.medico_id === medico)}
+            />
             {escribir && (
               <Boton icono={<CalendarPlus className="size-4" />} onClick={() => setNueva({})}>
                 Programar cita

@@ -33,6 +33,7 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 - Permisos de UI en `app/src/lib/permisos.ts`: espejo de las políticas (solo para ocultar lo que Postgres igual negaría).
 - Claves de TanStack Query siempre incluyen el `sistemaId` (`lib/consultas.ts#claves`).
 - Errores de Postgres → `mensajeError()` (español legible).
+- **Datos (Excel / impresión)**: cada listado usa `components/AccionesDatos` con un arreglo de `ColumnaDatos` (el mismo sirve para Excel y para imprimir/PDF). Importaciones nuevas: definición en `lib/importaciones.ts` (columnas + sinónimos) y RPC `importar_<entidad>(p_sistema, p_filas)` que reconcilia duplicados y usa una subtransacción por fila.
 - **Movimiento**: seguir `components/ui/movimiento.ts` y las skills de `.claude/skills` (emil‑design‑eng, apple‑design). Solo transform/opacity, entradas ≤ 300 ms con curva de salida, nunca escalar desde 0, `MotionConfig reducedMotion="user"`. Revisar animaciones nuevas con la skill `review-animations`.
 - Colores siempre por tokens (`bg-superficie`, `text-texto-2`, `bg-marca`…): la marca la define cada sistema y existe tema oscuro.
 

@@ -8,13 +8,48 @@ import { AreaTexto, Entrada, Interruptor, Segmentado, Selector } from "@/compone
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
+import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 import { claves } from "@/lib/consultas";
+import { IMPORTACIONES } from "@/lib/importaciones";
 import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fechaHora, moneda, numero } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 
 type Item = Fila<"inventario_items">;
+
+const COLUMNAS_INVENTARIO: ColumnaDatos<Item>[] = [
+  { titulo: "Código", valor: (i) => i.codigo },
+  { titulo: "Nombre", valor: (i) => i.nombre },
+  { titulo: "Categoría", valor: (i) => i.categoria },
+  { titulo: "Unidad", valor: (i) => i.unidad },
+  { titulo: "Existencia", valor: (i) => Number(i.stock_actual), tipo: "numero" },
+  { titulo: "Stock mínimo", valor: (i) => Number(i.stock_minimo), tipo: "numero" },
+  { titulo: "Costo", valor: (i) => i.costo_unitario, tipo: "moneda" },
+  { titulo: "Precio de venta", valor: (i) => i.precio_venta, tipo: "moneda" },
+  { titulo: "Valor en inventario", valor: (i) => Number(i.stock_actual) * Number(i.costo_unitario ?? 0), tipo: "moneda" },
+  { titulo: "Requiere receta", valor: (i) => i.requiere_receta, soloExcel: true },
+  { titulo: "Activo", valor: (i) => i.activo, soloExcel: true },
+];
+
+interface MovExport {
+  tipo: string;
+  cantidad: number;
+  lote: string | null;
+  vence_en: string | null;
+  motivo: string | null;
+  creado_en: string;
+  autor: { nombre_completo: string } | null;
+}
+const COLUMNAS_KARDEX: ColumnaDatos<MovExport>[] = [
+  { titulo: "Fecha", valor: (m) => m.creado_en, tipo: "fechaHora" },
+  { titulo: "Tipo", valor: (m) => m.tipo },
+  { titulo: "Cantidad", valor: (m) => (m.tipo === "salida" ? -Number(m.cantidad) : Number(m.cantidad)), tipo: "numero" },
+  { titulo: "Lote", valor: (m) => m.lote },
+  { titulo: "Vence", valor: (m) => m.vence_en, tipo: "fecha" },
+  { titulo: "Motivo", valor: (m) => m.motivo },
+  { titulo: "Registrado por", valor: (m) => m.autor?.nombre_completo },
+];
 const CATEGORIAS = [
   ["medicamento", "Medicamentos"],
   ["insumo", "Insumos"],
@@ -32,6 +67,7 @@ export default function Inventario() {
   const [mover, setMover] = useState<Item | null>(null);
   const [historial, setHistorial] = useState<Item | null>(null);
 
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: claves.inventario(sistemaId),
     queryFn: async () => datos(await supabase.from("inventario_items").select("*").eq("sistema_id", sistemaId).order("nombre")),
@@ -53,11 +89,20 @@ export default function Inventario() {
         titulo="Inventario"
         descripcion="Farmacia, insumos y equipos. El stock solo cambia con movimientos trazables."
         acciones={
-          gestionar && (
-            <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nuevo")}>
-              Nuevo artículo
-            </Boton>
-          )
+          <>
+            <AccionesDatos
+              titulo="Existencias de inventario"
+              columnas={COLUMNAS_INVENTARIO}
+              importaciones={gestionar ? [IMPORTACIONES.inventario, IMPORTACIONES.movimientosInventario] : []}
+              onImportado={() => void qc.invalidateQueries({ queryKey: claves.inventario(sistemaId) })}
+              obtener={async () => items}
+            />
+            {gestionar && (
+              <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nuevo")}>
+                Nuevo artículo
+              </Boton>
+            )}
+          </>
         }
       />
 
@@ -370,6 +415,15 @@ function HistorialItem({ item, onCerrar }: { item: Item | null; onCerrar: () => 
   });
   return (
     <Modal abierto={!!item} onCerrar={onCerrar} lateral titulo={`Movimientos · ${item?.nombre ?? ""}`}>
+      {item && (
+        <div className="mb-4 flex justify-end">
+          <AccionesDatos
+            titulo={`Kárdex · ${item.nombre}`}
+            columnas={COLUMNAS_KARDEX}
+            obtener={async () => (q.data ?? []) as unknown as MovExport[]}
+          />
+        </div>
+      )}
       {q.isLoading ? (
         <FilasEsqueleto filas={5} />
       ) : (q.data?.length ?? 0) === 0 ? (
