@@ -114,10 +114,10 @@ export function FormCita({
         <SelectorPaciente valor={paciente} onChange={setPaciente} error={intentado && !paciente ? "Selecciona un paciente" : undefined} />
         <div className="grid grid-cols-2 gap-4">
           <Selector
-            etiqueta="Médico"
+            etiqueta="Profesional"
             value={medico}
             onChange={(e) => setMedico(e.target.value)}
-            error={intentado && !medico ? "Selecciona un médico" : undefined}
+            error={intentado && !medico ? "Selecciona un profesional" : undefined}
           >
             <option value="">Seleccionar…</option>
             {medicos.data?.map((m) => (

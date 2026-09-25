@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { Avatar, EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { claves, usePersonal, useSedes, type Miembro } from "@/lib/consultas";
-import { ETIQUETA_ROL, ROLES } from "@/lib/permisos";
+import { ETIQUETA_ROL, ROLES, ROLES_PROFESIONALES } from "@/lib/permisos";
 import { invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
@@ -164,6 +164,11 @@ function NuevoMiembro({
   const [especialidad, setEspecialidad] = useState("");
   const [exequatur, setExequatur] = useState("");
   const [sede, setSede] = useState("");
+  const [agenda, setAgenda] = useState(false);
+
+  useEffect(() => {
+    setAgenda(roles.some((x) => ROLES_PROFESIONALES.includes(x)));
+  }, [roles]);
 
   useEffect(() => {
     if (abierto) {
@@ -187,6 +192,7 @@ function NuevoMiembro({
         especialidad: especialidad || null,
         exequatur: exequatur || null,
         sede_id: sede || null,
+        atiende_agenda: agenda,
       }),
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: claves.personal(sistemaId) });
@@ -221,7 +227,7 @@ function NuevoMiembro({
         </div>
         <SelectorRoles valor={roles} onChange={setRoles} />
         <AnimatePresence initial={false}>
-          {roles.includes("medico") && (
+          {roles.some((x) => ROLES_PROFESIONALES.includes(x)) && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
               <div className="grid grid-cols-2 gap-4 pb-1">
                 <Entrada etiqueta="Especialidad" value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} />
@@ -240,6 +246,7 @@ function NuevoMiembro({
             ))}
           </Selector>
         )}
+        <Interruptor activo={agenda} onChange={setAgenda} etiqueta="Atiende citas (aparece como columna en la agenda)" />
       </div>
     </Modal>
   );
@@ -255,9 +262,11 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
   const [exequatur, setExequatur] = useState("");
   const [sede, setSede] = useState("");
   const [activo, setActivo] = useState(true);
+  const [agenda, setAgenda] = useState(false);
 
   useEffect(() => {
     if (!miembro) return;
+    setAgenda(miembro.atiende_agenda);
     setRoles(miembro.roles);
     setEspecialidad(miembro.especialidad ?? "");
     setExequatur(miembro.exequatur ?? "");
@@ -271,7 +280,7 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
     mutationFn: async () => {
       const { error } = await supabase
         .from("membresias")
-        .update({ roles, especialidad: especialidad || null, exequatur: exequatur || null, sede_id: sede || null, activo })
+        .update({ roles, especialidad: especialidad || null, exequatur: exequatur || null, sede_id: sede || null, activo, atiende_agenda: agenda })
         .eq("id", miembro!.id);
       if (error) throw error;
     },
@@ -319,6 +328,7 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
             ))}
           </Selector>
         )}
+        <Interruptor activo={agenda} onChange={setAgenda} etiqueta="Atiende citas (aparece como columna en la agenda)" />
         <Interruptor activo={activo} onChange={setActivo} etiqueta={activo ? "Acceso activo" : "Acceso desactivado"} />
       </div>
     </Modal>

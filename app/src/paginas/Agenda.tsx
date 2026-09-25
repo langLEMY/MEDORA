@@ -76,7 +76,7 @@ export default function Agenda() {
         acciones={
           <>
             <Selector value={medico} onChange={(e) => setMedico(e.target.value)} contenedor="w-56">
-              <option value="">Todos los médicos</option>
+              <option value="">Todos los profesionales</option>
               {medicos.data?.map((m) => (
                 <option key={m.usuario_id} value={m.usuario_id}>
                   {m.perfil?.nombre_completo}
@@ -133,8 +133,8 @@ export default function Agenda() {
         ) : columnas.length === 0 ? (
           <Vacio
             icono={<Stethoscope />}
-            titulo="No hay médicos en este sistema"
-            descripcion="Agrega personal con el rol Médico desde Personal para poder agendar."
+            titulo="No hay profesionales con agenda"
+            descripcion="En Personal, activa “Atiende citas” para médicos, psicología, nutrición o terapia."
           />
         ) : (
           <div ref={scroll} className="max-h-[calc(100vh-240px)] overflow-auto">

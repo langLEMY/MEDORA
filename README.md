@@ -57,7 +57,7 @@ En el sector salud, la latencia cuesta tiempo y la inactividad cuesta vidas. **M
 
 ### Roles (por sistema)
 
-`admin` · `medico` · `enfermeria` · `recepcion` · `caja` · `farmacia` · `auditor` — una persona puede tener varios, y roles distintos en sistemas distintos. El **superadmin** de la plataforma administra sistemas, personal y configuración, pero **no ve datos clínicos ni financieros** de un sistema salvo que tenga membresía explícita en él.
+`admin` · `gerencia` · `contabilidad` · `medico` · `enfermeria` · `psicologia` · `nutricion` · `terapia` · `recepcion` · `caja` · `farmacia` · `auditor` — una persona puede tener varios, y roles distintos en sistemas distintos. El **superadmin** de la plataforma administra sistemas, personal y configuración, pero **no ve datos clínicos ni financieros** de un sistema salvo que tenga membresía explícita en él.
 
 ## Arquitectura
 

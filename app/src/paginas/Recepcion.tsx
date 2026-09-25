@@ -59,7 +59,7 @@ export default function Recepcion() {
         acciones={
           <>
             <Selector value={medico} onChange={(e) => setMedico(e.target.value)} contenedor="w-56">
-              <option value="">Todos los médicos</option>
+              <option value="">Todos los profesionales</option>
               {medicos.data?.map((m) => (
                 <option key={m.usuario_id} value={m.usuario_id}>
                   {m.perfil?.nombre_completo}

@@ -23,6 +23,7 @@ export interface Miembro {
   exequatur: string | null;
   sede_id: string | null;
   activo: boolean;
+  atiende_agenda: boolean;
   creado_en: string;
   perfil: { nombre_completo: string; email: string; telefono: string | null } | null;
 }
@@ -34,17 +35,78 @@ export function usePersonal(sistemaId: string) {
       datos(
         await supabase
           .from("membresias")
-          .select("id, usuario_id, roles, especialidad, exequatur, sede_id, activo, creado_en, perfil:perfiles!membresias_usuario_id_fkey(nombre_completo, email, telefono)")
+          .select("id, usuario_id, roles, especialidad, exequatur, sede_id, activo, atiende_agenda, creado_en, perfil:perfiles!membresias_usuario_id_fkey(nombre_completo, email, telefono)")
           .eq("sistema_id", sistemaId)
           .order("creado_en"),
       ) as unknown as Miembro[],
   });
 }
 
+/** Profesionales con agenda propia (médicos, psicología, nutrición, terapia…). */
 export function useMedicos(sistemaId: string) {
   const q = usePersonal(sistemaId);
-  return { ...q, data: q.data?.filter((m) => m.activo && m.roles.includes("medico")) };
+  return { ...q, data: q.data?.filter((m) => m.activo && m.atiende_agenda) };
 }
+
+export interface CuentaContable {
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  acepta_movimiento: boolean;
+  activo: boolean;
+  padre_codigo: string | null;
+}
+
+export function useCuentas(sistemaId: string) {
+  return useQuery({
+    queryKey: ["cuentas", sistemaId],
+    staleTime: 5 * 60_000,
+    queryFn: async () =>
+      datos(
+        await supabase
+          .from("cuentas_contables")
+          .select("codigo, nombre, tipo, acepta_movimiento, activo, padre_codigo")
+          .eq("sistema_id", sistemaId)
+          .order("codigo"),
+      ) as CuentaContable[],
+  });
+}
+
+export function useProveedores(sistemaId: string) {
+  return useQuery({
+    queryKey: ["proveedores", sistemaId],
+    queryFn: async () => datos(await supabase.from("proveedores").select("*").eq("sistema_id", sistemaId).order("nombre")),
+  });
+}
+
+export const CATEGORIAS_SERVICIO: Record<string, string> = {
+  consulta: "Consultas",
+  procedimiento: "Procedimientos",
+  laboratorio: "Laboratorio",
+  imagen: "Imágenes",
+  emergencia: "Emergencias",
+  hospitalizacion: "Hospitalización",
+  farmacia: "Farmacia",
+  otro: "Otros",
+};
+
+export const METODOS_PAGO: Record<string, string> = {
+  efectivo: "Efectivo",
+  tarjeta: "Tarjeta",
+  transferencia: "Transferencia",
+  cheque: "Cheque",
+  anticipo: "Anticipo",
+  credito: "Crédito",
+  seguro: "Seguro",
+  otro: "Otro",
+};
+
+export const TIPOS_NCF: Record<string, string> = {
+  B01: "B01 · Crédito fiscal",
+  B02: "B02 · Consumo",
+  B14: "B14 · Régimen especial",
+  B15: "B15 · Gubernamental",
+};
 
 export function useServicios(sistemaId: string) {
   return useQuery({

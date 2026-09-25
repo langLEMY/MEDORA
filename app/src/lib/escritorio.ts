@@ -27,8 +27,8 @@ const webview = (window as unknown as { chrome?: { webview?: WebView } }).chrome
 
 export const enEscritorio = !!webview;
 
-export function enviar(tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir") {
-  webview?.postMessage(JSON.stringify({ tipo }));
+export function enviar(tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" | "pdf", extra?: Record<string, unknown>) {
+  webview?.postMessage(JSON.stringify({ tipo, ...extra }));
 }
 
 export function escuchar(f: (m: MensajeLauncher) => void) {
@@ -52,4 +52,20 @@ export function escuchar(f: (m: MensajeLauncher) => void) {
 export function imprimir() {
   if (webview) enviar("imprimir");
   else window.print();
+}
+
+/**
+ * Exporta el documento abierto a PDF. En escritorio el launcher pregunta dónde
+ * guardarlo (CoreWebView2.PrintToPdfAsync); en navegador se usa el diálogo de
+ * impresión, con "Guardar como PDF".
+ */
+export function exportarPdf(nombre: string) {
+  const limpio = nombre.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120);
+  if (webview) enviar("pdf", { nombre: limpio });
+  else {
+    const anterior = document.title;
+    document.title = limpio;
+    window.print();
+    document.title = anterior;
+  }
 }

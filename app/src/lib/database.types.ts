@@ -14,6 +14,161 @@ export type Database = {
   }
   public: {
     Tables: {
+      abonos: {
+        Row: {
+          cobro_id: string
+          creado_en: string
+          creado_por: string
+          deudor: string
+          fecha: string
+          id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          numero: string
+          referencia: string | null
+          sistema_id: string
+          turno_id: string | null
+        }
+        Insert: {
+          cobro_id: string
+          creado_en?: string
+          creado_por?: string
+          deudor: string
+          fecha?: string
+          id?: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          numero: string
+          referencia?: string | null
+          sistema_id: string
+          turno_id?: string | null
+        }
+        Update: {
+          cobro_id?: string
+          creado_en?: string
+          creado_por?: string
+          deudor?: string
+          fecha?: string
+          id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"]
+          monto?: number
+          numero?: string
+          referencia?: string | null
+          sistema_id?: string
+          turno_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abonos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abonos_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cobros"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "abonos_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
+            foreignKeyName: "abonos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abonos_sistema_id_turno_id_fkey"
+            columns: ["sistema_id", "turno_id"]
+            isOneToOne: false
+            referencedRelation: "turnos_caja"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      anticipos: {
+        Row: {
+          creado_en: string
+          creado_por: string
+          fecha: string
+          id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          notas: string | null
+          numero: string
+          paciente_id: string
+          referencia: string | null
+          sistema_id: string
+          turno_id: string | null
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          id?: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          notas?: string | null
+          numero: string
+          paciente_id: string
+          referencia?: string | null
+          sistema_id: string
+          turno_id?: string | null
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"]
+          monto?: number
+          notas?: string | null
+          numero?: string
+          paciente_id?: string
+          referencia?: string | null
+          sistema_id?: string
+          turno_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anticipos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anticipos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anticipos_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "anticipos_sistema_id_turno_id_fkey"
+            columns: ["sistema_id", "turno_id"]
+            isOneToOne: false
+            referencedRelation: "turnos_caja"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       anulaciones_cobro: {
         Row: {
           anulado_por: string
@@ -55,7 +210,63 @@ export type Database = {
             referencedColumns: ["sistema_id", "id"]
           },
           {
+            foreignKeyName: "anulaciones_cobro_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
             foreignKeyName: "anulaciones_cobro_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      anulaciones_compra: {
+        Row: {
+          anulado_por: string
+          compra_id: string
+          creado_en: string
+          id: string
+          motivo: string
+          sistema_id: string
+        }
+        Insert: {
+          anulado_por?: string
+          compra_id: string
+          creado_en?: string
+          id?: string
+          motivo: string
+          sistema_id: string
+        }
+        Update: {
+          anulado_por?: string
+          compra_id?: string
+          creado_en?: string
+          id?: string
+          motivo?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anulaciones_compra_anulado_por_fkey"
+            columns: ["anulado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anulaciones_compra_sistema_id_compra_id_fkey"
+            columns: ["sistema_id", "compra_id"]
+            isOneToOne: false
+            referencedRelation: "compras"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "anulaciones_compra_sistema_id_fkey"
             columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
@@ -106,6 +317,109 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "aseguradoras_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asiento_lineas: {
+        Row: {
+          asiento_id: string
+          cuenta_codigo: string
+          debe: number
+          descripcion: string | null
+          haber: number
+          id: string
+          sistema_id: string
+        }
+        Insert: {
+          asiento_id: string
+          cuenta_codigo: string
+          debe?: number
+          descripcion?: string | null
+          haber?: number
+          id?: string
+          sistema_id: string
+        }
+        Update: {
+          asiento_id?: string
+          cuenta_codigo?: string
+          debe?: number
+          descripcion?: string | null
+          haber?: number
+          id?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asiento_lineas_sistema_id_asiento_id_fkey"
+            columns: ["sistema_id", "asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asientos"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "asiento_lineas_sistema_id_cuenta_codigo_fkey"
+            columns: ["sistema_id", "cuenta_codigo"]
+            isOneToOne: false
+            referencedRelation: "cuentas_contables"
+            referencedColumns: ["sistema_id", "codigo"]
+          },
+          {
+            foreignKeyName: "asiento_lineas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asientos: {
+        Row: {
+          concepto: string
+          creado_en: string
+          creado_por: string | null
+          fecha: string
+          id: string
+          numero: number
+          origen: string
+          origen_id: string | null
+          sistema_id: string
+        }
+        Insert: {
+          concepto: string
+          creado_en?: string
+          creado_por?: string | null
+          fecha: string
+          id?: string
+          numero: number
+          origen: string
+          origen_id?: string | null
+          sistema_id: string
+        }
+        Update: {
+          concepto?: string
+          creado_en?: string
+          creado_por?: string | null
+          fecha?: string
+          id?: string
+          numero?: number
+          origen?: string
+          origen_id?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asientos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asientos_sistema_id_fkey"
             columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
@@ -321,6 +635,7 @@ export type Database = {
       cobro_detalles: {
         Row: {
           cantidad: number
+          categoria: string
           cobertura: number
           cobro_id: string
           descripcion: string
@@ -332,6 +647,7 @@ export type Database = {
         }
         Insert: {
           cantidad: number
+          categoria?: string
           cobertura?: number
           cobro_id: string
           descripcion: string
@@ -343,6 +659,7 @@ export type Database = {
         }
         Update: {
           cantidad?: number
+          categoria?: string
           cobertura?: number
           cobro_id?: string
           descripcion?: string
@@ -361,6 +678,13 @@ export type Database = {
             referencedColumns: ["sistema_id", "id"]
           },
           {
+            foreignKeyName: "cobro_detalles_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
             foreignKeyName: "cobro_detalles_sistema_id_fkey"
             columns: ["sistema_id"]
             isOneToOne: false
@@ -376,71 +700,155 @@ export type Database = {
           },
         ]
       }
+      cobro_pagos: {
+        Row: {
+          cobro_id: string
+          id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          referencia: string | null
+          sistema_id: string
+        }
+        Insert: {
+          cobro_id: string
+          id?: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          referencia?: string | null
+          sistema_id: string
+        }
+        Update: {
+          cobro_id?: string
+          id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"]
+          monto?: number
+          referencia?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cobro_pagos_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cobros"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "cobro_pagos_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
+            foreignKeyName: "cobro_pagos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cobros: {
         Row: {
           aseguradora_id: string | null
           cajero_id: string
           cita_id: string | null
+          cliente_nombre: string | null
+          cliente_rnc: string | null
           cobertura_seguro: number
           creado_en: string
           descuento: number
           id: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto_credito: number
+          ncf: string | null
           notas: string | null
           numero: string
           numero_autorizacion: string | null
           paciente_id: string
+          profesional_id: string | null
           referencia: string | null
           sede_id: string | null
           sistema_id: string
           subtotal: number
+          tipo_ncf: string | null
           total: number
           turno_id: string
+          vendedor_id: string | null
         }
         Insert: {
           aseguradora_id?: string | null
           cajero_id?: string
           cita_id?: string | null
+          cliente_nombre?: string | null
+          cliente_rnc?: string | null
           cobertura_seguro?: number
           creado_en?: string
           descuento?: number
           id?: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto_credito?: number
+          ncf?: string | null
           notas?: string | null
           numero: string
           numero_autorizacion?: string | null
           paciente_id: string
+          profesional_id?: string | null
           referencia?: string | null
           sede_id?: string | null
           sistema_id: string
           subtotal: number
+          tipo_ncf?: string | null
           total: number
           turno_id: string
+          vendedor_id?: string | null
         }
         Update: {
           aseguradora_id?: string | null
           cajero_id?: string
           cita_id?: string | null
+          cliente_nombre?: string | null
+          cliente_rnc?: string | null
           cobertura_seguro?: number
           creado_en?: string
           descuento?: number
           id?: string
           metodo?: Database["public"]["Enums"]["metodo_pago"]
+          monto_credito?: number
+          ncf?: string | null
           notas?: string | null
           numero?: string
           numero_autorizacion?: string | null
           paciente_id?: string
+          profesional_id?: string | null
           referencia?: string | null
           sede_id?: string | null
           sistema_id?: string
           subtotal?: number
+          tipo_ncf?: string | null
           total?: number
           turno_id?: string
+          vendedor_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "cobros_cajero_perfil_fk"
             columns: ["cajero_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cobros_profesional_fk"
+            columns: ["sistema_id", "profesional_id"]
+            isOneToOne: false
+            referencedRelation: "membresias"
+            referencedColumns: ["sistema_id", "usuario_id"]
+          },
+          {
+            foreignKeyName: "cobros_profesional_perfil_fk"
+            columns: ["profesional_id"]
             isOneToOne: false
             referencedRelation: "perfiles"
             referencedColumns: ["id"]
@@ -486,6 +894,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "turnos_caja"
             referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "cobros_vendedor_fk"
+            columns: ["sistema_id", "vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "membresias"
+            referencedColumns: ["sistema_id", "usuario_id"]
+          },
+          {
+            foreignKeyName: "cobros_vendedor_perfil_fk"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -552,6 +974,236 @@ export type Database = {
           },
         ]
       }
+      comisiones: {
+        Row: {
+          base_monto: number
+          beneficiario_id: string
+          cobro_id: string
+          concepto: string
+          creado_en: string
+          detalle_id: string | null
+          id: string
+          monto: number
+          regla_id: string | null
+          sistema_id: string
+        }
+        Insert: {
+          base_monto: number
+          beneficiario_id: string
+          cobro_id: string
+          concepto: string
+          creado_en?: string
+          detalle_id?: string | null
+          id?: string
+          monto: number
+          regla_id?: string | null
+          sistema_id: string
+        }
+        Update: {
+          base_monto?: number
+          beneficiario_id?: string
+          cobro_id?: string
+          concepto?: string
+          creado_en?: string
+          detalle_id?: string | null
+          id?: string
+          monto?: number
+          regla_id?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comisiones_beneficiario_id_fkey"
+            columns: ["beneficiario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comisiones_regla_id_fkey"
+            columns: ["regla_id"]
+            isOneToOne: false
+            referencedRelation: "reglas_comision"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comisiones_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cobros"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "comisiones_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
+            foreignKeyName: "comisiones_sistema_id_detalle_id_fkey"
+            columns: ["sistema_id", "detalle_id"]
+            isOneToOne: false
+            referencedRelation: "cobro_detalles"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "comisiones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compra_items: {
+        Row: {
+          cantidad: number
+          compra_id: string
+          costo_unitario: number
+          cuenta_codigo: string | null
+          descripcion: string
+          id: string
+          itbis: number
+          item_id: string | null
+          sistema_id: string
+          total: number
+        }
+        Insert: {
+          cantidad: number
+          compra_id: string
+          costo_unitario: number
+          cuenta_codigo?: string | null
+          descripcion: string
+          id?: string
+          itbis?: number
+          item_id?: string | null
+          sistema_id: string
+          total: number
+        }
+        Update: {
+          cantidad?: number
+          compra_id?: string
+          costo_unitario?: number
+          cuenta_codigo?: string | null
+          descripcion?: string
+          id?: string
+          itbis?: number
+          item_id?: string | null
+          sistema_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compra_items_sistema_id_compra_id_fkey"
+            columns: ["sistema_id", "compra_id"]
+            isOneToOne: false
+            referencedRelation: "compras"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "compra_items_sistema_id_cuenta_codigo_fkey"
+            columns: ["sistema_id", "cuenta_codigo"]
+            isOneToOne: false
+            referencedRelation: "cuentas_contables"
+            referencedColumns: ["sistema_id", "codigo"]
+          },
+          {
+            foreignKeyName: "compra_items_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compra_items_sistema_id_item_id_fkey"
+            columns: ["sistema_id", "item_id"]
+            isOneToOne: false
+            referencedRelation: "inventario_items"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      compras: {
+        Row: {
+          creado_en: string
+          creado_por: string
+          fecha: string
+          forma_pago: string
+          id: string
+          itbis: number
+          ncf_proveedor: string | null
+          notas: string | null
+          numero: string
+          proveedor_id: string | null
+          sistema_id: string
+          subtotal: number
+          total: number
+          turno_id: string | null
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          forma_pago: string
+          id?: string
+          itbis?: number
+          ncf_proveedor?: string | null
+          notas?: string | null
+          numero: string
+          proveedor_id?: string | null
+          sistema_id: string
+          subtotal: number
+          total: number
+          turno_id?: string | null
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          forma_pago?: string
+          id?: string
+          itbis?: number
+          ncf_proveedor?: string | null
+          notas?: string | null
+          numero?: string
+          proveedor_id?: string | null
+          sistema_id?: string
+          subtotal?: number
+          total?: number
+          turno_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compras_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_sistema_id_proveedor_id_fkey"
+            columns: ["sistema_id", "proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "compras_sistema_id_turno_id_fkey"
+            columns: ["sistema_id", "turno_id"]
+            isOneToOne: false
+            referencedRelation: "turnos_caja"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       contadores: {
         Row: {
           clave: string
@@ -574,6 +1226,180 @@ export type Database = {
             columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuentas_contables: {
+        Row: {
+          acepta_movimiento: boolean
+          activo: boolean
+          actualizado_en: string
+          actualizado_por: string | null
+          busqueda: string | null
+          codigo: string
+          creado_en: string
+          creado_por: string | null
+          id: string
+          nombre: string
+          padre_codigo: string | null
+          sistema_id: string
+          tipo: string
+        }
+        Insert: {
+          acepta_movimiento?: boolean
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          busqueda?: string | null
+          codigo: string
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          nombre: string
+          padre_codigo?: string | null
+          sistema_id: string
+          tipo: string
+        }
+        Update: {
+          acepta_movimiento?: boolean
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          busqueda?: string | null
+          codigo?: string
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          nombre?: string
+          padre_codigo?: string | null
+          sistema_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuentas_contables_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuentas_contables_sistema_id_padre_codigo_fkey"
+            columns: ["sistema_id", "padre_codigo"]
+            isOneToOne: false
+            referencedRelation: "cuentas_contables"
+            referencedColumns: ["sistema_id", "codigo"]
+          },
+        ]
+      }
+      cuentas_predeterminadas: {
+        Row: {
+          clave: string
+          cuenta_codigo: string
+          sistema_id: string
+        }
+        Insert: {
+          clave: string
+          cuenta_codigo: string
+          sistema_id: string
+        }
+        Update: {
+          clave?: string
+          cuenta_codigo?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuentas_predeterminadas_sistema_id_cuenta_codigo_fkey"
+            columns: ["sistema_id", "cuenta_codigo"]
+            isOneToOne: false
+            referencedRelation: "cuentas_contables"
+            referencedColumns: ["sistema_id", "codigo"]
+          },
+          {
+            foreignKeyName: "cuentas_predeterminadas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      empleados: {
+        Row: {
+          activo: boolean
+          actualizado_en: string
+          actualizado_por: string | null
+          apellidos: string
+          banco: string | null
+          cargo: string | null
+          cedula: string | null
+          creado_en: string
+          creado_por: string | null
+          cuenta_bancaria: string | null
+          departamento: string | null
+          fecha_ingreso: string | null
+          frecuencia: string
+          id: string
+          nombres: string
+          salario_mensual: number
+          sistema_id: string
+          usuario_id: string | null
+        }
+        Insert: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          apellidos: string
+          banco?: string | null
+          cargo?: string | null
+          cedula?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          cuenta_bancaria?: string | null
+          departamento?: string | null
+          fecha_ingreso?: string | null
+          frecuencia?: string
+          id?: string
+          nombres: string
+          salario_mensual?: number
+          sistema_id: string
+          usuario_id?: string | null
+        }
+        Update: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          apellidos?: string
+          banco?: string | null
+          cargo?: string | null
+          cedula?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          cuenta_bancaria?: string | null
+          departamento?: string | null
+          fecha_ingreso?: string | null
+          frecuencia?: string
+          id?: string
+          nombres?: string
+          salario_mensual?: number
+          sistema_id?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "empleados_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "empleados_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
             referencedColumns: ["id"]
           },
         ]
@@ -734,11 +1560,107 @@ export type Database = {
           },
         ]
       }
+      liquidacion_items: {
+        Row: {
+          comision_id: string
+          liquidacion_id: string
+          sistema_id: string
+        }
+        Insert: {
+          comision_id: string
+          liquidacion_id: string
+          sistema_id: string
+        }
+        Update: {
+          comision_id?: string
+          liquidacion_id?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "liquidacion_items_sistema_id_comision_id_fkey"
+            columns: ["sistema_id", "comision_id"]
+            isOneToOne: false
+            referencedRelation: "comisiones"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "liquidacion_items_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "liquidacion_items_sistema_id_liquidacion_id_fkey"
+            columns: ["sistema_id", "liquidacion_id"]
+            isOneToOne: false
+            referencedRelation: "liquidaciones_comision"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      liquidaciones_comision: {
+        Row: {
+          beneficiario_id: string
+          creado_en: string
+          creado_por: string
+          hasta: string
+          id: string
+          numero: string
+          sistema_id: string
+          total: number
+        }
+        Insert: {
+          beneficiario_id: string
+          creado_en?: string
+          creado_por?: string
+          hasta: string
+          id?: string
+          numero: string
+          sistema_id: string
+          total: number
+        }
+        Update: {
+          beneficiario_id?: string
+          creado_en?: string
+          creado_por?: string
+          hasta?: string
+          id?: string
+          numero?: string
+          sistema_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "liquidaciones_comision_beneficiario_id_fkey"
+            columns: ["beneficiario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "liquidaciones_comision_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "liquidaciones_comision_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       membresias: {
         Row: {
           activo: boolean
           actualizado_en: string
           actualizado_por: string | null
+          atiende_agenda: boolean
           creado_en: string
           creado_por: string | null
           especialidad: string | null
@@ -753,6 +1675,7 @@ export type Database = {
           activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
+          atiende_agenda?: boolean
           creado_en?: string
           creado_por?: string | null
           especialidad?: string | null
@@ -767,6 +1690,7 @@ export type Database = {
           activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
+          atiende_agenda?: boolean
           creado_en?: string
           creado_por?: string | null
           especialidad?: string | null
@@ -860,6 +1784,13 @@ export type Database = {
             referencedColumns: ["sistema_id", "id"]
           },
           {
+            foreignKeyName: "movimientos_financieros_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
             foreignKeyName: "movimientos_financieros_sistema_id_fkey"
             columns: ["sistema_id"]
             isOneToOne: false
@@ -950,6 +1881,158 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pacientes"
             referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      nomina_lineas: {
+        Row: {
+          afp: number
+          afp_patronal: number
+          bonos: number
+          bruto: number
+          empleado_id: string
+          horas_extra: number
+          id: string
+          infotep: number
+          isr: number
+          neto: number
+          nomina_id: string
+          otras_deducciones: number
+          otros_ingresos: number
+          salario: number
+          sfs: number
+          sfs_patronal: number
+          sistema_id: string
+          srl_patronal: number
+        }
+        Insert: {
+          afp?: number
+          afp_patronal?: number
+          bonos?: number
+          bruto?: number
+          empleado_id: string
+          horas_extra?: number
+          id?: string
+          infotep?: number
+          isr?: number
+          neto?: number
+          nomina_id: string
+          otras_deducciones?: number
+          otros_ingresos?: number
+          salario?: number
+          sfs?: number
+          sfs_patronal?: number
+          sistema_id: string
+          srl_patronal?: number
+        }
+        Update: {
+          afp?: number
+          afp_patronal?: number
+          bonos?: number
+          bruto?: number
+          empleado_id?: string
+          horas_extra?: number
+          id?: string
+          infotep?: number
+          isr?: number
+          neto?: number
+          nomina_id?: string
+          otras_deducciones?: number
+          otros_ingresos?: number
+          salario?: number
+          sfs?: number
+          sfs_patronal?: number
+          sistema_id?: string
+          srl_patronal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nomina_lineas_sistema_id_empleado_id_fkey"
+            columns: ["sistema_id", "empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "nomina_lineas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nomina_lineas_sistema_id_nomina_id_fkey"
+            columns: ["sistema_id", "nomina_id"]
+            isOneToOne: false
+            referencedRelation: "nominas"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      nominas: {
+        Row: {
+          aprobada_en: string | null
+          aprobada_por: string | null
+          creado_en: string
+          creado_por: string | null
+          descripcion: string
+          desde: string
+          estado: string
+          frecuencia: string
+          hasta: string
+          id: string
+          numero: string
+          sistema_id: string
+        }
+        Insert: {
+          aprobada_en?: string | null
+          aprobada_por?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          descripcion: string
+          desde: string
+          estado?: string
+          frecuencia: string
+          hasta: string
+          id?: string
+          numero: string
+          sistema_id: string
+        }
+        Update: {
+          aprobada_en?: string | null
+          aprobada_por?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string
+          desde?: string
+          estado?: string
+          frecuencia?: string
+          hasta?: string
+          id?: string
+          numero?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nominas_aprobada_por_fkey"
+            columns: ["aprobada_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nominas_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nominas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1055,6 +2138,59 @@ export type Database = {
           },
         ]
       }
+      parametros_nomina: {
+        Row: {
+          actualizado_en: string
+          actualizado_por: string | null
+          afp_empleado: number
+          afp_empleador: number
+          escala_isr: Json
+          infotep: number
+          sfs_empleado: number
+          sfs_empleador: number
+          sistema_id: string
+          srl_empleador: number
+          tope_afp_mensual: number | null
+          tope_sfs_mensual: number | null
+        }
+        Insert: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          afp_empleado?: number
+          afp_empleador?: number
+          escala_isr?: Json
+          infotep?: number
+          sfs_empleado?: number
+          sfs_empleador?: number
+          sistema_id: string
+          srl_empleador?: number
+          tope_afp_mensual?: number | null
+          tope_sfs_mensual?: number | null
+        }
+        Update: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          afp_empleado?: number
+          afp_empleador?: number
+          escala_isr?: Json
+          infotep?: number
+          sfs_empleado?: number
+          sfs_empleador?: number
+          sistema_id?: string
+          srl_empleador?: number
+          tope_afp_mensual?: number | null
+          tope_sfs_mensual?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parametros_nomina_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: true
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       perfiles: {
         Row: {
           activo: boolean
@@ -1102,6 +2238,200 @@ export type Database = {
           {
             foreignKeyName: "perfiles_ultimo_sistema_id_fkey"
             columns: ["ultimo_sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proveedores: {
+        Row: {
+          activo: boolean
+          actualizado_en: string
+          actualizado_por: string | null
+          contacto: string | null
+          creado_en: string
+          creado_por: string | null
+          direccion: string | null
+          email: string | null
+          id: string
+          nombre: string
+          rnc: string | null
+          sistema_id: string
+          telefono: string | null
+        }
+        Insert: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          contacto?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          direccion?: string | null
+          email?: string | null
+          id?: string
+          nombre: string
+          rnc?: string | null
+          sistema_id: string
+          telefono?: string | null
+        }
+        Update: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          contacto?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          direccion?: string | null
+          email?: string | null
+          id?: string
+          nombre?: string
+          rnc?: string | null
+          sistema_id?: string
+          telefono?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proveedores_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reglas_comision: {
+        Row: {
+          activo: boolean
+          actualizado_en: string
+          actualizado_por: string | null
+          aplica_a: string
+          base: string
+          beneficiario_id: string | null
+          categoria: string | null
+          creado_en: string
+          creado_por: string | null
+          id: string
+          nombre: string
+          rol: Database["public"]["Enums"]["rol_sistema"] | null
+          servicio_id: string | null
+          sistema_id: string
+          tipo: string
+          valor: number
+          vigente_desde: string | null
+          vigente_hasta: string | null
+        }
+        Insert: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          aplica_a?: string
+          base?: string
+          beneficiario_id?: string | null
+          categoria?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          nombre: string
+          rol?: Database["public"]["Enums"]["rol_sistema"] | null
+          servicio_id?: string | null
+          sistema_id: string
+          tipo: string
+          valor: number
+          vigente_desde?: string | null
+          vigente_hasta?: string | null
+        }
+        Update: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          aplica_a?: string
+          base?: string
+          beneficiario_id?: string | null
+          categoria?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          nombre?: string
+          rol?: Database["public"]["Enums"]["rol_sistema"] | null
+          servicio_id?: string | null
+          sistema_id?: string
+          tipo?: string
+          valor?: number
+          vigente_desde?: string | null
+          vigente_hasta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reglas_comision_sistema_id_beneficiario_id_fkey"
+            columns: ["sistema_id", "beneficiario_id"]
+            isOneToOne: false
+            referencedRelation: "membresias"
+            referencedColumns: ["sistema_id", "usuario_id"]
+          },
+          {
+            foreignKeyName: "reglas_comision_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reglas_comision_sistema_id_servicio_id_fkey"
+            columns: ["sistema_id", "servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      secuencias_ncf: {
+        Row: {
+          activo: boolean
+          actualizado_en: string
+          actualizado_por: string | null
+          creado_en: string
+          creado_por: string | null
+          desde: number
+          hasta: number
+          id: string
+          siguiente: number
+          sistema_id: string
+          tipo: string
+          vence_en: string | null
+        }
+        Insert: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          desde: number
+          hasta: number
+          id?: string
+          siguiente: number
+          sistema_id: string
+          tipo: string
+          vence_en?: string | null
+        }
+        Update: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          desde?: number
+          hasta?: number
+          id?: string
+          siguiente?: number
+          sistema_id?: string
+          tipo?: string
+          vence_en?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "secuencias_ncf_sistema_id_fkey"
+            columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
             referencedColumns: ["id"]
@@ -1347,7 +2677,97 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      cuentas_por_cobrar: {
+        Row: {
+          aseguradora_id: string | null
+          cobertura_seguro: number | null
+          cobro_id: string | null
+          creado_en: string | null
+          monto_credito: number | null
+          ncf: string | null
+          numero: string | null
+          numero_autorizacion: string | null
+          paciente_id: string | null
+          pendiente_aseguradora: number | null
+          pendiente_paciente: number | null
+          sistema_id: string | null
+        }
+        Insert: {
+          aseguradora_id?: string | null
+          cobertura_seguro?: number | null
+          cobro_id?: string | null
+          creado_en?: string | null
+          monto_credito?: number | null
+          ncf?: string | null
+          numero?: string | null
+          numero_autorizacion?: string | null
+          paciente_id?: string | null
+          pendiente_aseguradora?: never
+          pendiente_paciente?: never
+          sistema_id?: string | null
+        }
+        Update: {
+          aseguradora_id?: string | null
+          cobertura_seguro?: number | null
+          cobro_id?: string | null
+          creado_en?: string | null
+          monto_credito?: number | null
+          ncf?: string | null
+          numero?: string | null
+          numero_autorizacion?: string | null
+          paciente_id?: string | null
+          pendiente_aseguradora?: never
+          pendiente_paciente?: never
+          sistema_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cobros_sistema_id_aseguradora_id_fkey"
+            columns: ["sistema_id", "aseguradora_id"]
+            isOneToOne: false
+            referencedRelation: "aseguradoras"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "cobros_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cobros_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      saldos_anticipo: {
+        Row: {
+          anticipado: number | null
+          aplicado: number | null
+          paciente_id: string | null
+          sistema_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anticipos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anticipos_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
     }
     Functions: {
       abrir_turno_caja: {
@@ -1372,9 +2792,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      actualizar_linea_nomina: {
+        Args: {
+          p_bonos: number
+          p_horas_extra: number
+          p_linea: string
+          p_otras_deducciones: number
+          p_otros_ingresos: number
+        }
+        Returns: undefined
+      }
       anular_cobro: {
         Args: { p_cobro: string; p_motivo: string }
         Returns: undefined
+      }
+      anular_compra: {
+        Args: { p_compra: string; p_motivo: string }
+        Returns: undefined
+      }
+      aprobar_nomina: { Args: { p_nomina: string }; Returns: string }
+      balanza_comprobacion: {
+        Args: { p_desde: string; p_hasta: string; p_sistema: string }
+        Returns: {
+          codigo: string
+          debe: number
+          haber: number
+          nombre: string
+          saldo: number
+          tipo: string
+        }[]
       }
       canjear_codigo_invitacion: {
         Args: { p_codigo: string; p_usuario: string }
@@ -1403,6 +2849,14 @@ export type Database = {
         }
       }
       consultar_codigo_invitacion: { Args: { p_codigo: string }; Returns: Json }
+      eliminar_nomina_borrador: {
+        Args: { p_nomina: string }
+        Returns: undefined
+      }
+      estado_cuenta: {
+        Args: { p_contacto: string; p_sistema: string; p_tipo: string }
+        Returns: Json
+      }
       estado_instalacion: { Args: never; Returns: Json }
       generar_codigo_invitacion: {
         Args: {
@@ -1414,6 +2868,20 @@ export type Database = {
           p_usos: number
         }
         Returns: string
+      }
+      generar_nomina: {
+        Args: {
+          p_descripcion?: string
+          p_desde: string
+          p_frecuencia: string
+          p_hasta: string
+          p_sistema: string
+        }
+        Returns: string
+      }
+      liquidar_comisiones: {
+        Args: { p_beneficiario: string; p_hasta: string; p_sistema: string }
+        Returns: Json
       }
       marcar_password_actualizada: { Args: never; Returns: undefined }
       mis_sistemas_detalle: {
@@ -1444,17 +2912,68 @@ export type Database = {
           ultimo_acceso: string
         }[]
       }
+      recalcular_nomina: { Args: { p_nomina: string }; Returns: undefined }
+      registrar_abono: {
+        Args: {
+          p_cobro: string
+          p_deudor: string
+          p_fecha?: string
+          p_metodo: Database["public"]["Enums"]["metodo_pago"]
+          p_monto: number
+          p_referencia?: string
+          p_sistema: string
+        }
+        Returns: Json
+      }
+      registrar_anticipo: {
+        Args: {
+          p_fecha?: string
+          p_metodo: Database["public"]["Enums"]["metodo_pago"]
+          p_monto: number
+          p_notas?: string
+          p_paciente: string
+          p_referencia?: string
+          p_sistema: string
+        }
+        Returns: Json
+      }
+      registrar_asiento_manual: {
+        Args: {
+          p_concepto: string
+          p_fecha: string
+          p_lineas: Json
+          p_sistema: string
+        }
+        Returns: string
+      }
       registrar_cobro: {
         Args: {
           p_aseguradora?: string
           p_autorizacion?: string
           p_cita?: string
+          p_cliente_nombre?: string
+          p_cliente_rnc?: string
           p_descuento?: number
           p_items: Json
-          p_metodo: Database["public"]["Enums"]["metodo_pago"]
           p_notas?: string
           p_paciente: string
+          p_pagos: Json
+          p_profesional?: string
           p_referencia?: string
+          p_sistema: string
+          p_tipo_ncf?: string
+          p_vendedor?: string
+        }
+        Returns: Json
+      }
+      registrar_compra: {
+        Args: {
+          p_fecha: string
+          p_forma_pago: string
+          p_items: Json
+          p_ncf: string
+          p_notas?: string
+          p_proveedor: string
           p_sistema: string
         }
         Returns: Json
@@ -1493,12 +3012,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reporte_comisiones: {
+        Args: { p_desde: string; p_hasta: string; p_sistema: string }
+        Returns: {
+          beneficiario_id: string
+          generado: number
+          liquidado: number
+          nombre: string
+          operaciones: number
+          pendiente: number
+        }[]
+      }
       resumen_dashboard: { Args: { p_sistema: string }; Returns: Json }
       revocar_codigo_invitacion: { Args: { p_id: string }; Returns: undefined }
       verificar_codigo_instalacion: {
         Args: { p_codigo: string }
         Returns: boolean
       }
+      vista_previa_asiento_nomina: { Args: { p_nomina: string }; Returns: Json }
     }
     Enums: {
       estado_cita:
@@ -1516,6 +3047,8 @@ export type Database = {
         | "cheque"
         | "seguro"
         | "otro"
+        | "anticipo"
+        | "credito"
       rol_sistema:
         | "admin"
         | "medico"
@@ -1524,6 +3057,11 @@ export type Database = {
         | "caja"
         | "farmacia"
         | "auditor"
+        | "gerencia"
+        | "contabilidad"
+        | "psicologia"
+        | "nutricion"
+        | "terapia"
       tipo_entrada_clinica:
         | "consulta"
         | "evolucion"
@@ -1535,6 +3073,10 @@ export type Database = {
         | "procedimiento"
         | "triaje"
         | "adenda"
+        | "nutricion"
+        | "anestesia"
+        | "psicologia"
+        | "anexo"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1678,6 +3220,8 @@ export const Constants = {
         "cheque",
         "seguro",
         "otro",
+        "anticipo",
+        "credito",
       ],
       rol_sistema: [
         "admin",
@@ -1687,6 +3231,11 @@ export const Constants = {
         "caja",
         "farmacia",
         "auditor",
+        "gerencia",
+        "contabilidad",
+        "psicologia",
+        "nutricion",
+        "terapia",
       ],
       tipo_entrada_clinica: [
         "consulta",
@@ -1699,6 +3248,10 @@ export const Constants = {
         "procedimiento",
         "triaje",
         "adenda",
+        "nutricion",
+        "anestesia",
+        "psicologia",
+        "anexo",
       ],
     },
   },

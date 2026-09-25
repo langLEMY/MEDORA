@@ -21,11 +21,12 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 2. **FKs compuestas** `(sistema_id, x_id) references tabla (sistema_id, id)` entre tablas de negocio: Postgres impide mezclar datos de sistemas distintos. La tabla padre necesita `unique (sistema_id, id)`.
 3. **Append‑only** (historial clínico, cobros y detalles, anulaciones, movimientos financieros e inventario, auditoría): trigger `privado.tg_bloquear_append_only` + `revoke update, delete`. Las correcciones son registros nuevos (adendas, anulaciones, ajustes).
 4. **Auditoría automática**: cada tabla nueva lleva `trg_<tabla>_auditoria` con `privado.tg_auditar()` (contenido clínico con argumento `'sin_datos'`).
-5. **Dinero y stock se calculan en el servidor** (RPC `security definer` que validan rol con `privado.tiene_rol`). El cliente nunca envía totales confiables.
-6. `revoke all ... from anon` en cada tabla nueva; `grant execute` explícito en cada RPC nueva (los privilegios por defecto ya están revocados).
-7. Funciones: `set search_path = ''` y nombres calificados con esquema.
-8. El superadmin **no** ve datos clínicos/financieros sin membresía: no agregar `es_superadmin()` a políticas de esas tablas.
-9. Tras cambiar políticas: correr `supabase/tests/rls_aislamiento.sql` y `get_advisors` (security + performance). Regenerar `app/src/lib/database.types.ts`.
+5. **Contabilidad**: todo movimiento de dinero genera su asiento con `privado.crear_asiento()` (exige que cuadre) usando `privado.cuenta(sistema, clave)`; nunca códigos de cuenta fijos. Anulaciones = `privado.revertir_asientos()`.
+6. **Dinero y stock se calculan en el servidor** (RPC `security definer` que validan rol con `privado.tiene_rol`). El cliente nunca envía totales confiables.
+7. `revoke all ... from anon` en cada tabla nueva; `grant execute` explícito en cada RPC nueva (los privilegios por defecto ya están revocados).
+8. Funciones: `set search_path = ''` y nombres calificados con esquema.
+9. El superadmin **no** ve datos clínicos/financieros sin membresía: no agregar `es_superadmin()` a políticas de esas tablas.
+10. Tras cambiar políticas: correr `supabase/tests/rls_aislamiento.sql` y `get_advisors` (security + performance). Regenerar `app/src/lib/database.types.ts`.
 
 ## Reglas de app
 

@@ -177,10 +177,15 @@ public sealed class FormPrincipal : Form
     private async Task ProcesarMensajeAsync(CoreWebView2WebMessageReceivedEventArgs e)
     {
         string? tipo;
+        string? nombre = null;
         try
         {
             using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
             tipo = doc.RootElement.GetProperty("tipo").GetString();
+            if (doc.RootElement.TryGetProperty("nombre", out var n))
+            {
+                nombre = n.GetString();
+            }
         }
         catch
         {
@@ -200,6 +205,9 @@ public sealed class FormPrincipal : Form
                 break;
             case "imprimir":
                 await ImprimirAsync();
+                break;
+            case "pdf":
+                await ExportarPdfAsync(nombre);
                 break;
         }
     }
@@ -287,6 +295,50 @@ public sealed class FormPrincipal : Form
         catch (Exception ex)
         {
             MessageBox.Show($"No se pudo imprimir: {ex.Message}", "MEDORA", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Guarda el documento abierto (factura, estado de cuenta, reporte…) como PDF. La app
+    /// ya dejó en .area-impresion solo el documento, así que se imprime únicamente eso.
+    /// </summary>
+    private async Task ExportarPdfAsync(string? nombre)
+    {
+        var sugerido = string.Concat((string.IsNullOrWhiteSpace(nombre) ? "MEDORA" : nombre).Split(Path.GetInvalidFileNameChars()));
+        using var dialogo = new SaveFileDialog
+        {
+            Title = "Guardar como PDF",
+            Filter = "Documento PDF (*.pdf)|*.pdf",
+            FileName = sugerido + ".pdf",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            AddExtension = true,
+            OverwritePrompt = true,
+        };
+        if (dialogo.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            var config = _webView.CoreWebView2.Environment.CreatePrintSettings();
+            config.ShouldPrintBackgrounds = true;
+            config.ShouldPrintHeaderAndFooter = false;
+            config.MarginTop = config.MarginBottom = 0.4;
+            config.MarginLeft = config.MarginRight = 0.4;
+
+            var ok = await _webView.CoreWebView2.PrintToPdfAsync(dialogo.FileName, config);
+            if (!ok)
+            {
+                MessageBox.Show("No se pudo generar el PDF.", "MEDORA", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo(dialogo.FileName) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"No se pudo generar el PDF: {ex.Message}", "MEDORA", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 

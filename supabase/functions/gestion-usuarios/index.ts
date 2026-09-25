@@ -7,7 +7,10 @@
 //   { accion: "restablecer_password", sistema_id, usuario_id }
 import { clienteServicio, cors, EMAIL_RE, error, json, passwordTemporal } from "../_shared/comun.ts";
 
-const ROLES = new Set(["admin", "medico", "enfermeria", "recepcion", "caja", "farmacia", "auditor"]);
+const ROLES = new Set([
+  "admin", "gerencia", "contabilidad", "medico", "enfermeria", "psicologia", "nutricion", "terapia",
+  "recepcion", "caja", "farmacia", "auditor",
+]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -93,6 +96,10 @@ async function crear(
       especialidad: cuerpo.especialidad ?? null,
       exequatur: cuerpo.exequatur ?? null,
       sede_id: cuerpo.sede_id ?? null,
+      atiende_agenda:
+        typeof cuerpo.atiende_agenda === "boolean"
+          ? cuerpo.atiende_agenda
+          : roles.some((r) => ["medico", "psicologia", "nutricion", "terapia"].includes(r)),
       activo: true,
       creado_por: llamanteId,
     },

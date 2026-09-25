@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { createHashRouter } from "react-router-dom";
 import { Network } from "lucide-react";
+import { ErrorRuta } from "./components/ErrorRuta";
 import { AppShell } from "./components/layout/AppShell";
 import { Boton } from "./components/ui/boton";
 import { Esqueleto, Vacio } from "./components/ui/superficies";
@@ -15,6 +16,11 @@ const Agenda = lazy(() => import("./paginas/Agenda"));
 const Pacientes = lazy(() => import("./paginas/pacientes/Pacientes"));
 const PacienteDetalle = lazy(() => import("./paginas/pacientes/PacienteDetalle"));
 const Caja = lazy(() => import("./paginas/Caja"));
+const Compras = lazy(() => import("./paginas/Compras"));
+const Comisiones = lazy(() => import("./paginas/Comisiones"));
+const Nomina = lazy(() => import("./paginas/Nomina"));
+const Contabilidad = lazy(() => import("./paginas/Contabilidad"));
+const Reportes = lazy(() => import("./paginas/Reportes"));
 const Inventario = lazy(() => import("./paginas/Inventario"));
 const Personal = lazy(() => import("./paginas/Personal"));
 const Catalogos = lazy(() => import("./paginas/Catalogos"));
@@ -57,9 +63,11 @@ const s = (el: ReactNode) => <ConSistema>{el}</ConSistema>;
 export const enrutador = createHashRouter([
   {
     element: <Puerta />,
+    errorElement: <ErrorRuta />,
     children: [
       {
         element: <AppShell />,
+        errorElement: <ErrorRuta />,
         children: [
           { index: true, element: s(<Dashboard />) },
           { path: "recepcion", element: s(<Recepcion />) },
@@ -67,6 +75,11 @@ export const enrutador = createHashRouter([
           { path: "pacientes", element: s(<Pacientes />) },
           { path: "pacientes/:id", element: s(<PacienteDetalle />) },
           { path: "caja", element: s(<Caja />) },
+          { path: "compras", element: s(<Compras />) },
+          { path: "comisiones", element: s(<Comisiones />) },
+          { path: "nomina", element: s(<Nomina />) },
+          { path: "contabilidad", element: s(<Contabilidad />) },
+          { path: "reportes", element: s(<Reportes />) },
           { path: "inventario", element: s(<Inventario />) },
           { path: "personal", element: s(<Personal />) },
           { path: "catalogos", element: s(<Catalogos />) },

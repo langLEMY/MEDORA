@@ -35,7 +35,8 @@ union all select 'A ve sistemas', string_agg(nombre, ',') from public.sistemas;
 
 select public.abrir_turno_caja('aaaaaaaa-0000-0000-0000-000000000001', 1000);
 insert into r1 select 'A cobro', public.registrar_cobro('aaaaaaaa-0000-0000-0000-000000000001',
-  (select id from public.pacientes limit 1), '[{"descripcion":"Consulta","precio_unitario":1500,"cantidad":1}]'::jsonb, 'efectivo')::text;
+  (select id from public.pacientes limit 1), '[{"descripcion":"Consulta","precio_unitario":1500,"cantidad":1}]'::jsonb,
+  '[{"metodo":"efectivo","monto":1500}]'::jsonb)::text;
 
 select set_config('request.jwt.claims', '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}', true);
 insert into r1 select 'B ve pacientes', string_agg(nombres, ',') from public.pacientes;

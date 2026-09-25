@@ -27,7 +27,7 @@ export function mensajeError(e: unknown): string {
     case "23505":
       return "Ya existe un registro con esos datos.";
     case "23P01":
-      return "El médico ya tiene una cita en ese horario.";
+      return "El profesional ya tiene una cita en ese horario.";
     case "23503":
       return "El registro está relacionado con otros datos y no puede modificarse así.";
     case "P0001":
