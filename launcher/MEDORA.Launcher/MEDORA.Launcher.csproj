@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>MEDORA</AssemblyName>
+    <RootNamespace>MEDORA.Launcher</RootNamespace>
+    <ApplicationIcon>medora.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+    <!-- Fuente única de la versión: version.txt en la raíz. instalacion/MEDORA.iss y el
+         workflow de release leen el mismo archivo; el auto-update compara contra ella. -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\version.txt').Trim())</Version>
+    <Product>MEDORA</Product>
+    <Company>MEDORA</Company>
+    <Description>MEDORA · Sistema de gestión hospitalaria</Description>
+    <Copyright>Copyright © MEDORA</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
+    <PackageReference Include="System.Management" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MEDORA.Actualizacion\MEDORA.Actualizacion.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,144 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-tema="oscuro"], [data-tema="oscuro"] *));
+
+/*
+ * Tokens de MEDORA. --marca la fija cada sistema hospitalario (sistemas.color_marca)
+ * en tiempo de ejecución — ver lib/tema.ts. Todo lo demás se deriva con color-mix
+ * para que cualquier color de marca se vea bien en claro y oscuro.
+ */
+:root {
+  --marca: #0f766e;
+  --fondo: #f6f7f9;
+  --superficie: #ffffff;
+  --superficie-2: #f1f3f6;
+  --borde: #e4e7ec;
+  --borde-fuerte: #d0d5dd;
+  --texto: #101828;
+  --texto-2: #475467;
+  --texto-3: #98a2b3;
+  --peligro: #d92d20;
+  --exito: #079455;
+  --aviso: #dc6803;
+  --sombra-sm: 0 1px 2px rgb(16 24 40 / 0.05);
+  --sombra-md: 0 4px 8px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.04);
+  --sombra-lg: 0 20px 24px -4px rgb(16 24 40 / 0.08), 0 8px 8px -4px rgb(16 24 40 / 0.03);
+  --marca-suave: color-mix(in oklab, var(--marca) 10%, var(--superficie));
+  --marca-texto: color-mix(in oklab, var(--marca) 80%, var(--texto));
+  --anillo: color-mix(in oklab, var(--marca) 35%, transparent);
+}
+
+[data-tema="oscuro"] {
+  --fondo: #0b0d12;
+  --superficie: #12151c;
+  --superficie-2: #191d26;
+  --borde: #232834;
+  --borde-fuerte: #2f3542;
+  --texto: #f2f4f7;
+  --texto-2: #a4acb9;
+  --texto-3: #6b7383;
+  --sombra-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sombra-md: 0 4px 12px -2px rgb(0 0 0 / 0.5);
+  --sombra-lg: 0 24px 48px -12px rgb(0 0 0 / 0.6);
+  --marca-suave: color-mix(in oklab, var(--marca) 18%, var(--superficie));
+  --marca-texto: color-mix(in oklab, var(--marca) 55%, white);
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-marca: var(--marca);
+  --color-marca-suave: var(--marca-suave);
+  --color-marca-texto: var(--marca-texto);
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
+  --color-borde: var(--borde);
+  --color-borde-fuerte: var(--borde-fuerte);
+  --color-texto: var(--texto);
+  --color-texto-2: var(--texto-2);
+  --color-texto-3: var(--texto-3);
+  --color-peligro: var(--peligro);
+  --color-exito: var(--exito);
+  --color-aviso: var(--aviso);
+  --shadow-sm: var(--sombra-sm);
+  --shadow-md: var(--sombra-md);
+  --shadow-lg: var(--sombra-lg);
+  --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-entrada-salida: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--fondo);
+    color: var(--texto);
+    font-feature-settings: "cv11", "ss01", "tnum" 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--marca) 25%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--anillo);
+    outline-offset: 2px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--borde-fuerte) transparent;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Brillo de los skeletons: gradiente que se desplaza, sin animar layout. */
+@keyframes brillo {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+@utility esqueleto {
+  background: linear-gradient(
+    90deg,
+    var(--superficie-2) 0%,
+    color-mix(in oklab, var(--superficie-2) 40%, var(--superficie)) 50%,
+    var(--superficie-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: brillo 1.4s var(--ease-entrada-salida) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  /* Si hay un recibo abierto, se imprime solo el recibo (ver paginas/Caja.tsx). */
+  body:has(> .area-impresion) > *:not(.area-impresion) {
+    display: none !important;
+  }
+  .area-impresion {
+    display: block !important;
+  }
+}

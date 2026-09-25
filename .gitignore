@@ -1,0 +1,33 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+
+# Node / Vite
+node_modules/
+app/dist/
+*.local
+.env
+.env.*
+# No son secretos (URL + clave publicable de Supabase, protegidas por RLS): se
+# commitean para que el build funcione desde un clon limpio y en CI.
+!app/.env.production
+!app/.env.development
+
+# Salidas de build del instalador
+dist/
+instalacion/Output/
+
+# Supabase CLI local
+supabase/.temp/
+supabase/.branches/
+
+# Claude Code: configuración personal
+.claude/settings.local.json
+
+# Varios
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

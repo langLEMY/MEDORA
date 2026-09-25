@@ -1,0 +1,57 @@
+name: Release
+
+# Publicar una versión:
+#   1. Subir version.txt (p. ej. 1.1.0) y hacer commit en main.
+#   2. git tag v1.1.0 && git push origin v1.1.0
+# Este workflow compila el instalador, calcula su SHA256 y crea la GitHub Release.
+# Todas las PCs con MEDORA la detectan y se actualizan solas (ver launcher/).
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar que el tag coincide con version.txt
+        shell: pwsh
+        run: |
+          $version = (Get-Content version.txt -Raw).Trim()
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "El tag ${{ github.ref_name }} no coincide con version.txt ($version)."
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Instalar Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Tests del launcher
+        run: dotnet test launcher/MEDORA.Actualizacion.Tests -c Release
+
+      - name: Generar instalador
+        shell: pwsh
+        run: ./scripts/generar-instalador.ps1
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: MEDORA ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            instalacion/Output/*.exe
+            instalacion/Output/*.exe.sha256

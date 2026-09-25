@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- net9.0 puro, sin WinForms: lo usa MEDORA.Launcher y lo testea MEDORA.Actualizacion.Tests
+       en CI (Ubuntu). Si esta lógica viviera en el proyecto WinForms, sus tests necesitarían
+       el runtime de escritorio de Windows solo para cargar el ensamblado. -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

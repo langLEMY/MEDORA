@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Escanear dependencias vulnerables
+        run: npm audit --audit-level=high
+      - name: Tipos
+        run: npx tsc -b
+      - name: Tests
+        run: npm test -- --passWithNoTests
+      - name: Build
+        run: npx vite build
+
+  launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - run: dotnet restore MEDORA.sln
+      - name: Escanear paquetes NuGet vulnerables
+        shell: bash
+        run: |
+          salida=$(dotnet list MEDORA.sln package --vulnerable --include-transitive 2>&1)
+          echo "$salida"
+          if echo "$salida" | grep -qE "Critical|High"; then
+            echo "::error::Paquetes NuGet vulnerables de severidad Alta o Crítica."
+            exit 1
+          fi
+      - run: dotnet build MEDORA.sln -c Release --no-restore
+      - run: dotnet test MEDORA.sln -c Release --no-build
