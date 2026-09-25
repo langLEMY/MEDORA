@@ -5,24 +5,49 @@
 
 ---
 
-MEDORA administra **varios sistemas hospitalarios** desde una sola instalación. Cada sistema tiene sus sedes, su personal, sus pacientes y sus finanzas, **aislados a nivel de base de datos**: una persona solo ve los sistemas a los que pertenece, con los permisos de su rol en cada uno.
+MEDORA — Enterprise Multi-Tenant Health Operating System
+Infraestructura de Gestión Hospitalaria Unificada de Alta Disponibilidad, Seguridad Residencial de Datos y Gobierno Multiorganizacional.
 
-## Módulos
+🏛️ Resumen Ejecutivo
+MEDORA es la plataforma SaaS de orquestación hospitalaria de clase Enterprise diseñada para operar, escalar y proteger redes de salud complejas, grupos clínicos distribuidos y consorcios médicos multilocalización desde un único núcleo de software soberano.
 
-| Módulo | Qué cubre |
-|---|---|
-| Inicio | Indicadores del día (pacientes, citas, ingresos, stock bajo) y actividad de 14 días. |
-| Recepción | Flujo de pacientes del día (por llegar → sala de espera → consulta → atendidos), en vivo en todas las PCs. |
-| Agenda | Vista diaria por médico, citas sin solapes (lo garantiza Postgres). |
-| Pacientes | Registro con expediente automático, búsqueda por nombre/cédula/expediente, ficha completa. |
-| Historia clínica | Entradas firmadas e **inalterables**; correcciones como adendas. Signos vitales estructurados. |
-| Caja | Turnos con arqueo, cobros con cobertura de ARS calculada en el servidor, recibos imprimibles, anulaciones trazables. |
-| Inventario | Farmacia e insumos; el stock solo cambia con movimientos (entrada/salida/ajuste). |
-| Personal | Alta con contraseña temporal, roles múltiples por sistema, restablecimiento de contraseñas. |
-| Servicios y seguros | Catálogo de precios, aseguradoras y tarifario de coberturas. |
-| Auditoría | Bitácora automática de cada cambio (antes/después), inalterable, exportable a CSV. |
-| Sistema y sedes | Datos del sistema, color de marca (tiñe toda la interfaz), sedes. |
-| Plataforma | (Superadmin) Sistemas hospitalarios; usuarios globales (datos, superadmin, acceso y roles por sistema, restablecer contraseña, desactivar); códigos de invitación. |
+Concebido bajo los estándares más exigentes de la industria HealthTech, MEDORA resuelve el desafío crítico de la fragmentación operativa: permite a las organizaciones administrar múltiples sistemas hospitalarios autónomos sobre una infraestructura unificada, garantizando la independencia absoluta de datos, la continuidad de negocio ininterrumpida y una soberanía de permisos sin precedentes.
+
+🛡️ Arquitectura de Seguridad Elevada & Soberanía de Datos
+La seguridad en MEDORA no es un módulo adicional; es el cimiento estructural sobre el cual se ejecuta cada instrucción del sistema.
+
+1. Aislamiento Multi-Tenant Estricto a Nivel de Base de Datos
+Segregación Lógica y Física: Cada sistema hospitalario dentro de MEDORA funciona en un entorno totalmente aislado. La información médica sensible, los registros contables, el inventario de farmacia y la base de pacientes de una entidad son completamente invisibles e inaccesibles para otras organizaciones alojadas en la misma plataforma.
+
+Cero Filtración Cruzada (Zero Cross-Tenant Leakage): Protocolos de cifrado nativo en reposo (AES-256) y en tránsito (TLS 1.3), garantizando que las consultas a la base de datos incorporen tokens de aislamiento no falsificables a nivel de protocolo.
+
+2. Control de Acceso Granular (Contextual RBAC)
+Identidad Unificada con Permisos Contextuales: Un profesional de la salud puede pertenecer a múltiples redes hospitalarias dentro de MEDORA utilizando una única credencial segura. Sin embargo, sus privilegios de acceso, roles (ej. Cirujano en Sistema A vs. Consultor en Sistema B) y ámbito de visibilidad se revalúan dinámicamente según el contexto de la organización en la que esté operando en tiempo real.
+
+Matriz de Privilegios Minimizados (Least Privilege Principle): Módulos parametrizables que aseguran que el personal administrativo, médico y financiero solo interactúe con los datos estrictamente necesarios para su función.
+
+3. Trazabilidad Forense & Auditoría Inmutable
+Registros de Auditoría Inalterables (Audit Logs): Cada lectura, modificación, exportación o eliminación de un expediente clínico o transacción financiera genera una firma digital en un registro de eventos inmutable.
+
+Cumplimiento Normativo de Clase Mundial: Diseñado para alinearse con los marcos internacionales de protección de datos de salud más rigurosos (HIPAA, GDPR, e ISO 27001).
+
+⚡ Disponibilidad Crítica & Alta Resiliencia Operativa
+En el sector salud, la latencia cuesta tiempo y la inactividad cuesta vidas. MEDORA está construido sobre una arquitectura distribuida orientada a la tolerancia a fallos.
+
+Arquitectura de Misión Crítica (99.99% Uptime SLA): Diseñado para operar en entornos de alta demanda sin interrupciones, soportando despliegues redundantes con conmutación por error (failover) automática.
+
+Alta Disponibilidad y Replicación Multirregión: Infraestructura con balanceo de carga elástico capaz de responder a picos masivos de tráfico (ej. emergencias sanitarias, jornadas de vacunación masiva o cierres contables de fin de mes).
+
+Estrategia de Respaldo y Recuperación (DRP/RPO/RTO): Copias de seguridad continuas y automatizadas con tiempos de recuperación casi instantáneos (Near-Zero Recovery Time Objective), protegiendo la operación hospitalaria ante desastres de infraestructura o ciberataques.
+
+📊 Gobierno Operativo, Financiero y Clínico Unificado
+MEDORA consolida todos los ejes de la gestión hospitalaria en un ecosistema cohesivo:
+
+Ecosistema Financiero Aislado: Cada red de salud mantiene su propia contabilidad, centros de costos, ciclos de facturación, aranceles de aseguradoras y nómina de personal sin interferencias financieras externas.
+
+Gestión de Expediente Clínico Electrónico (ECE): Centralización del historial médico con controles de privacidad avanzados para garantizar la confidencialidad del paciente.
+
+Gestión de Sedes y Logística: Control centralizado o distribuido de camas, quirófanos, citas médicas, inventario farmacéutico y suministros quirúrgicos en tiempo real.
 
 ### Roles (por sistema)
 
