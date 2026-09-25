@@ -2,12 +2,15 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 // base "./": el launcher sirve dist/ desde una carpeta local mapeada a
 // https://app.medora.local (WebView2 SetVirtualHostNameToFolderMapping).
 export default defineConfig({
   base: "./",
+  // version.txt es la fuente única de la versión (launcher, instalador, release).
+  define: { __VERSION_APP__: JSON.stringify(readFileSync(path.resolve(__dirname, "../version.txt"), "utf8").trim()) },
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   build: {

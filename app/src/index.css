@@ -118,6 +118,19 @@
   animation: brillo 1.4s var(--ease-entrada-salida) infinite;
 }
 
+/* Cambio de tema: fundido único de la pantalla (ver lib/tema.ts#cambiarTemaAnimado). */
+.cambiando-tema,
+.cambiando-tema *,
+.cambiando-tema *::before,
+.cambiando-tema *::after {
+  transition: none !important;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

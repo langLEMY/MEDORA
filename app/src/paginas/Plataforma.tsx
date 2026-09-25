@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Network, Plus, Power } from "lucide-react";
+import { ArrowRight, Network, Plus, Power, Trash2, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ import { Entrada, Interruptor, Segmentado } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { datos, mensajeError, supabase } from "@/lib/supabase";
+import { datos, invocar, mensajeError, supabase } from "@/lib/supabase";
 import { cn, fecha, slugificar } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 import { COLORES_MARCA } from "./Configuracion";
@@ -64,6 +64,7 @@ function SistemasPlataforma() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [nuevo, setNuevo] = useState(false);
+  const [eliminar, setEliminar] = useState<{ id: string; nombre: string; personal: number } | null>(null);
 
   const q = useQuery({
     queryKey: ["plataforma-sistemas"],
@@ -140,12 +141,20 @@ function SistemasPlataforma() {
                   </div>
                 </div>
                 <div className="mt-5 flex items-center justify-between border-t border-borde pt-4">
-                  <button
-                    onClick={() => alternar.mutate({ id: s.id, activo: !s.activo })}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-texto"
-                  >
-                    <Power className="size-3.5" /> {s.activo ? "Desactivar" : "Reactivar"}
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => alternar.mutate({ id: s.id, activo: !s.activo })}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-texto"
+                    >
+                      <Power className="size-3.5" /> {s.activo ? "Desactivar" : "Reactivar"}
+                    </button>
+                    <button
+                      onClick={() => setEliminar({ id: s.id, nombre: s.nombre, personal: q.data!.personal(s.id) })}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-peligro"
+                    >
+                      <Trash2 className="size-3.5" /> Eliminar
+                    </button>
+                  </div>
                   <button
                     onClick={() => {
                       cambiarSistema(s.id);
@@ -162,6 +171,15 @@ function SistemasPlataforma() {
         </motion.div>
       )}
 
+      <EliminarSistema
+        sistema={eliminar}
+        onCerrar={() => setEliminar(null)}
+        onEliminado={async () => {
+          await qc.invalidateQueries({ queryKey: ["plataforma-sistemas"] });
+          await recargar();
+        }}
+      />
+
       <NuevoSistema
         abierto={nuevo}
         onCerrar={() => setNuevo(false)}
@@ -173,6 +191,89 @@ function SistemasPlataforma() {
         }}
       />
     </>
+  );
+}
+
+/**
+ * Borrado definitivo de un sistema hospitalario y todos sus datos. Se confirma
+ * escribiendo el nombre exacto (Postgres vuelve a verificarlo). Sugiere desactivar
+ * en su lugar: eso es reversible.
+ */
+function EliminarSistema({
+  sistema,
+  onCerrar,
+  onEliminado,
+}: {
+  sistema: { id: string; nombre: string; personal: number } | null;
+  onCerrar: () => void;
+  onEliminado: () => Promise<void>;
+}) {
+  const [confirmacion, setConfirmacion] = useState("");
+  const coincide = !!sistema && confirmacion.trim() === sistema.nombre;
+
+  const m = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("plataforma_eliminar_sistema", { p_sistema: sistema!.id, p_confirmacion: confirmacion.trim() });
+      if (error) throw error;
+      // Los anexos viven en Storage: se limpian aparte (si falla, el sistema ya no existe igual).
+      await invocar("plataforma-usuarios", { accion: "limpiar_archivos_sistema", sistema_id: sistema!.id }).catch(() => undefined);
+      return data as { nombre: string; registros: Record<string, number> };
+    },
+    onSuccess: async (r) => {
+      const total = Object.values(r.registros ?? {}).reduce((a, b) => a + b, 0);
+      toast.success(`${r.nombre} eliminado`, { description: `${total.toLocaleString("es-DO")} registros borrados.` });
+      cerrar();
+      await onEliminado();
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+
+  const cerrar = () => {
+    setConfirmacion("");
+    onCerrar();
+  };
+
+  return (
+    <Modal
+      abierto={!!sistema}
+      onCerrar={cerrar}
+      titulo="Eliminar sistema hospitalario"
+      pie={
+        <>
+          <Boton variante="secundario" onClick={cerrar}>
+            Cancelar
+          </Boton>
+          <Boton variante="peligro" icono={<Trash2 className="size-4" />} cargando={m.isPending} disabled={!coincide} onClick={() => m.mutate()}>
+            Eliminar definitivamente
+          </Boton>
+        </>
+      }
+    >
+      {sistema && (
+        <div className="space-y-4">
+          <div className="flex gap-3 rounded-xl border border-[color-mix(in_oklab,var(--peligro)_30%,transparent)] bg-[color-mix(in_oklab,var(--peligro)_8%,transparent)] p-3.5 text-sm">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-peligro" />
+            <div className="space-y-1.5">
+              <p className="font-medium text-texto">Esta acción no se puede deshacer.</p>
+              <p className="text-texto-2">
+                Se borran <b>todos</b> los datos de <b>{sistema.nombre}</b>: pacientes, historial clínico, agenda, cobros, inventario,
+                contabilidad, nómina, anexos y bitácora. Las {sistema.personal} cuenta(s) de su personal siguen existiendo, pero sin
+                acceso a este sistema.
+              </p>
+              <p className="text-texto-2">Si solo quieres cortar el acceso, usa <b>Desactivar</b>: es reversible.</p>
+            </div>
+          </div>
+          <Entrada
+            etiqueta={`Escribe «${sistema.nombre}» para confirmar`}
+            value={confirmacion}
+            onChange={(e) => setConfirmacion(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            autoFocus
+          />
+        </div>
+      )}
+    </Modal>
   );
 }
 

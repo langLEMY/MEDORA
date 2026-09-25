@@ -9,7 +9,7 @@ interface ModalProps {
   onCerrar: () => void;
   titulo: ReactNode;
   descripcion?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   pie?: ReactNode;
   ancho?: "sm" | "md" | "lg" | "xl";
   /** Panel lateral (desde la derecha) en vez de diálogo centrado. */
@@ -96,7 +96,7 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
                   <X className="size-4" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+              {children != null && children !== false && <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>}
               {pie && (
                 <div className="flex items-center justify-end gap-2 border-t border-borde bg-superficie-2/50 px-6 py-3.5">
                   {pie}

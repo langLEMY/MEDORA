@@ -4,6 +4,7 @@ import { MonitorDown, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { Soporte } from "@/components/Soporte";
 import { Boton } from "@/components/ui/boton";
 import { Entrada } from "@/components/ui/campos";
 import { Avatar, EncabezadoPagina, Insignia, Tarjeta } from "@/components/ui/superficies";
@@ -111,7 +112,7 @@ export default function Perfil() {
             </span>
             <div className="flex-1">
               <p className="text-sm font-semibold">MEDORA para Windows</p>
-              <p className="text-xs text-texto-3">{enEscritorio ? `Versión ${version ?? "…"}` : "Ejecutándose en modo navegador (desarrollo)"}</p>
+              <p className="text-xs text-texto-3">{enEscritorio ? `Versión ${version ?? __VERSION_APP__}` : `Versión ${__VERSION_APP__} · modo navegador`}</p>
             </div>
             {enEscritorio && (
               <Boton
@@ -127,6 +128,9 @@ export default function Perfil() {
             )}
           </Tarjeta>
         </div>
+      </div>
+      <div className="mt-4">
+        <Soporte />
       </div>
     </>
   );

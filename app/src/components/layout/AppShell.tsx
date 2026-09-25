@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { puede } from "@/lib/permisos";
-import { aplicarTema, temaGuardado, type Tema } from "@/lib/tema";
+import { cambiarTemaAnimado, temaGuardado, type Tema } from "@/lib/tema";
 import { cn } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 import { ItemMenu, Menu, SeparadorMenu } from "../ui/menu";
@@ -238,12 +238,13 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
   const [tema, setTema] = useState<Tema>(temaGuardado);
 
   const cambiarTema = (t: Tema) => {
+    if (t === tema) return;
     setTema(t);
-    aplicarTema(t);
+    cambiarTemaAnimado(t);
   };
 
   return (
-    <header className="no-imprimir relative isolate flex h-14 shrink-0 items-center gap-3 border-b border-borde px-6 lg:px-8">
+    <header className="no-imprimir relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-borde px-6 lg:px-8">
       {/* El desenfoque va en una capa hermana: si el header mismo tuviera backdrop-filter,
           WebView2 deja restos del menú (que desborda el header) al cerrarse. */}
       <div aria-hidden className="absolute inset-0 -z-10 bg-superficie/80 backdrop-blur-md" />
@@ -298,12 +299,20 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
                   key={t}
                   onClick={() => cambiarTema(t)}
                   title={t}
+                  aria-pressed={tema === t}
                   className={cn(
-                    "grid size-7 place-items-center rounded-md transition-colors",
-                    tema === t ? "bg-superficie-2 text-texto" : "text-texto-3 hover:text-texto",
+                    "relative grid size-7 place-items-center rounded-md transition-colors",
+                    tema === t ? "text-texto" : "text-texto-3 hover:text-texto",
                   )}
                 >
-                  <Icono className="size-4" />
+                  {tema === t && (
+                    <motion.span
+                      layoutId="indicador-tema"
+                      className="absolute inset-0 rounded-md bg-superficie-2"
+                      transition={{ type: "spring", duration: 0.3, bounce: 0.15 }}
+                    />
+                  )}
+                  <Icono className="relative size-4" />
                 </button>
               ))}
             </div>

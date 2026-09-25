@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { ShieldAlert } from "lucide-react";
+import { Construction, ShieldAlert } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { Boton } from "@/components/ui/boton";
 import { supabase } from "@/lib/supabase";
@@ -21,6 +21,19 @@ export function Puerta() {
       const { data, error } = await supabase.rpc("estado_instalacion");
       if (error) throw error;
       return data as { requiere_configuracion: boolean };
+    },
+  });
+
+  // Modo mantenimiento: Postgres ya corta el acceso a los datos; esto solo muestra
+  // una pantalla clara y vuelve sola a la app cuando se desactiva.
+  const plataforma = useQuery({
+    queryKey: ["estado-plataforma"],
+    enabled: !!sesion && !esSuperadmin,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("estado_plataforma");
+      if (error) throw error;
+      return data as unknown as { mantenimiento: boolean; mensaje: string | null };
     },
   });
 
@@ -49,6 +62,24 @@ export function Puerta() {
     };
   } else if (perfil?.debe_cambiar_password) {
     vista = { clave: "pwd", nodo: <CambiarPassword /> };
+  } else if (plataforma.data?.mantenimiento && !esSuperadmin) {
+    vista = {
+      clave: "mantenimiento",
+      nodo: (
+        <PantallaAcceso>
+          <div className="mb-4 grid size-11 place-items-center rounded-xl bg-superficie-2 text-aviso">
+            <Construction className="size-5" />
+          </div>
+          <h2 className="text-xl font-semibold tracking-[-0.02em]">MEDORA está en mantenimiento</h2>
+          <p className="mt-2 text-sm text-texto-2">
+            {plataforma.data.mensaje || "Estamos resolviendo una incidencia. El acceso vuelve en breve; esta pantalla se actualiza sola."}
+          </p>
+          <Boton variante="secundario" className="mt-6" onClick={() => void cerrarSesion()}>
+            Cerrar sesión
+          </Boton>
+        </PantallaAcceso>
+      ),
+    };
   } else if (sistemas.length === 0 && !esSuperadmin) {
     vista = {
       clave: "sin-acceso",

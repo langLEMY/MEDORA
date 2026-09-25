@@ -3,6 +3,8 @@
 //   { accion: "actualizar", usuario_id, nombre_completo?, email?, telefono?, es_superadmin? }
 //   { accion: "desactivar" | "activar", usuario_id }
 //   { accion: "restablecer_password", usuario_id }
+//   { accion: "ping" }  (diagnóstico: comprueba que las Edge Functions responden)
+//   { accion: "limpiar_archivos_sistema", sistema_id }  (tras eliminar un sistema)
 // Las membresías (sistemas y roles) se editan directo por PostgREST: el RLS ya
 // permite al superadmin gestionarlas.
 import { clienteServicio, cors, EMAIL_RE, error, json, passwordTemporal } from "../_shared/comun.ts";
@@ -106,6 +108,42 @@ Deno.serve(async (req) => {
       if (e) return error(e.message);
       await admin.from("perfiles").update({ debe_cambiar_password: true }).eq("id", usuarioId);
       return json({ ok: true, password_temporal: password });
+    }
+
+    case "ping":
+      return json({ ok: true, hora: new Date().toISOString() });
+
+    // Tras plataforma_eliminar_sistema(): borra los anexos del sistema en Storage.
+    // Solo actúa si el sistema ya no existe (no sirve para borrar archivos vigentes).
+    case "limpiar_archivos_sistema": {
+      const sistemaId = String(c.sistema_id ?? "");
+      if (!/^[0-9a-f-]{36}$/i.test(sistemaId)) return error("Sistema inválido.");
+      const { count } = await admin.from("sistemas").select("id", { count: "exact", head: true }).eq("id", sistemaId);
+      if ((count ?? 0) > 0) return error("El sistema todavía existe.");
+      const bucket = admin.storage.from("anexos-clinicos");
+      const rutas: string[] = [];
+      const recorrer = async (carpeta: string) => {
+        for (let desde = 0; ; desde += 1000) {
+          const { data, error: e } = await bucket.list(carpeta, { limit: 1000, offset: desde });
+          if (e) throw e;
+          for (const o of data ?? []) {
+            const ruta = `${carpeta}/${o.name}`;
+            if (o.id) rutas.push(ruta);
+            else await recorrer(ruta);
+          }
+          if ((data?.length ?? 0) < 1000) break;
+        }
+      };
+      try {
+        await recorrer(sistemaId);
+        for (let i = 0; i < rutas.length; i += 500) {
+          const { error: e } = await bucket.remove(rutas.slice(i, i + 500));
+          if (e) throw e;
+        }
+      } catch (e) {
+        return error(e instanceof Error ? e.message : "No se pudieron borrar los archivos.");
+      }
+      return json({ ok: true, archivos: rutas.length });
     }
 
     default:

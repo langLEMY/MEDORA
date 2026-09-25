@@ -5,13 +5,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { Toaster } from "sonner";
-import { aplicarTema, temaGuardado } from "./lib/tema";
+import { aplicarTema, cambiarTemaAnimado, temaGuardado } from "./lib/tema";
 import { enrutador } from "./rutas";
 import { SesionProvider } from "./sesion/SesionProvider";
 
 aplicarTema(temaGuardado());
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  if (temaGuardado() === "sistema") aplicarTema("sistema");
+  if (temaGuardado() === "sistema") cambiarTemaAnimado("sistema");
 });
 
 const qc = new QueryClient({

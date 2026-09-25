@@ -2898,6 +2898,17 @@ export type Database = {
           zona_horaria: string
         }[]
       }
+      diagnostico_plataforma: { Args: never; Returns: Json }
+      estado_plataforma: { Args: never; Returns: Json }
+      plataforma_cerrar_sesiones: { Args: never; Returns: number }
+      plataforma_eliminar_sistema: {
+        Args: { p_confirmacion: string; p_sistema: string }
+        Returns: Json
+      }
+      plataforma_mantenimiento: {
+        Args: { p_activo: boolean; p_mensaje: string }
+        Returns: undefined
+      }
       plataforma_usuarios: {
         Args: never
         Returns: {
