@@ -21,7 +21,7 @@ const REPORTES: { id: Reporte; titulo: string; descripcion: string; icono: Lucid
   { id: "estado", titulo: "Estado de cuenta", descripcion: "Cargos, abonos y saldo de un paciente o aseguradora.", icono: FileText },
   { id: "ventas", titulo: "Ventas por período", descripcion: "Facturación por categoría de servicio y por método de pago.", icono: BarChart3 },
   { id: "antiguedad", titulo: "Antigüedad de cuentas por cobrar", descripcion: "Saldos pendientes de pacientes y ARS por tramos de días.", icono: CalendarClock },
-  { id: "compras", titulo: "Compras por proveedor", descripcion: "Compras del período con ITBIS, agrupadas por proveedor.", icono: ShoppingCart },
+  { id: "compras", titulo: "Gastos por proveedor", descripcion: "Gastos del período con ITBIS, agrupados por proveedor.", icono: ShoppingCart },
 ];
 
 export default function Reportes() {
@@ -302,9 +302,9 @@ function ComprasReporte({ abierto, onCerrar }: { abierto: boolean; onCerrar: () 
   const validas = (q.data ?? []).filter((c) => !c.anulacion?.length);
   const $ = (v: number) => moneda(v);
   return (
-    <Documento abierto={abierto} onCerrar={onCerrar} titulo="Compras por período" nombreArchivo={`Compras ${r.desde} a ${r.hasta}`}>
+    <Documento abierto={abierto} onCerrar={onCerrar} titulo="Gastos por período" nombreArchivo={`Gastos ${r.desde} a ${r.hasta}`}>
       <Rango {...r} />
-      <EncabezadoDocumento titulo="Compras" subtitulo={`${fecha(r.desde + "T00:00:00")} – ${fecha(r.hasta + "T00:00:00")}`} />
+      <EncabezadoDocumento titulo="Gastos" subtitulo={`${fecha(r.desde + "T00:00:00")} – ${fecha(r.hasta + "T00:00:00")}`} />
       {q.isLoading ? (
         <Esqueleto className="h-40" />
       ) : (

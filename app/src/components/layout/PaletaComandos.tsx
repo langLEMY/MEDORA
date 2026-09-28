@@ -90,7 +90,7 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
     { id: "cita", etiqueta: "Programar cita", icono: <CalendarPlus />, claves: "agenda cita", ver: conSistema && puedeEscribir.citas(roles), hacer: () => ir("/agenda?accion=nueva") },
     { id: "anticipo", etiqueta: "Nuevo anticipo", icono: <HandCoins />, claves: "deposito adelanto caja", ver: conSistema && puedeEscribir.caja(roles), hacer: () => ir("/caja?accion=anticipo") },
     { id: "movimiento", etiqueta: "Ingreso o egreso de caja", icono: <ArrowLeftRight />, claves: "movimiento gasto efectivo caja", ver: conSistema && puedeEscribir.caja(roles), hacer: () => ir("/caja?accion=movimiento") },
-    { id: "compra", etiqueta: "Registrar gasto o compra", icono: <ShoppingCart />, claves: "compra gasto proveedor factura luz", ver: conSistema && puedeEscribir.compras(roles), hacer: () => ir("/compras?accion=nueva") },
+    { id: "compra", etiqueta: "Registrar gasto", icono: <ShoppingCart />, claves: "compra gasto proveedor factura luz", ver: conSistema && puedeEscribir.compras(roles), hacer: () => ir("/gastos?accion=nueva") },
     { id: "pantalla", etiqueta: "Abrir pantalla de la sala", icono: <Tv />, claves: "tv llamados turnos", ver: conSistema && !propio && puede(roles, "recepcion", esSuperadmin, permisos), hacer: () => ir("/pantalla") },
     {
       id: "tema",

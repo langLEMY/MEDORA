@@ -21,6 +21,8 @@ type Vista = "nominas" | "empleados" | "parametros";
 
 export default function Nomina() {
   const [vista, setVista] = useState<Vista>("nominas");
+  // Las tasas de TSS y la escala de ISR las mantiene el soporte de MEDORA (RLS: parametros_update).
+  const { esSuperadmin } = useSistema();
   return (
     <>
       <EncabezadoPagina titulo="Nómina" descripcion="Retenciones de ley (AFP, SFS, ISR), aportes patronales y contabilización con vista previa." />
@@ -32,7 +34,7 @@ export default function Nomina() {
           opciones={[
             { valor: "nominas", etiqueta: "Nóminas" },
             { valor: "empleados", etiqueta: "Empleados" },
-            { valor: "parametros", etiqueta: "Parámetros TSS / ISR" },
+            ...(esSuperadmin ? [{ valor: "parametros" as const, etiqueta: "Parámetros TSS / ISR" }] : []),
           ]}
         />
       </div>
@@ -40,7 +42,7 @@ export default function Nomina() {
         <motion.div key={vista} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
           {vista === "nominas" && <Nominas />}
           {vista === "empleados" && <Empleados />}
-          {vista === "parametros" && <Parametros />}
+          {vista === "parametros" && esSuperadmin && <Parametros />}
         </motion.div>
       </AnimatePresence>
     </>

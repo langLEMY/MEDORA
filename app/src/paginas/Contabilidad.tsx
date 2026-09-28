@@ -25,7 +25,7 @@ export default function Contabilidad() {
     <>
       <EncabezadoPagina
         titulo="Contabilidad"
-        descripcion="Cobros, anticipos, abonos, compras, comisiones y nómina generan sus asientos automáticamente."
+        descripcion="Cobros, anticipos, abonos, gastos, comisiones y nómina generan sus asientos automáticamente."
       />
       <div className="mb-4">
         <Segmentado
@@ -60,7 +60,7 @@ const ORIGENES: Record<string, string> = {
   anulacion: "Anulación",
   anticipo: "Anticipo",
   abono: "Abono",
-  compra: "Compra",
+  compra: "Gasto",
   nomina: "Nómina",
   comision: "Comisiones",
   reverso: "Reverso",
@@ -613,10 +613,10 @@ const CONCEPTOS: { clave: string; etiqueta: string; grupo: string }[] = [
   { clave: "anticipos_pacientes", etiqueta: "Anticipos de pacientes", grupo: "Cobros y pagos" },
   { clave: "descuentos", etiqueta: "Descuentos concedidos", grupo: "Cobros y pagos" },
   { clave: "ingreso_fondo_interno", etiqueta: "Fondo interno (lo paga la ARS)", grupo: "Cobros y pagos" },
-  { clave: "inventario", etiqueta: "Inventario", grupo: "Compras" },
-  { clave: "itbis_compras", etiqueta: "ITBIS pagado en compras", grupo: "Compras" },
-  { clave: "cxp", etiqueta: "Cuentas por pagar a proveedores", grupo: "Compras" },
-  { clave: "gasto_general", etiqueta: "Gasto general (predeterminado)", grupo: "Compras" },
+  { clave: "inventario", etiqueta: "Inventario", grupo: "Gastos" },
+  { clave: "itbis_compras", etiqueta: "ITBIS pagado en gastos", grupo: "Gastos" },
+  { clave: "cxp", etiqueta: "Cuentas por pagar a proveedores", grupo: "Gastos" },
+  { clave: "gasto_general", etiqueta: "Gasto general (predeterminado)", grupo: "Gastos" },
   { clave: "gasto_comisiones", etiqueta: "Gasto de comisiones", grupo: "Comisiones" },
   { clave: "comisiones_por_pagar", etiqueta: "Comisiones por pagar", grupo: "Comisiones" },
   { clave: "gasto_sueldos", etiqueta: "Sueldos y salarios", grupo: "Nómina" },

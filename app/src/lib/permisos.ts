@@ -96,7 +96,7 @@ export const ETIQUETA_MODULO: Record<ModuloAjustable, string> = {
   agenda: "Agenda",
   caja: "Caja y cobros",
   inventario: "Inventario",
-  compras: "Compras",
+  compras: "Gastos",
   comisiones: "Comisiones",
   nomina: "Nómina",
   contabilidad: "Contabilidad y finanzas",

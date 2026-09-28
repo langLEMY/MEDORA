@@ -63,13 +63,13 @@ export default function Compras() {
   return (
     <>
       <EncabezadoPagina
-        titulo="Compras"
-        descripcion="Gastos y servicios a proveedores, con su asiento contable."
+        titulo="Gastos"
+        descripcion="Lo que paga el hospital (servicios, insumos, luz, alquiler…) con su proveedor y su asiento contable."
         acciones={
           puedeEscribir.compras(roles) &&
           vista === "compras" && (
             <Boton icono={<Plus className="size-4" />} onClick={() => setNueva(true)}>
-              Nueva compra
+              Nuevo gasto
             </Boton>
           )
         }
@@ -80,7 +80,7 @@ export default function Compras() {
           valor={vista}
           onChange={setVista}
           opciones={[
-            { valor: "compras", etiqueta: "Compras" },
+            { valor: "compras", etiqueta: "Gastos" },
             { valor: "proveedores", etiqueta: "Proveedores" },
           ]}
         />
@@ -121,7 +121,7 @@ function ListaCompras() {
   const m = useMutation({
     mutationFn: async () => datos(await supabase.rpc("anular_compra", { p_compra: anular!.id, p_motivo: motivo })),
     onSuccess: () => {
-      toast.success("Compra anulada: se revirtieron inventario, pago y asiento.");
+      toast.success("Gasto anulado: se revirtieron inventario, pago y asiento.");
       setAnular(null);
       setMotivo("");
       void qc.invalidateQueries({ queryKey: ["compras", sistemaId] });
@@ -133,12 +133,12 @@ function ListaCompras() {
   return (
     <Tarjeta className="overflow-hidden">
       <div className="flex justify-end border-b border-borde p-3">
-        <AccionesDatos titulo="Compras" columnas={COLUMNAS_COMPRAS} obtener={async () => q.data ?? []} />
+        <AccionesDatos titulo="Gastos" columnas={COLUMNAS_COMPRAS} obtener={async () => q.data ?? []} />
       </div>
       {q.isLoading ? (
         <FilasEsqueleto />
       ) : (q.data?.length ?? 0) === 0 ? (
-        <Vacio icono={<ShoppingCart />} titulo="Sin compras registradas" />
+        <Vacio icono={<ShoppingCart />} titulo="Sin gastos registrados" />
       ) : (
         <motion.ul variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
           {q.data!.map((c) => {
@@ -148,7 +148,7 @@ function ListaCompras() {
                 <span className="w-28 font-medium tabular">{c.numero}</span>
                 <span className="w-28 whitespace-nowrap text-texto-2">{fecha(c.fecha + "T00:00:00")}</span>
                 <span className={cn("min-w-0 flex-1 truncate", anulada && "text-texto-3 line-through")}>
-                  {c.proveedor?.nombre ?? "Compra en efectivo sin proveedor"}
+                  {c.proveedor?.nombre ?? "Gasto en efectivo sin proveedor"}
                   {c.ncf_proveedor && <span className="ml-2 font-mono text-xs text-texto-3">{c.ncf_proveedor}</span>}
                 </span>
                 <Insignia tono={c.forma_pago === "credito" ? "aviso" : "neutro"}>{FORMAS[c.forma_pago]}</Insignia>
@@ -170,11 +170,11 @@ function ListaCompras() {
         </motion.ul>
       )}
 
-      <Documento abierto={!!ver} onCerrar={() => setVer(null)} titulo={`Compra ${ver?.numero ?? ""}`} nombreArchivo={`Compra ${ver?.numero ?? ""}`}>
+      <Documento abierto={!!ver} onCerrar={() => setVer(null)} titulo={`Gasto ${ver?.numero ?? ""}`} nombreArchivo={`Gasto ${ver?.numero ?? ""}`}>
         {ver && (
           <>
             <EncabezadoDocumento
-              titulo={`Compra ${ver.numero}`}
+              titulo={`Gasto ${ver.numero}`}
               subtitulo={
                 <>
                   {fecha(ver.fecha + "T00:00:00")} · {FORMAS[ver.forma_pago]}
@@ -213,7 +213,7 @@ function ListaCompras() {
               Volver
             </Boton>
             <Boton variante="peligro" cargando={m.isPending} disabled={motivo.trim().length < 5} onClick={() => m.mutate()}>
-              Anular compra
+              Anular gasto
             </Boton>
           </>
         }
@@ -303,7 +303,7 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
         }),
       ) as { numero: string },
     onSuccess: (r) => {
-      toast.success(`Compra ${r.numero} registrada`);
+      toast.success(`Gasto ${r.numero} registrado`);
       void qc.invalidateQueries({ queryKey: ["compras", sistemaId] });
       void qc.invalidateQueries({ queryKey: claves.inventario(sistemaId) });
       onCerrar();
@@ -316,7 +316,7 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
       lateral
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo="Nueva compra"
+      titulo="Nuevo gasto"
       descripcion="Gastos y servicios: luz, agua, suministros, mantenimiento, honorarios…"
       pie={
         <>
@@ -328,7 +328,7 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
             Cancelar
           </Boton>
           <Boton cargando={m.isPending} disabled={!lineasValidas || (proveedorObligatorio && !proveedor)} onClick={() => m.mutate()}>
-            Registrar compra
+            Registrar gasto
           </Boton>
         </>
       }
