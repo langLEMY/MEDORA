@@ -13,6 +13,7 @@ export type Modulo =
   | "caja"
   | "compras"
   | "comisiones"
+  | "estadisticas"
   | "nomina"
   | "contabilidad"
   | "reportes"
@@ -34,6 +35,8 @@ const MATRIZ: Record<Modulo, Rol[]> = {
   caja: ["admin", "caja", "auditor", "gerencia", "contabilidad"],
   compras: ["admin", "farmacia", "contabilidad", "gerencia", "auditor"],
   comisiones: ["admin", "contabilidad", "gerencia", "auditor"],
+  // Cada profesional ve sus números; dirección y finanzas, los de cualquiera (estadisticas_medico).
+  estadisticas: ["admin", "gerencia", "contabilidad", "auditor", "medico", "psicologia", "nutricion", "terapia"],
   nomina: ["admin", "contabilidad", "gerencia", "auditor"],
   contabilidad: ["admin", "contabilidad", "gerencia", "auditor"],
   reportes: ["admin", "contabilidad", "gerencia", "auditor", "caja"],

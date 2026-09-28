@@ -22,6 +22,7 @@ const Contabilidad = lazy(() => import("./paginas/Contabilidad"));
 const PaginaMedicos = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaMedicos })));
 const PaginaPrecios = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaPrecios })));
 const PaginaAdministracion = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaAdministracion })));
+const Estadisticas = lazy(() => import("./paginas/Estadisticas"));
 const Reportes = lazy(() => import("./paginas/Reportes"));
 const Inventario = lazy(() => import("./paginas/Inventario"));
 const Personal = lazy(() => import("./paginas/Personal"));
@@ -81,6 +82,7 @@ export const enrutador = createHashRouter([
         children: [
           { index: true, element: s(<Dashboard />) },
           { path: "recepcion", element: s(<Recepcion />) },
+          { path: "estadisticas", element: s(<Estadisticas />) },
           { path: "medicos", element: s(<PaginaMedicos />) },
           { path: "agenda", element: s(<Agenda />) },
           { path: "pacientes", element: s(<Pacientes />) },

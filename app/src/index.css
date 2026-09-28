@@ -155,8 +155,60 @@ html[data-texto="muy-grande"] {
 html[data-densidad="compacta"] {
   --spacing: 0.215rem;
 }
+/* Estilos de color (Personalización). Solo cambian superficies y textos; el color
+   de marca de cada hospital se mantiene. Van antes del contraste alto para que
+   este siempre pueda reforzarlos. */
+html[data-tema="claro"][data-claro="marfil"] {
+  --fondo: #f6f4ef;
+  --superficie: #fffdf9;
+  --superficie-2: #f1ede5;
+  --borde: #e5dfd3;
+  --borde-fuerte: #d2c9b8;
+  --texto: #1c1917;
+  --texto-2: #57534e;
+  --texto-3: #a39c93;
+  --sombra-sm: 0 1px 2px rgb(41 32 20 / 0.05);
+  --sombra-md: 0 4px 8px -2px rgb(41 32 20 / 0.08), 0 2px 4px -2px rgb(41 32 20 / 0.04);
+  --sombra-lg: 0 20px 24px -4px rgb(41 32 20 / 0.09), 0 8px 8px -4px rgb(41 32 20 / 0.03);
+}
+html[data-tema="claro"][data-claro="niebla"] {
+  --fondo: #eef2f7;
+  --superficie: #fbfcfe;
+  --superficie-2: #e8edf4;
+  --borde: #d9e0ea;
+  --borde-fuerte: #c2ccda;
+  --texto: #0f172a;
+  --texto-2: #475569;
+  --texto-3: #94a3b8;
+  --sombra-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --sombra-md: 0 4px 8px -2px rgb(15 23 42 / 0.09), 0 2px 4px -2px rgb(15 23 42 / 0.05);
+  --sombra-lg: 0 20px 24px -4px rgb(15 23 42 / 0.1), 0 8px 8px -4px rgb(15 23 42 / 0.04);
+}
+html[data-tema="oscuro"][data-oscuro="medianoche"] {
+  --fondo: #080d1a;
+  --superficie: #0e1628;
+  --superficie-2: #152036;
+  --borde: #1e2a44;
+  --borde-fuerte: #2a3958;
+  --texto: #eef2f8;
+  --texto-2: #a3b0c5;
+  --texto-3: #647189;
+}
+html[data-tema="oscuro"][data-oscuro="carbon"] {
+  --fondo: #000000;
+  --superficie: #0c0c0d;
+  --superficie-2: #151517;
+  --borde: #212124;
+  --borde-fuerte: #2e2e33;
+  --texto: #f5f5f5;
+  --texto-2: #a6a6a6;
+  --texto-3: #6e6e6e;
+  --sombra-md: 0 4px 12px -2px rgb(0 0 0 / 0.7);
+  --sombra-lg: 0 24px 48px -12px rgb(0 0 0 / 0.8);
+}
+
 /* Contraste alto: textos secundarios y bordes más marcados. */
-html[data-contraste="alto"] {
+html[data-contraste="alto"]:not([data-tema="oscuro"]) {
   --texto-2: #1d2939;
   --texto-3: #475467;
   --borde: #b9c0cc;

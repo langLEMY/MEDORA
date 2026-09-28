@@ -15,6 +15,9 @@ export interface Preferencias {
   densidad: "comoda" | "compacta";
   contraste: "normal" | "alto";
   movimiento: "completo" | "reducido";
+  /** Estilo de color del modo claro y del oscuro (index.css: data-claro / data-oscuro). */
+  claro: "nieve" | "marfil" | "niebla";
+  oscuro: "grafito" | "medianoche" | "carbon";
   /** Ruta que se abre al entrar: "auto" = según el rol (navegacion.ts#inicioPorRol), "/" = Inicio. */
   inicio: string;
 }
@@ -25,6 +28,8 @@ export const PREFERENCIAS_DEFECTO: Preferencias = {
   densidad: "comoda",
   contraste: "normal",
   movimiento: "completo",
+  claro: "nieve",
+  oscuro: "grafito",
   inicio: "auto",
 };
 
@@ -51,6 +56,8 @@ function normalizar(p: Partial<Preferencias>): Preferencias {
     densidad: de("densidad", ["comoda", "compacta"]),
     contraste: de("contraste", ["normal", "alto"]),
     movimiento: de("movimiento", ["completo", "reducido"]),
+    claro: de("claro", ["nieve", "marfil", "niebla"]),
+    oscuro: de("oscuro", ["grafito", "medianoche", "carbon"]),
     inicio: typeof p.inicio === "string" && (p.inicio === "auto" || p.inicio.startsWith("/")) ? p.inicio : "auto",
   };
 }
@@ -64,6 +71,8 @@ function aplicarAtributos(p: Preferencias) {
   d.densidad = p.densidad;
   d.contraste = p.contraste;
   d.movimiento = p.movimiento;
+  d.claro = p.claro;
+  d.oscuro = p.oscuro;
 }
 
 function publicar(p: Preferencias) {
@@ -74,6 +83,15 @@ function publicar(p: Preferencias) {
     /* almacenamiento no disponible */
   }
   oyentes.forEach((o) => o());
+}
+
+function conFundido(cambio: () => void) {
+  const raiz = document.documentElement;
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+  const reducir = matchMedia("(prefers-reduced-motion: reduce)").matches || raiz.dataset.movimiento === "reducido";
+  if (!doc.startViewTransition || reducir) return cambio();
+  raiz.classList.add("cambiando-tema");
+  doc.startViewTransition(cambio).finished.finally(() => requestAnimationFrame(() => raiz.classList.remove("cambiando-tema")));
 }
 
 /** Al arrancar (main.tsx), antes de renderizar. */
@@ -89,8 +107,15 @@ export function aplicarPreferenciasIniciales() {
  */
 export function cambiarPreferencias(cambios: Partial<Preferencias>, usuarioId?: string) {
   const nuevas = normalizar({ ...actuales, ...cambios });
+  const cambiaEstilo = (cambios.claro && cambios.claro !== actuales.claro) || (cambios.oscuro && cambios.oscuro !== actuales.oscuro);
   if (cambios.tema && cambios.tema !== actuales.tema) {
     cambiarTemaAnimado(nuevas.tema, () => flushSync(() => publicar(nuevas)));
+  } else if (cambiaEstilo) {
+    // Mismo fundido que el cambio de tema (View Transitions), sin colores a destiempo.
+    conFundido(() => {
+      aplicarAtributos(nuevas);
+      flushSync(() => publicar(nuevas));
+    });
   } else {
     publicar(nuevas);
   }

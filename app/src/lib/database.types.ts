@@ -3257,6 +3257,26 @@ export type Database = {
       }
       pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
       plataforma_cerrar_sesiones: { Args: never; Returns: number }
+      asignar_medico_cobro: {
+        Args: { p_cobro: string; p_medico: string }
+        Returns: string
+      }
+      cobros_sin_medico: {
+        Args: { p_desde: string; p_hasta: string; p_sistema: string }
+        Returns: {
+          cobro_id: string
+          creado_en: string
+          especialidad: string
+          numero: string
+          paciente: string
+          total: number
+          turno: string
+        }[]
+      }
+      estadisticas_medico: {
+        Args: { p_desde: string; p_hasta: string; p_medico: string; p_sistema: string }
+        Returns: Json
+      }
       plataforma_crear_sistema_pruebas: {
         Args: { p_miembros?: string[]; p_origen: string }
         Returns: string

@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   CalendarDays,
+  ChartColumn,
   ClipboardList,
   FileBarChart,
   LayoutDashboard,
@@ -49,6 +50,7 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/recepcion", etiqueta: "Recepción", etiquetaPropia: "Mi consulta", icono: ClipboardList, modulo: "recepcion", grupo: "Operación" },
   { ruta: "/agenda", etiqueta: "Agenda", etiquetaPropia: "Mi agenda", icono: CalendarDays, modulo: "agenda", grupo: "Operación" },
   { ruta: "/pacientes", etiqueta: "Pacientes", etiquetaPropia: "Mis pacientes", icono: Users, modulo: "pacientes", grupo: "Operación" },
+  { ruta: "/estadisticas", etiqueta: "Estadísticas", etiquetaPropia: "Mis estadísticas", icono: ChartColumn, modulo: "estadisticas", grupo: "Operación" },
   { ruta: "/medicos", etiqueta: "Médicos", icono: Stethoscope, modulos: ["recepcion", "comisiones"], ocultoPropio: true, grupo: "Operación" },
   { ruta: "/inventario", etiqueta: "Inventario", icono: Pill, modulo: "inventario", grupo: "Operación" },
   { ruta: "/caja", etiqueta: "Caja y facturación", icono: Wallet, modulo: "caja", grupo: "Finanzas" },
