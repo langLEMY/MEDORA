@@ -50,6 +50,7 @@ import { useTiempoReal } from "@/lib/tiempoReal";
 import { cn, hora } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { useAccionUrl } from "@/lib/accionUrl";
+import { FranjaLlamados, MINUTOS_SIN_PRESENTARSE } from "@/components/LlamadosEnVivo";
 
 const COLUMNAS: { clave: string; titulo: string; estados: EstadoCita[]; icono: typeof Clock }[] = [
   { clave: "llegar", titulo: "Por llegar", estados: ["programada", "confirmada"], icono: Clock },
@@ -139,6 +140,8 @@ function TableroRecepcion() {
           </>
         }
       />
+
+      <FranjaLlamados />
 
       <LayoutGroup>
         <div className="grid gap-3 lg:grid-cols-5">
@@ -231,6 +234,9 @@ function TarjetaCita({
   onIdentificar: () => void;
 }) {
   const esperando = c.estado === "en_espera" ? minutosDesde(c.turno_en, ahora) : c.estado === "por_cobrar" ? minutosDesde(c.llegada_en, ahora) : null;
+  // Llamado por el médico y aún sin entrar: cronómetro; pasado el límite, "no aparece".
+  const llamadoHace = c.estado === "llamado" ? minutosDesde(c.llamado_en, ahora) : null;
+  const noAparece = llamadoHace !== null && llamadoHace >= MINUTOS_SIN_PRESENTARSE;
   const activa = !["completada", "cancelada", "no_asistio"].includes(c.estado);
 
   return (
@@ -242,7 +248,13 @@ function TarjetaCita({
       exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.12 } }}
       transition={{ type: "spring", duration: 0.45, bounce: 0.12 }}
     >
-      <Tarjeta className={cn("p-3.5", c.prioridad && activa && "ring-1 ring-aviso/60")}>
+      <Tarjeta
+        className={cn(
+          "p-3.5",
+          c.prioridad && activa && "ring-1 ring-aviso/60",
+          llamadoHace !== null && (noAparece ? "ring-2 ring-peligro/70" : "ring-2 ring-aviso/70"),
+        )}
+      >
         <div className="flex items-start gap-2.5">
           {c.turno ? (
             <span className="grid h-8 min-w-12 place-items-center rounded-lg bg-marca-suave px-1.5 font-mono text-[0.8125rem] font-bold text-marca-texto">{c.turno}</span>
@@ -309,7 +321,12 @@ function TarjetaCita({
           <p className="mt-2 line-clamp-2 text-xs text-texto-2">{c.servicio?.nombre ?? c.motivo}</p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {esperando !== null ? (
+          {llamadoHace !== null ? (
+            <Insignia tono={noAparece ? "peligro" : "aviso"} punto>
+              {noAparece ? `No aparece · ${llamadoHace} min` : `Llamado ${llamadoHace < 1 ? "ahora" : `hace ${llamadoHace} min`}`}
+              {c.llamado_veces > 1 ? ` ×${c.llamado_veces}` : ""}
+            </Insignia>
+          ) : esperando !== null ? (
             <Insignia tono={esperando > 30 ? "peligro" : esperando > 15 ? "aviso" : "neutro"} punto>
               {esperando} min
             </Insignia>

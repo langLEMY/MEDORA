@@ -52,6 +52,7 @@ import { datos, mensajeError, supabase, type Fila, type MetodoPago } from "@/lib
 import { cn, fecha, fechaHora, hora, isoDia, moneda } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
+import { FranjaLlamados } from "@/components/LlamadosEnVivo";
 
 const METODOS_DINERO: MetodoPago[] = ["efectivo", "tarjeta", "transferencia", "cheque", "otro"];
 
@@ -240,6 +241,8 @@ export default function Caja() {
           </>
         }
       />
+
+      <FranjaLlamados />
 
       {operar && (
         <Tarjeta className="mb-4 overflow-hidden">

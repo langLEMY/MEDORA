@@ -12,7 +12,7 @@ import { OpcionesMedicos } from "@/components/OpcionesMedicos";
 import { puedeEscribir } from "@/lib/permisos";
 import type { EstadoCita } from "@/lib/supabase";
 import { useTiempoReal } from "@/lib/tiempoReal";
-import { cn, hora, isoDia } from "@/lib/utils";
+import { cn, hora, horaCorta, isoDia } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { useAccionUrl } from "@/lib/accionUrl";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
@@ -169,7 +169,7 @@ export default function Agenda() {
                 <div className="sticky top-0 z-10 h-12 border-b border-borde bg-superficie" />
                 {Array.from({ length: HORA_FIN - HORA_INICIO }, (_, i) => (
                   <div key={i} className="relative text-right text-[0.6875rem] text-texto-3 tabular" style={{ height: ALTO_HORA }}>
-                    {i > 0 && <span className="absolute -top-2 right-2">{`${HORA_INICIO + i}:00`}</span>}
+                    {i > 0 && <span className="absolute -top-2 right-2">{horaCorta(HORA_INICIO + i)}</span>}
                   </div>
                 ))}
               </div>

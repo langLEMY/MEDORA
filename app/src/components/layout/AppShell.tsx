@@ -26,6 +26,7 @@ import { Isotipo } from "./Logo";
 import { NAVEGACION, inicioPorRol, puedeVer } from "./navegacion";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
+import { AvisoLlamados } from "@/components/LlamadosEnVivo";
 
 const CLAVE_COLAPSADO = "medora.nav-colapsada";
 
@@ -185,6 +186,7 @@ export function AppShell() {
 
       <PaletaComandos abierta={paleta} onCerrar={() => setPaleta(false)} />
       <AvisoActualizacion />
+      <AvisoLlamados />
     </div>
   );
 }

@@ -55,15 +55,19 @@ const fmtFechaHora = new Intl.DateTimeFormat("es-DO", {
   day: "2-digit",
   month: "short",
   year: "numeric",
-  hour: "2-digit",
+  hour: "numeric",
   minute: "2-digit",
-  hourCycle: "h23",
+  hourCycle: "h12",
 });
-const fmtHora = new Intl.DateTimeFormat("es-DO", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+// Formato de 12 horas, como se usa en República Dominicana: "1:30 p. m.".
+const fmtHora = new Intl.DateTimeFormat("es-DO", { hour: "numeric", minute: "2-digit", hourCycle: "h12" });
 
 export const fecha = (v?: string | Date | null) => (v ? fmtFecha.format(new Date(v)) : "—");
 export const fechaHora = (v?: string | Date | null) => (v ? fmtFechaHora.format(new Date(v)) : "—");
 export const hora = (v?: string | Date | null) => (v ? fmtHora.format(new Date(v)) : "—");
+
+/** Etiqueta corta de una hora en punto para ejes y cuadrículas: 13 → "1 p. m.". */
+export const horaCorta = (h: number) => `${h % 12 || 12} ${h < 12 ? "a. m." : "p. m."}`;
 
 /** Fecha "YYYY-MM-DD" en hora local (no UTC) para inputs y filtros. */
 export function isoDia(d = new Date()) {
