@@ -1,9 +1,8 @@
 import { Monitor, Moon, Palette, RotateCcw, Sun } from "lucide-react";
-import { NAVEGACION } from "@/components/layout/navegacion";
+import { NAVEGACION, puedeVer } from "@/components/layout/navegacion";
 import { Boton } from "@/components/ui/boton";
 import { Interruptor, Segmentado, Selector } from "@/components/ui/campos";
 import { Tarjeta } from "@/components/ui/superficies";
-import { puede } from "@/lib/permisos";
 import { cambiarPreferencias, PREFERENCIAS_DEFECTO, usePreferencias, type Preferencias } from "@/lib/preferencias";
 import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
 
@@ -13,7 +12,7 @@ export function Personalizacion() {
   const p = usePreferencias();
   const cambiar = (c: Partial<Preferencias>) => cambiarPreferencias(c, perfil?.id);
   const propio = soloLoPropio(roles);
-  const paginas = NAVEGACION.filter((i) => !i.soloSuperadmin && !(i.ocultoPropio && propio) && (!i.modulo || puede(roles, i.modulo, esSuperadmin, permisos)));
+  const paginas = NAVEGACION.filter((i) => !i.soloBusqueda && !i.soloSuperadmin && puedeVer(i, roles, esSuperadmin, permisos, propio));
   const modificado = JSON.stringify(p) !== JSON.stringify(PREFERENCIAS_DEFECTO);
 
   const fila = (titulo: string, ayuda: string, control: React.ReactNode) => (

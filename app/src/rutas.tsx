@@ -12,23 +12,19 @@ import { useSesion } from "./sesion/SesionProvider";
 // servidor que reescriba rutas profundas a index.html.
 const Dashboard = lazy(() => import("./paginas/Dashboard"));
 const Recepcion = lazy(() => import("./paginas/Recepcion"));
-const Medicos = lazy(() => import("./paginas/Medicos"));
 const Agenda = lazy(() => import("./paginas/Agenda"));
 const Pacientes = lazy(() => import("./paginas/pacientes/Pacientes"));
 const PacienteDetalle = lazy(() => import("./paginas/pacientes/PacienteDetalle"));
 const Caja = lazy(() => import("./paginas/Caja"));
 const Compras = lazy(() => import("./paginas/Compras"));
-const Comisiones = lazy(() => import("./paginas/Comisiones"));
 const Nomina = lazy(() => import("./paginas/Nomina"));
 const Contabilidad = lazy(() => import("./paginas/Contabilidad"));
+const PaginaMedicos = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaMedicos })));
+const PaginaPrecios = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaPrecios })));
+const PaginaAdministracion = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaAdministracion })));
 const Reportes = lazy(() => import("./paginas/Reportes"));
 const Inventario = lazy(() => import("./paginas/Inventario"));
 const Personal = lazy(() => import("./paginas/Personal"));
-const Servicios = lazy(() => import("./paginas/Catalogos"));
-const Aseguradoras = lazy(() => import("./paginas/Catalogos").then((m) => ({ default: m.PaginaAseguradoras })));
-const Auditoria = lazy(() => import("./paginas/Auditoria"));
-const Integraciones = lazy(() => import("./paginas/Integraciones"));
-const Configuracion = lazy(() => import("./paginas/Configuracion"));
 const Plataforma = lazy(() => import("./paginas/Plataforma"));
 const Perfil = lazy(() => import("./paginas/Perfil"));
 const Quiosco = lazy(() => import("./paginas/Quiosco"));
@@ -85,24 +81,27 @@ export const enrutador = createHashRouter([
         children: [
           { index: true, element: s(<Dashboard />) },
           { path: "recepcion", element: s(<Recepcion />) },
-          { path: "medicos", element: s(<Medicos />) },
+          { path: "medicos", element: s(<PaginaMedicos />) },
           { path: "agenda", element: s(<Agenda />) },
           { path: "pacientes", element: s(<Pacientes />) },
           { path: "pacientes/:id", element: s(<PacienteDetalle />) },
           { path: "caja", element: s(<Caja />) },
           { path: "compras", element: s(<Compras />) },
-          { path: "comisiones", element: s(<Comisiones />) },
+          { path: "comisiones", element: <Navigate to="/medicos?vista=pagos" replace /> },
           { path: "nomina", element: s(<Nomina />) },
           { path: "contabilidad", element: s(<Contabilidad />) },
           { path: "reportes", element: s(<Reportes />) },
           { path: "inventario", element: s(<Inventario />) },
           { path: "personal", element: s(<Personal />) },
-          { path: "servicios", element: s(<Servicios />) },
-          { path: "aseguradoras", element: s(<Aseguradoras />) },
-          { path: "catalogos", element: <Navigate to="/servicios" replace /> },
-          { path: "auditoria", element: s(<Auditoria />) },
-          { path: "integraciones", element: s(<Integraciones />) },
-          { path: "configuracion", element: s(<Configuracion />) },
+          { path: "precios", element: s(<PaginaPrecios />) },
+          { path: "administracion", element: s(<PaginaAdministracion />) },
+          // Rutas de antes del menú agrupado (enlaces guardados, accesos directos).
+          { path: "servicios", element: <Navigate to="/precios?vista=servicios" replace /> },
+          { path: "catalogos", element: <Navigate to="/precios?vista=servicios" replace /> },
+          { path: "aseguradoras", element: <Navigate to="/precios?vista=aseguradoras" replace /> },
+          { path: "configuracion", element: <Navigate to="/administracion?vista=sistema" replace /> },
+          { path: "integraciones", element: <Navigate to="/administracion?vista=integraciones" replace /> },
+          { path: "auditoria", element: <Navigate to="/administracion?vista=auditoria" replace /> },
           {
             path: "plataforma",
             element: (

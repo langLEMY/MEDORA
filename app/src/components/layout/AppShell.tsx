@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { esQuiosco, puede } from "@/lib/permisos";
+import { esQuiosco } from "@/lib/permisos";
 import { cambiarPreferencias, usePreferencias } from "@/lib/preferencias";
 import type { Tema } from "@/lib/tema";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ import { pagina } from "../ui/movimiento";
 import { Avatar, Kbd } from "../ui/superficies";
 import { AvisoActualizacion } from "./AvisoActualizacion";
 import { Isotipo } from "./Logo";
-import { NAVEGACION, inicioPorRol } from "./navegacion";
+import { NAVEGACION, inicioPorRol, puedeVer } from "./navegacion";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
 
@@ -61,9 +61,9 @@ export function AppShell() {
   }, []);
 
   const propio = soloLoPropio(roles);
-  const visibles = NAVEGACION.filter((i) =>
-    i.soloSuperadmin ? esSuperadmin : i.ocultoPropio && propio ? false : i.modulo ? puede(roles, i.modulo, esSuperadmin, permisos) : true,
-  ).map((i) => (propio && i.etiquetaPropia ? { ...i, etiqueta: i.etiquetaPropia } : i));
+  const visibles = NAVEGACION.filter((i) => !i.soloBusqueda && puedeVer(i, roles, esSuperadmin, permisos, propio)).map((i) =>
+    propio && i.etiquetaPropia ? { ...i, etiqueta: i.etiquetaPropia } : i,
+  );
   const grupos = [...new Set(visibles.map((i) => i.grupo))];
   const seccion = "/" + (location.pathname.split("/")[1] ?? "");
 

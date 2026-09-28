@@ -26,7 +26,7 @@ import { cambiarPreferencias, usePreferencias } from "@/lib/preferencias";
 import { mensajeError, supabase } from "@/lib/supabase";
 import { patronBusqueda } from "@/lib/utils";
 import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
-import { NAVEGACION } from "./navegacion";
+import { NAVEGACION, puedeVer } from "./navegacion";
 
 function useDebounce<T>(valor: T, ms = 200) {
   const [v, setV] = useState(valor);
@@ -67,9 +67,7 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
     navigate(ruta);
   };
 
-  const modulos = NAVEGACION.filter((i) =>
-    i.soloSuperadmin ? esSuperadmin : i.ocultoPropio && soloLoPropio(roles) ? false : i.modulo ? puede(roles, i.modulo, esSuperadmin, permisos) : true,
-  );
+  const modulos = NAVEGACION.filter((i) => puedeVer(i, roles, esSuperadmin, permisos, soloLoPropio(roles)));
 
   // Acciones rápidas: abren la ventana correspondiente (?accion=…, ver lib/accionUrl) o actúan aquí mismo.
   const { tema } = usePreferencias();
