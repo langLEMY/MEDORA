@@ -161,7 +161,8 @@ declare
   v_o      public.sistemas;
   v_nuevo  uuid := gen_random_uuid();
   v_slug   text;
-  v_todos  public.rol_sistema[] := array(select unnest(enum_range(null::public.rol_sistema)));
+  -- Todos los roles de trabajo (no 'quiosco', que convierte la cuenta en pantalla táctil).
+  v_todos  public.rol_sistema[] := array(select r from unnest(enum_range(null::public.rol_sistema)) r where r::text <> 'quiosco');
 begin
   if not privado.es_superadmin() then
     raise exception 'Solo la superadministración.' using errcode = '42501';
