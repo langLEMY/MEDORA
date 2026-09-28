@@ -25,11 +25,12 @@ import { AvisoActualizacion } from "./AvisoActualizacion";
 import { Isotipo } from "./Logo";
 import { NAVEGACION } from "./navegacion";
 import { PaletaComandos } from "./PaletaComandos";
+import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
 
 const CLAVE_COLAPSADO = "medora.nav-colapsada";
 
 export function AppShell() {
-  const { roles, permisos, esSuperadmin } = useSesion();
+  const { roles, permisos, esSuperadmin, sistema } = useSesion();
   const location = useLocation();
   const [colapsada, setColapsada] = useState(() => {
     try {
@@ -166,6 +167,7 @@ export function AppShell() {
       </motion.aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <FranjaPruebas sistemaId={sistema?.id} />
         <BarraSuperior onBuscar={() => setPaleta(true)} />
         <main className="flex-1 overflow-y-auto">
           <motion.div

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Network, Plus, Power, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowRight, Eraser, FlaskConical, Network, Plus, Power, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import { cn, fecha, slugificar } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 import { COLORES_MARCA } from "./Configuracion";
 import { CodigosInvitacion } from "./plataforma/CodigosInvitacion";
+import { CrearPruebas, LimpiarOperaciones, ReiniciarPruebas } from "./plataforma/EntornoPruebas";
 import { UsuariosPlataforma } from "./plataforma/UsuariosPlataforma";
 
 type Pestana = "sistemas" | "usuarios" | "codigos";
@@ -65,6 +66,13 @@ function SistemasPlataforma() {
   const qc = useQueryClient();
   const [nuevo, setNuevo] = useState(false);
   const [eliminar, setEliminar] = useState<{ id: string; nombre: string; personal: number } | null>(null);
+  const [limpiar, setLimpiar] = useState<{ id: string; nombre: string } | null>(null);
+  const [crearPruebas, setCrearPruebas] = useState<{ id: string; nombre: string } | null>(null);
+  const [reiniciar, setReiniciar] = useState<{ id: string; nombre: string; origen: string | null } | null>(null);
+  const refrescar = async () => {
+    await qc.invalidateQueries({ queryKey: ["plataforma-sistemas"] });
+    await recargar();
+  };
 
   const q = useQuery({
     queryKey: ["plataforma-sistemas"],
@@ -128,6 +136,11 @@ function SistemasPlataforma() {
                     <p className="truncate font-semibold">{s.nombre}</p>
                     <p className="text-xs text-texto-3">Creado el {fecha(s.creado_en)}</p>
                   </div>
+                  {s.es_pruebas && (
+                    <Insignia tono="aviso">
+                      <FlaskConical className="size-3" /> Pruebas
+                    </Insignia>
+                  )}
                   {!s.activo && <Insignia tono="peligro">Inactivo</Insignia>}
                 </div>
                 <div className="mt-5 flex gap-6 text-sm">
@@ -165,11 +178,40 @@ function SistemasPlataforma() {
                     Administrar <ArrowRight className="size-3.5 transition-transform group-hover/b:translate-x-0.5" />
                   </button>
                 </div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 [&>button]:whitespace-nowrap">
+                  <button
+                    onClick={() => setLimpiar({ id: s.id, nombre: s.nombre })}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-texto"
+                  >
+                    <Eraser className="size-3.5" /> Limpiar operaciones
+                  </button>
+                  {s.es_pruebas ? (
+                    <button
+                      onClick={() => setReiniciar({ id: s.id, nombre: s.nombre, origen: s.pruebas_de })}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-texto"
+                    >
+                      <RotateCcw className="size-3.5" /> Reiniciar pruebas
+                    </button>
+                  ) : (
+                    !q.data!.sistemas.some((x) => x.pruebas_de === s.id) && (
+                      <button
+                        onClick={() => setCrearPruebas({ id: s.id, nombre: s.nombre })}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-texto"
+                      >
+                        <FlaskConical className="size-3.5" /> Crear sistema de pruebas
+                      </button>
+                    )
+                  )}
+                </div>
               </Tarjeta>
             </motion.div>
           ))}
         </motion.div>
       )}
+
+      <LimpiarOperaciones sistema={limpiar} onCerrar={() => setLimpiar(null)} onHecho={() => void refrescar()} />
+      <CrearPruebas origen={crearPruebas} onCerrar={() => setCrearPruebas(null)} onCreado={() => void refrescar()} />
+      <ReiniciarPruebas sistema={reiniciar} onCerrar={() => setReiniciar(null)} onHecho={() => void refrescar()} />
 
       <EliminarSistema
         sistema={eliminar}

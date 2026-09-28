@@ -2781,12 +2781,14 @@ export type Database = {
           creado_por: string | null
           direccion: string | null
           email: string | null
+          es_pruebas: boolean
           fondo_caja: number
           id: string
           logo_factura: string | null
           logo_url: string | null
           moneda: string
           nombre: string
+          pruebas_de: string | null
           razon_social: string | null
           rnc: string | null
           slug: string
@@ -2803,12 +2805,14 @@ export type Database = {
           creado_por?: string | null
           direccion?: string | null
           email?: string | null
+          es_pruebas?: boolean
           fondo_caja?: number
           id?: string
           logo_factura?: string | null
           logo_url?: string | null
           moneda?: string
           nombre: string
+          pruebas_de?: string | null
           razon_social?: string | null
           rnc?: string | null
           slug: string
@@ -2825,12 +2829,14 @@ export type Database = {
           creado_por?: string | null
           direccion?: string | null
           email?: string | null
+          es_pruebas?: boolean
           fondo_caja?: number
           id?: string
           logo_factura?: string | null
           logo_url?: string | null
           moneda?: string
           nombre?: string
+          pruebas_de?: string | null
           razon_social?: string | null
           rnc?: string | null
           slug?: string
@@ -3251,6 +3257,14 @@ export type Database = {
       }
       pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
       plataforma_cerrar_sesiones: { Args: never; Returns: number }
+      plataforma_crear_sistema_pruebas: {
+        Args: { p_miembros?: string[]; p_origen: string }
+        Returns: string
+      }
+      plataforma_limpiar_operaciones: {
+        Args: { p_alcance: string[]; p_confirmacion?: string; p_sistema: string }
+        Returns: Json
+      }
       plataforma_eliminar_sistema: {
         Args: { p_confirmacion: string; p_sistema: string }
         Returns: Json
