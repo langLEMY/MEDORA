@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Capa, usePosicionFlotante } from "./flotante";
 
 /**
  * Menú desplegable anclado a su disparador. Escala desde el borde del que nace
@@ -21,10 +22,15 @@ export function Menu({
 }) {
   const [abierto, setAbierto] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const pos = usePosicionFlotante(raiz, abierto, { ancho, alinear: alinear === "izquierda" ? "izquierda" : "derecha", alto: 420 });
 
   useEffect(() => {
     if (!abierto) return;
-    const fuera = (e: MouseEvent) => !raiz.current?.contains(e.target as Node) && setAbierto(false);
+    const fuera = (e: MouseEvent) => {
+      const n = e.target as Node;
+      if (!raiz.current?.contains(n) && !panel.current?.contains(n)) setAbierto(false);
+    };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setAbierto(false);
     document.addEventListener("mousedown", fuera);
     document.addEventListener("keydown", esc);
@@ -37,23 +43,26 @@ export function Menu({
   return (
     <div ref={raiz} className={cn("relative", className)}>
       <div onClick={() => setAbierto((a) => !a)}>{disparador(abierto)}</div>
-      <AnimatePresence>
-        {abierto && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.1 } }}
-            transition={{ type: "spring", duration: 0.25, bounce: 0.1 }}
-            style={{ width: ancho, transformOrigin: alinear === "izquierda" ? "top left" : "top right" }}
-            className={cn(
-              "absolute top-full z-40 mt-1.5 overflow-hidden rounded-xl border border-borde bg-superficie p-1 shadow-lg",
-              alinear === "izquierda" ? "left-0" : "right-0",
-            )}
-          >
-            {children(() => setAbierto(false))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Capa>
+        <AnimatePresence>
+          {abierto && pos && (
+            <motion.div
+              ref={panel}
+              initial={{ opacity: 0, scale: 0.96, y: pos.arriba ? 4 : -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.1 } }}
+              transition={{ type: "spring", duration: 0.25, bounce: 0.1 }}
+              style={{
+                ...pos.estilo,
+                transformOrigin: `${pos.arriba ? "bottom" : "top"} ${alinear === "izquierda" ? "left" : "right"}`,
+              }}
+              className="z-[60] overflow-y-auto rounded-xl border border-borde bg-superficie p-1 shadow-lg"
+            >
+              {children(() => setAbierto(false))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Capa>
     </div>
   );
 }

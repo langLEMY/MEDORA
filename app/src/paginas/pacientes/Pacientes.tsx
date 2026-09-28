@@ -4,14 +4,15 @@ import { ChevronLeft, ChevronRight, Plus, Search, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { Entrada, Segmentado, Selector } from "@/components/ui/campos";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { Avatar, EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { claves } from "@/lib/consultas";
+import { claves, useAseguradoras } from "@/lib/consultas";
 import { puedeEscribir } from "@/lib/permisos";
 import { supabase } from "@/lib/supabase";
 import { edad, fecha, patronBusqueda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { useAccionUrl } from "@/lib/accionUrl";
 import { AccionesDatos, obtenerTodo, type ColumnaDatos } from "@/components/AccionesDatos";
 import { IMPORTACIONES } from "@/lib/importaciones";
 import { useQueryClient } from "@tanstack/react-query";
@@ -61,14 +62,26 @@ const COLUMNAS_PACIENTES: ColumnaDatos<PacienteExport>[] = [
 const POR_PAGINA = 25;
 
 export default function Pacientes() {
-  const { sistemaId, roles } = useSistema();
+  const { sistemaId, roles, soloPropio } = useSistema();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [texto, setTexto] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(0);
+  const [orden, setOrden] = useState<"alfabetico" | "recientes">("alfabetico");
+  // "" = todos · "privado" = sin seguro · uuid = esa aseguradora
+  const [seguro, setSeguro] = useState("");
+  const [sexo, setSexo] = useState("");
   const [nuevo, setNuevo] = useState(params.get("nuevo") === "1");
+  useAccionUrl({ nuevo: () => setNuevo(true) });
   const qc = useQueryClient();
+  const aseguradoras = useAseguradoras(sistemaId);
+
+  const filtrar = <T,>(set: (v: T) => void) => (v: T) => {
+    set(v);
+    setPagina(0);
+  };
+  const hayFiltros = !!seguro || !!sexo;
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -79,7 +92,7 @@ export default function Pacientes() {
   }, [texto]);
 
   const q = useQuery({
-    queryKey: [...claves.pacientes(sistemaId), busqueda, pagina],
+    queryKey: [...claves.pacientes(sistemaId), busqueda, pagina, orden, seguro, sexo],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       let consulta = supabase
@@ -88,10 +101,16 @@ export default function Pacientes() {
           count: "exact",
         })
         .eq("sistema_id", sistemaId)
-        .is("eliminado_en", null)
-        .order("creado_en", { ascending: false })
-        .range(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA - 1);
+        .is("eliminado_en", null);
+      consulta =
+        orden === "alfabetico"
+          ? consulta.order("nombres").order("apellidos").order("id")
+          : consulta.order("creado_en", { ascending: false }).order("id");
+      consulta = consulta.range(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA - 1);
       if (busqueda.trim().length >= 2) consulta = consulta.ilike("busqueda", patronBusqueda(busqueda));
+      if (seguro === "privado") consulta = consulta.is("aseguradora_id", null);
+      else if (seguro) consulta = consulta.eq("aseguradora_id", seguro);
+      if (sexo) consulta = consulta.eq("sexo", sexo);
       const { data, error, count } = await consulta;
       if (error) throw error;
       return { filas: data, total: count ?? 0 };
@@ -104,7 +123,7 @@ export default function Pacientes() {
   return (
     <>
       <EncabezadoPagina
-        titulo="Pacientes"
+        titulo={soloPropio ? "Mis pacientes" : "Pacientes"}
         descripcion={q.data ? `${total.toLocaleString("es-DO")} pacientes registrados` : " "}
         acciones={
           <>
@@ -135,14 +154,53 @@ export default function Pacientes() {
       />
 
       <Tarjeta className="overflow-hidden">
-        <div className="border-b border-borde p-3">
+        <div className="flex flex-wrap items-center gap-3 border-b border-borde p-3">
           <Entrada
             icono={<Search />}
             placeholder="Buscar por nombre, documento o expediente…"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            contenedor="max-w-md"
+            contenedor="w-full max-w-md"
           />
+          <Selector value={seguro} onChange={(e) => filtrar(setSeguro)(e.target.value)} contenedor="w-52" aria-label="Filtrar por seguro">
+            <option value="">Todos los seguros</option>
+            <option value="privado">Privado (sin seguro)</option>
+            {aseguradoras.data?.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre}
+              </option>
+            ))}
+          </Selector>
+          <Selector value={sexo} onChange={(e) => filtrar(setSexo)(e.target.value)} contenedor="w-36" aria-label="Filtrar por sexo">
+            <option value="">Todo sexo</option>
+            <option value="F">Femenino</option>
+            <option value="M">Masculino</option>
+            <option value="X">Otro</option>
+          </Selector>
+          {hayFiltros && (
+            <button
+              type="button"
+              onClick={() => {
+                setSeguro("");
+                setSexo("");
+                setPagina(0);
+              }}
+              className="text-xs font-medium text-texto-3 hover:text-texto"
+            >
+              Quitar filtros
+            </button>
+          )}
+          <div className="ml-auto">
+            <Segmentado
+              id="orden-pacientes"
+              valor={orden}
+              onChange={filtrar(setOrden)}
+              opciones={[
+                { valor: "alfabetico", etiqueta: "A–Z" },
+                { valor: "recientes", etiqueta: "Recientes" },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_1fr] gap-4 border-b border-borde bg-superficie-2/60 px-5 py-2.5 text-xs font-medium text-texto-3">
@@ -158,12 +216,14 @@ export default function Pacientes() {
         ) : (q.data?.filas.length ?? 0) === 0 ? (
           <Vacio
             icono={<Users />}
-            titulo={busqueda ? "Sin coincidencias" : "Aún no hay pacientes"}
-            descripcion={busqueda ? "Prueba con otro nombre, cédula o número de expediente." : "Registra el primer paciente del sistema."}
+            titulo={busqueda || hayFiltros ? "Sin coincidencias" : "Aún no hay pacientes"}
+            descripcion={
+              busqueda || hayFiltros ? "Prueba con otro nombre, cédula o expediente, o quita los filtros." : "Registra el primer paciente del sistema."
+            }
           />
         ) : (
           <motion.div
-            key={`${busqueda}-${pagina}`}
+            key={`${busqueda}-${pagina}-${orden}-${seguro}-${sexo}`}
             variants={contenedorEscalonado}
             initial="inicial"
             animate="visible"

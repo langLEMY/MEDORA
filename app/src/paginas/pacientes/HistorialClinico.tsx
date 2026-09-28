@@ -240,13 +240,13 @@ function EntradaVista({ e }: { e: Entrada_ }) {
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {cortos.map(([k, v]) => (
             <div key={k} className="rounded-lg bg-superficie-2 px-3 py-2">
-              <div className="text-[11px] text-texto-3">{ETIQUETAS_CAMPO[k] ?? k}</div>
+              <div className="text-[0.6875rem] text-texto-3">{ETIQUETAS_CAMPO[k] ?? k}</div>
               <div className="text-sm font-semibold tabular">{String(v)}</div>
             </div>
           ))}
           {indice && (
             <div className="rounded-lg bg-marca-suave px-3 py-2">
-              <div className="text-[11px] text-marca-texto">IMC</div>
+              <div className="text-[0.6875rem] text-marca-texto">IMC</div>
               <div className="text-sm font-semibold text-marca-texto tabular">
                 {indice.valor} · {indice.clase}
               </div>
@@ -256,7 +256,7 @@ function EntradaVista({ e }: { e: Entrada_ }) {
       )}
       {largos.map(([k, v]) => (
         <div key={k} className="mt-3">
-          <p className="text-[11px] font-medium text-texto-3">{ETIQUETAS_CAMPO[k] ?? k}</p>
+          <p className="text-[0.6875rem] font-medium text-texto-3">{ETIQUETAS_CAMPO[k] ?? k}</p>
           <p className="text-sm whitespace-pre-wrap">{String(v)}</p>
         </div>
       ))}

@@ -21,7 +21,7 @@ export interface ContactoCuenta {
 
 /** Estado de cuenta por contacto (paciente o ARS), exportable a PDF. */
 export function EstadoCuenta({ contacto, onCerrar }: { contacto: ContactoCuenta | null; onCerrar: () => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const q = useQuery({
     queryKey: ["estado-cuenta", sistemaId, contacto?.tipo, contacto?.id],
     enabled: !!contacto,
@@ -36,9 +36,9 @@ export function EstadoCuenta({ contacto, onCerrar }: { contacto: ContactoCuenta 
       fecha(m.fecha + "T00:00:00"),
       m.documento,
       m.descripcion,
-      Number(m.cargo) ? moneda(m.cargo, sistema.moneda) : "",
-      Number(m.abono) ? moneda(m.abono, sistema.moneda) : "",
-      moneda(saldo, sistema.moneda),
+      Number(m.cargo) ? moneda(m.cargo) : "",
+      Number(m.abono) ? moneda(m.abono) : "",
+      moneda(saldo),
     ];
   });
 
@@ -65,15 +65,15 @@ export function EstadoCuenta({ contacto, onCerrar }: { contacto: ContactoCuenta 
           <TablaDocumento
             encabezados={["Fecha", "Documento", "Descripción", "Cargo", "Abono", "Saldo"]}
             filas={filas.length ? filas : [["", "", "Sin movimientos", "", "", ""]]}
-            pie={["", "", "Saldo pendiente", "", "", moneda(q.data?.saldo ?? 0, sistema.moneda)]}
+            pie={["", "", "Saldo pendiente", "", "", moneda(q.data?.saldo ?? 0)]}
           />
           {contacto?.tipo === "paciente" && (q.data?.anticipos.length ?? 0) > 0 && (
             <div className="mt-6">
               <p className="mb-2 font-semibold">Anticipos recibidos</p>
               <TablaDocumento
                 encabezados={["Fecha", "Número", "Método", "Monto"]}
-                filas={q.data!.anticipos.map((a) => [fecha(a.fecha + "T00:00:00"), a.numero, a.metodo, moneda(a.monto, sistema.moneda)])}
-                pie={["", "", "Saldo a favor disponible", moneda(q.data!.saldo_anticipos, sistema.moneda)]}
+                filas={q.data!.anticipos.map((a) => [fecha(a.fecha + "T00:00:00"), a.numero, a.metodo, moneda(a.monto)])}
+                pie={["", "", "Saldo a favor disponible", moneda(q.data!.saldo_anticipos)]}
               />
             </div>
           )}

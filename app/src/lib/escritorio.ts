@@ -27,7 +27,10 @@ const webview = (window as unknown as { chrome?: { webview?: WebView } }).chrome
 
 export const enEscritorio = !!webview;
 
-export function enviar(tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" | "pdf", extra?: Record<string, unknown>) {
+export function enviar(
+  tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" | "imprimir-directo" | "pdf" | "salir-quiosco",
+  extra?: Record<string, unknown>,
+) {
   webview?.postMessage(JSON.stringify({ tipo, ...extra }));
 }
 
@@ -46,6 +49,15 @@ export function escuchar(f: (m: MensajeLauncher) => void) {
   };
   webview.addEventListener("message", h);
   return () => webview.removeEventListener("message", h);
+}
+
+/**
+ * Quiosco: imprime en la impresora predeterminada de Windows sin ningún diálogo
+ * (la térmica de tickets). En navegador cae al diálogo de impresión.
+ */
+export function imprimirDirecto() {
+  if (webview) enviar("imprimir-directo");
+  else window.print();
 }
 
 /** En escritorio abre el selector de impresora nativo; en navegador, window.print(). */

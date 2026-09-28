@@ -54,14 +54,14 @@ async function medir<T>(f: () => PromiseLike<T>): Promise<{ valor: T; ms: number
   return { valor, ms: Math.round(performance.now() - t) };
 }
 
+/** Diagnóstico y herramientas de soporte: exclusivo de la superadministración. */
 export function Soporte() {
-  const { esSuperadmin, roles, sistema } = useSesion();
-  const esAdmin = roles.includes("admin");
-  if (!esSuperadmin && !esAdmin) return <ZonaRiesgo />;
+  const { esSuperadmin, sistema } = useSesion();
+  if (!esSuperadmin) return <ZonaRiesgo />;
   return (
     <div className="space-y-4">
       <EstadoSistema />
-      <Herramientas puedeRespaldar={esAdmin && !!sistema} />
+      <Herramientas puedeRespaldar={!!sistema} />
       {esSuperadmin && <Avanzado />}
       <ZonaRiesgo />
     </div>
@@ -133,7 +133,7 @@ function EstadoSistema() {
     <Tarjeta className="p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-semibold">Estado del sistema</h2>
+          <h2 className="text-[0.9375rem] font-semibold">Estado del sistema</h2>
           <p className="text-xs text-texto-3">{d ? `Verificado ${relativo(d.en)}` : "Verificando…"}</p>
         </div>
         <Boton tamano="sm" variante="secundario" icono={<RefreshCw className={cn("size-3.5", q.isFetching && "animate-spin")} />} onClick={() => void q.refetch()} disabled={q.isFetching}>
@@ -155,14 +155,13 @@ function EstadoSistema() {
         <div className="mt-5 space-y-4 border-t border-borde pt-5">
           <BarraUso etiqueta="Base de datos" usado={d.diag.base_bytes} limite={LIMITE_BASE} />
           <BarraUso etiqueta={`Archivos (${d.diag.archivos.toLocaleString("es-DO")})`} usado={d.diag.archivos_bytes} limite={LIMITE_ARCHIVOS} />
-          <p className="text-[11px] text-texto-3">Límites de referencia del plan gratuito de Supabase.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Cifra valor={`${d.diag.sistemas_activos}/${d.diag.sistemas}`} etiqueta="Sistemas activos" />
             <Cifra valor={`${d.diag.usuarios_activos}/${d.diag.usuarios}`} etiqueta="Usuarios activos" />
             <Cifra valor={d.diag.sesiones} etiqueta="Sesiones abiertas" />
             <Cifra valor={d.diag.auditoria_24h} etiqueta="Eventos (24 h)" />
           </div>
-          <p className="text-[11px] text-texto-3">
+          <p className="text-[0.6875rem] text-texto-3">
             PostgreSQL {d.diag.postgres} · App {__VERSION_APP__}
           </p>
         </div>
@@ -183,7 +182,7 @@ function FilaEstado({ etiqueta, r, cargando }: { etiqueta: string; r?: Resultado
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, transition: { duration: 0.08 } }}
             transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-            className={cn("flex min-w-0 items-center gap-2 text-[13px]", cargando || !r ? "text-texto-3" : r.ok ? "text-exito" : "text-peligro")}
+            className={cn("flex min-w-0 items-center gap-2 text-[0.8125rem]", cargando || !r ? "text-texto-3" : r.ok ? "text-exito" : "text-peligro")}
           >
             <span className={cn("size-2 shrink-0 rounded-full", cargando || !r ? "bg-texto-3/40" : r.ok ? "bg-exito" : "bg-peligro")} />
             <span className="truncate">{cargando || !r ? "Verificando…" : r.ok ? `Operativo${r.detalle ? ` · ${r.detalle}` : ""}` : (r.detalle ?? "Con problemas")}</span>
@@ -219,7 +218,7 @@ function BarraUso({ etiqueta, usado, limite }: { etiqueta: string; usado: number
 const Cifra = ({ valor, etiqueta }: { valor: ReactNode; etiqueta: string }) => (
   <div className="rounded-xl bg-superficie-2 px-3 py-2.5">
     <p className="text-base font-semibold tabular">{valor}</p>
-    <p className="text-[11px] text-texto-3">{etiqueta}</p>
+    <p className="text-[0.6875rem] text-texto-3">{etiqueta}</p>
   </div>
 );
 
@@ -315,7 +314,7 @@ function Herramientas({ puedeRespaldar }: { puedeRespaldar: boolean }) {
 
   return (
     <Tarjeta className="p-6">
-      <h2 className="text-[15px] font-semibold">Herramientas de soporte</h2>
+      <h2 className="text-[0.9375rem] font-semibold">Herramientas de soporte</h2>
       <p className="mb-4 text-xs text-texto-3">Acciones rápidas para resolver incidencias comunes.</p>
       <div className="space-y-2">
         {puedeRespaldar && (
@@ -433,7 +432,7 @@ function Avanzado() {
 
   return (
     <Tarjeta className="border-[color-mix(in_oklab,var(--peligro)_25%,var(--borde))] p-6">
-      <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+      <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold">
         <ShieldAlert className="size-4 text-peligro" /> Avanzado
       </h2>
       <p className="mb-4 text-xs text-texto-3">Acciones de troubleshooting. Afectan a todo el personal de todos los sistemas, no solo a tu cuenta.</p>

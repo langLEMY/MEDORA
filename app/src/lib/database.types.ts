@@ -473,63 +473,103 @@ export type Database = {
           actualizado_en: string
           actualizado_por: string | null
           atendida_en: string | null
+          cedula_llegada: string | null
           creado_en: string
           creado_por: string | null
+          especialidad: string | null
           estado: Database["public"]["Enums"]["estado_cita"]
+          exonerado_por: string | null
           fin: string
           id: string
           inicio: string
+          llamado_en: string | null
+          llamado_veces: number
           llegada_en: string | null
-          medico_id: string
+          medico_id: string | null
           motivo: string | null
           motivo_cancelacion: string | null
+          motivo_exoneracion: string | null
+          motivo_prioridad: string | null
           notas: string | null
-          paciente_id: string
+          paciente_id: string | null
+          por_identificar: boolean
+          prioridad: boolean
           sede_id: string | null
           servicio_id: string | null
           sistema_id: string
+          turno: string | null
+          turno_en: string | null
         }
         Insert: {
           actualizado_en?: string
           actualizado_por?: string | null
           atendida_en?: string | null
+          cedula_llegada?: string | null
           creado_en?: string
           creado_por?: string | null
+          especialidad?: string | null
           estado?: Database["public"]["Enums"]["estado_cita"]
+          exonerado_por?: string | null
           fin: string
           id?: string
           inicio: string
+          llamado_en?: string | null
+          llamado_veces?: number
           llegada_en?: string | null
-          medico_id: string
+          medico_id?: string | null
           motivo?: string | null
           motivo_cancelacion?: string | null
+          motivo_exoneracion?: string | null
+          motivo_prioridad?: string | null
           notas?: string | null
-          paciente_id: string
+          paciente_id?: string | null
+          por_identificar?: boolean
+          prioridad?: boolean
           sede_id?: string | null
           servicio_id?: string | null
           sistema_id: string
+          turno?: string | null
+          turno_en?: string | null
         }
         Update: {
           actualizado_en?: string
           actualizado_por?: string | null
           atendida_en?: string | null
+          cedula_llegada?: string | null
           creado_en?: string
           creado_por?: string | null
+          especialidad?: string | null
           estado?: Database["public"]["Enums"]["estado_cita"]
+          exonerado_por?: string | null
           fin?: string
           id?: string
           inicio?: string
+          llamado_en?: string | null
+          llamado_veces?: number
           llegada_en?: string | null
-          medico_id?: string
+          medico_id?: string | null
           motivo?: string | null
           motivo_cancelacion?: string | null
+          motivo_exoneracion?: string | null
+          motivo_prioridad?: string | null
           notas?: string | null
-          paciente_id?: string
+          paciente_id?: string | null
+          por_identificar?: boolean
+          prioridad?: boolean
           sede_id?: string | null
           servicio_id?: string | null
           sistema_id?: string
+          turno?: string | null
+          turno_en?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "citas_exonerado_por_fkey"
+            columns: ["exonerado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "citas_medico_perfil_fk"
             columns: ["medico_id"]
@@ -581,8 +621,11 @@ export type Database = {
           aseguradora_id: string
           creado_en: string
           creado_por: string | null
+          especialidad: string | null
           id: string
           monto_cubierto: number
+          monto_fondo: number | null
+          precio: number | null
           servicio_id: string
           sistema_id: string
         }
@@ -592,8 +635,11 @@ export type Database = {
           aseguradora_id: string
           creado_en?: string
           creado_por?: string | null
+          especialidad?: string | null
           id?: string
           monto_cubierto: number
+          monto_fondo?: number | null
+          precio?: number | null
           servicio_id: string
           sistema_id: string
         }
@@ -603,8 +649,11 @@ export type Database = {
           aseguradora_id?: string
           creado_en?: string
           creado_por?: string | null
+          especialidad?: string | null
           id?: string
           monto_cubierto?: number
+          monto_fondo?: number | null
+          precio?: number | null
           servicio_id?: string
           sistema_id?: string
         }
@@ -706,6 +755,7 @@ export type Database = {
           id: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
+          recibido: number | null
           referencia: string | null
           sistema_id: string
         }
@@ -714,6 +764,7 @@ export type Database = {
           id?: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
+          recibido?: number | null
           referencia?: string | null
           sistema_id: string
         }
@@ -722,6 +773,7 @@ export type Database = {
           id?: string
           metodo?: Database["public"]["Enums"]["metodo_pago"]
           monto?: number
+          recibido?: number | null
           referencia?: string | null
           sistema_id?: string
         }
@@ -762,6 +814,7 @@ export type Database = {
           id: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto_credito: number
+          monto_fondo: number
           ncf: string | null
           notas: string | null
           numero: string
@@ -789,6 +842,7 @@ export type Database = {
           id?: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto_credito?: number
+          monto_fondo?: number
           ncf?: string | null
           notas?: string | null
           numero: string
@@ -816,6 +870,7 @@ export type Database = {
           id?: string
           metodo?: Database["public"]["Enums"]["metodo_pago"]
           monto_credito?: number
+          monto_fondo?: number
           ncf?: string | null
           notas?: string | null
           numero?: string
@@ -985,6 +1040,7 @@ export type Database = {
           id: string
           monto: number
           regla_id: string | null
+          retencion: number
           sistema_id: string
         }
         Insert: {
@@ -997,6 +1053,7 @@ export type Database = {
           id?: string
           monto: number
           regla_id?: string | null
+          retencion?: number
           sistema_id: string
         }
         Update: {
@@ -1009,6 +1066,7 @@ export type Database = {
           id?: string
           monto?: number
           regla_id?: string | null
+          retencion?: number
           sistema_id?: string
         }
         Relationships: [
@@ -1482,6 +1540,103 @@ export type Database = {
           },
         ]
       }
+      integracion_eventos: {
+        Row: {
+          creado_en: string
+          creado_por: string | null
+          detalle: Json
+          id: string
+          proveedor: string
+          resultado: string
+          sistema_id: string
+          tipo: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string | null
+          detalle?: Json
+          id?: string
+          proveedor: string
+          resultado?: string
+          sistema_id: string
+          tipo: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string | null
+          detalle?: Json
+          id?: string
+          proveedor?: string
+          resultado?: string
+          sistema_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integracion_eventos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integraciones: {
+        Row: {
+          activo: boolean
+          actualizado_en: string
+          actualizado_por: string | null
+          config: Json
+          creado_en: string
+          detalle_conexion: Json | null
+          estado: string
+          id: string
+          proveedor: string
+          secretos: Json
+          sistema_id: string
+          ultimo_error: string | null
+          verificado_en: string | null
+        }
+        Insert: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          config?: Json
+          creado_en?: string
+          detalle_conexion?: Json | null
+          estado?: string
+          id?: string
+          proveedor: string
+          secretos?: Json
+          sistema_id: string
+          ultimo_error?: string | null
+          verificado_en?: string | null
+        }
+        Update: {
+          activo?: boolean
+          actualizado_en?: string
+          actualizado_por?: string | null
+          config?: Json
+          creado_en?: string
+          detalle_conexion?: Json | null
+          estado?: string
+          id?: string
+          proveedor?: string
+          secretos?: Json
+          sistema_id?: string
+          ultimo_error?: string | null
+          verificado_en?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integraciones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventario_items: {
         Row: {
           activo: boolean
@@ -1607,7 +1762,9 @@ export type Database = {
           creado_por: string
           hasta: string
           id: string
+          neto: number | null
           numero: string
+          retencion: number
           sistema_id: string
           total: number
         }
@@ -1617,7 +1774,9 @@ export type Database = {
           creado_por?: string
           hasta: string
           id?: string
+          neto?: number | null
           numero: string
+          retencion?: number
           sistema_id: string
           total: number
         }
@@ -1627,7 +1786,9 @@ export type Database = {
           creado_por?: string
           hasta?: string
           id?: string
+          neto?: number | null
           numero?: string
+          retencion?: number
           sistema_id?: string
           total?: number
         }
@@ -1661,11 +1822,13 @@ export type Database = {
           actualizado_en: string
           actualizado_por: string | null
           atiende_agenda: boolean
+          consultorio: string | null
           creado_en: string
           creado_por: string | null
           especialidad: string | null
           exequatur: string | null
           id: string
+          permisos: Json
           roles: Database["public"]["Enums"]["rol_sistema"][]
           sede_id: string | null
           sistema_id: string
@@ -1676,11 +1839,13 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           atiende_agenda?: boolean
+          consultorio?: string | null
           creado_en?: string
           creado_por?: string | null
           especialidad?: string | null
           exequatur?: string | null
           id?: string
+          permisos?: Json
           roles: Database["public"]["Enums"]["rol_sistema"][]
           sede_id?: string | null
           sistema_id: string
@@ -1691,11 +1856,13 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           atiende_agenda?: boolean
+          consultorio?: string | null
           creado_en?: string
           creado_por?: string | null
           especialidad?: string | null
           exequatur?: string | null
           id?: string
+          permisos?: Json
           roles?: Database["public"]["Enums"]["rol_sistema"][]
           sede_id?: string | null
           sistema_id?: string
@@ -2197,12 +2364,17 @@ export type Database = {
           actualizado_en: string
           actualizado_por: string | null
           avatar_url: string | null
+          correo_contacto: string | null
           creado_en: string
           debe_cambiar_password: boolean
           email: string
           es_superadmin: boolean
+          foto: string | null
           id: string
           nombre_completo: string
+          nombre_usuario: string | null
+          preferencias: Json
+          recibir_whatsapp: boolean
           telefono: string | null
           ultimo_sistema_id: string | null
         }
@@ -2211,12 +2383,17 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
+          correo_contacto?: string | null
           creado_en?: string
           debe_cambiar_password?: boolean
           email: string
           es_superadmin?: boolean
+          foto?: string | null
           id: string
           nombre_completo?: string
+          nombre_usuario?: string | null
+          preferencias?: Json
+          recibir_whatsapp?: boolean
           telefono?: string | null
           ultimo_sistema_id?: string | null
         }
@@ -2225,12 +2402,17 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
+          correo_contacto?: string | null
           creado_en?: string
           debe_cambiar_password?: boolean
           email?: string
           es_superadmin?: boolean
+          foto?: string | null
           id?: string
           nombre_completo?: string
+          nombre_usuario?: string | null
+          preferencias?: Json
+          recibir_whatsapp?: boolean
           telefono?: string | null
           ultimo_sistema_id?: string | null
         }
@@ -2240,6 +2422,41 @@ export type Database = {
             columns: ["ultimo_sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plataforma: {
+        Row: {
+          actualizado_en: string
+          actualizado_por: string | null
+          id: boolean
+          mantenimiento: boolean
+          mantenimiento_desde: string | null
+          mantenimiento_mensaje: string | null
+        }
+        Insert: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          id?: boolean
+          mantenimiento?: boolean
+          mantenimiento_desde?: string | null
+          mantenimiento_mensaje?: string | null
+        }
+        Update: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          id?: boolean
+          mantenimiento?: boolean
+          mantenimiento_desde?: string | null
+          mantenimiento_mensaje?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plataforma_actualizado_por_fkey"
+            columns: ["actualizado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2311,8 +2528,10 @@ export type Database = {
           categoria: string | null
           creado_en: string
           creado_por: string | null
+          especialidad: string | null
           id: string
           nombre: string
+          retencion: number
           rol: Database["public"]["Enums"]["rol_sistema"] | null
           servicio_id: string | null
           sistema_id: string
@@ -2331,8 +2550,10 @@ export type Database = {
           categoria?: string | null
           creado_en?: string
           creado_por?: string | null
+          especialidad?: string | null
           id?: string
           nombre: string
+          retencion?: number
           rol?: Database["public"]["Enums"]["rol_sistema"] | null
           servicio_id?: string | null
           sistema_id: string
@@ -2351,8 +2572,10 @@ export type Database = {
           categoria?: string | null
           creado_en?: string
           creado_por?: string | null
+          especialidad?: string | null
           id?: string
           nombre?: string
+          retencion?: number
           rol?: Database["public"]["Enums"]["rol_sistema"] | null
           servicio_id?: string | null
           sistema_id?: string
@@ -2501,6 +2724,7 @@ export type Database = {
           creado_en: string
           creado_por: string | null
           duracion_min: number
+          especialidad: string | null
           id: string
           nombre: string
           precio: number
@@ -2515,6 +2739,7 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           duracion_min?: number
+          especialidad?: string | null
           id?: string
           nombre: string
           precio?: number
@@ -2529,6 +2754,7 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           duracion_min?: number
+          especialidad?: string | null
           id?: string
           nombre?: string
           precio?: number
@@ -2549,12 +2775,15 @@ export type Database = {
           activo: boolean
           actualizado_en: string
           actualizado_por: string | null
+          cobro_antes_consulta: boolean
           color_marca: string
           creado_en: string
           creado_por: string | null
           direccion: string | null
           email: string | null
+          fondo_caja: number
           id: string
+          logo_factura: string | null
           logo_url: string | null
           moneda: string
           nombre: string
@@ -2568,12 +2797,15 @@ export type Database = {
           activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
+          cobro_antes_consulta?: boolean
           color_marca?: string
           creado_en?: string
           creado_por?: string | null
           direccion?: string | null
           email?: string | null
+          fondo_caja?: number
           id?: string
+          logo_factura?: string | null
           logo_url?: string | null
           moneda?: string
           nombre: string
@@ -2587,12 +2819,15 @@ export type Database = {
           activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
+          cobro_antes_consulta?: boolean
           color_marca?: string
           creado_en?: string
           creado_por?: string | null
           direccion?: string | null
           email?: string | null
+          fondo_caja?: number
           id?: string
+          logo_factura?: string | null
           logo_url?: string | null
           moneda?: string
           nombre?: string
@@ -2684,6 +2919,7 @@ export type Database = {
           cobro_id: string | null
           creado_en: string | null
           monto_credito: number | null
+          monto_fondo: number | null
           ncf: string | null
           numero: string | null
           numero_autorizacion: string | null
@@ -2698,6 +2934,7 @@ export type Database = {
           cobro_id?: string | null
           creado_en?: string | null
           monto_credito?: number | null
+          monto_fondo?: number | null
           ncf?: string | null
           numero?: string | null
           numero_autorizacion?: string | null
@@ -2712,6 +2949,7 @@ export type Database = {
           cobro_id?: string | null
           creado_en?: string | null
           monto_credito?: number | null
+          monto_fondo?: number | null
           ncf?: string | null
           numero?: string | null
           numero_autorizacion?: string | null
@@ -2771,7 +3009,7 @@ export type Database = {
     }
     Functions: {
       abrir_turno_caja: {
-        Args: { p_monto_apertura: number; p_sede?: string; p_sistema: string }
+        Args: { p_monto_apertura?: number; p_sede?: string; p_sistema: string }
         Returns: {
           abierto_en: string
           cajero_id: string
@@ -2791,6 +3029,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      activar_integracion: {
+        Args: { p_activo: boolean; p_proveedor: string; p_sistema: string }
+        Returns: undefined
       }
       actualizar_linea_nomina: {
         Args: {
@@ -2849,6 +3091,41 @@ export type Database = {
         }
       }
       consultar_codigo_invitacion: { Args: { p_codigo: string }; Returns: Json }
+      consumir_credencial_legado: {
+        Args: { p_usuario_id: string }
+        Returns: undefined
+      }
+      correo_de_acceso: { Args: { p_usuario: string }; Returns: string }
+      credencial_legado: {
+        Args: { p_usuario: string }
+        Returns: {
+          email: string
+          hash: string
+          usuario_id: string
+        }[]
+      }
+      diagnostico_plataforma: { Args: never; Returns: Json }
+      directorio_medicos: {
+        Args: { p_sistema: string }
+        Returns: {
+          atendidos_30d: number
+          atendidos_hoy: number
+          cierre_pct: number
+          cola_especialidad: number
+          consultorio: string
+          en_cola: number
+          especialidad: string
+          espera_promedio: number
+          estado: string
+          estrellas: number
+          exequatur: string
+          nombre: string
+          pendientes_hoy: number
+          puntos: number
+          turno_actual: string
+          usuario_id: string
+        }[]
+      }
       eliminar_nomina_borrador: {
         Args: { p_nomina: string }
         Returns: undefined
@@ -2858,6 +3135,11 @@ export type Database = {
         Returns: Json
       }
       estado_instalacion: { Args: never; Returns: Json }
+      estado_plataforma: { Args: never; Returns: Json }
+      exonerar_turno: {
+        Args: { p_cita: string; p_motivo: string }
+        Returns: string
+      }
       generar_codigo_invitacion: {
         Args: {
           p_descripcion: string
@@ -2879,10 +3161,77 @@ export type Database = {
         }
         Returns: string
       }
+      guardar_integracion: {
+        Args: {
+          p_config: Json
+          p_proveedor: string
+          p_secretos: Json
+          p_sistema: string
+        }
+        Returns: Json
+      }
+      identificar_turno: {
+        Args: { p_cita: string; p_paciente: string }
+        Returns: undefined
+      }
+      importar_coberturas: {
+        Args: { p_aseguradora: string; p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_cuentas_contables: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_empleados: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_escala_isr: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_inventario: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_movimientos_inventario: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_novedades_nomina: {
+        Args: { p_filas: Json; p_nomina: string; p_sistema: string }
+        Returns: Json
+      }
+      importar_pacientes: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_parametros_nomina: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_proveedores: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_reglas_comision: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_servicios: {
+        Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      integracion_secreto: {
+        Args: { p_campo: string; p_proveedor: string; p_sistema: string }
+        Returns: string
+      }
       liquidar_comisiones: {
         Args: { p_beneficiario: string; p_hasta: string; p_sistema: string }
         Returns: Json
       }
+      llamar_siguiente: { Args: { p_sistema: string }; Returns: Json }
+      llamar_turno: { Args: { p_cita: string }; Returns: Json }
       marcar_password_actualizada: { Args: never; Returns: undefined }
       mis_sistemas_detalle: {
         Args: never
@@ -2890,16 +3239,17 @@ export type Database = {
           activo: boolean
           color_marca: string
           id: string
+          logo_factura: string
           logo_url: string
           moneda: string
           nombre: string
+          permisos: Json
           roles: Database["public"]["Enums"]["rol_sistema"][]
           slug: string
           zona_horaria: string
         }[]
       }
-      diagnostico_plataforma: { Args: never; Returns: Json }
-      estado_plataforma: { Args: never; Returns: Json }
+      pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
       plataforma_cerrar_sesiones: { Args: never; Returns: number }
       plataforma_eliminar_sistema: {
         Args: { p_confirmacion: string; p_sistema: string }
@@ -2918,10 +3268,33 @@ export type Database = {
           es_superadmin: boolean
           id: string
           nombre_completo: string
+          nombre_usuario: string
           sistemas: number
           telefono: string
           ultimo_acceso: string
         }[]
+      }
+      quiosco_buscar: {
+        Args: { p_cedula: string; p_sistema: string }
+        Returns: Json
+      }
+      quiosco_opciones: { Args: { p_sistema: string }; Returns: Json }
+      quiosco_tomar_turno: {
+        Args: {
+          p_cedula?: string
+          p_cita?: string
+          p_especialidad?: string
+          p_medico?: string
+          p_motivo_prioridad?: string
+          p_paciente?: string
+          p_prioridad?: boolean
+          p_sistema: string
+        }
+        Returns: Json
+      }
+      quitar_integracion: {
+        Args: { p_proveedor: string; p_sistema: string }
+        Returns: undefined
       }
       recalcular_nomina: { Args: { p_nomina: string }; Returns: undefined }
       registrar_abono: {
@@ -2993,6 +3366,19 @@ export type Database = {
         Args: { p_accion: string; p_detalle?: Json; p_sistema?: string }
         Returns: undefined
       }
+      registrar_llegada: {
+        Args: {
+          p_cita?: string
+          p_especialidad?: string
+          p_medico?: string
+          p_motivo_prioridad?: string
+          p_paciente: string
+          p_prioridad?: boolean
+          p_servicio?: string
+          p_sistema: string
+        }
+        Returns: Json
+      }
       registrar_movimiento: {
         Args: {
           p_categoria?: string
@@ -3023,15 +3409,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      registrar_prueba_integracion: {
+        Args: {
+          p_detalle: Json
+          p_error: string
+          p_ok: boolean
+          p_proveedor: string
+          p_sistema: string
+          p_usuario: string
+        }
+        Returns: undefined
+      }
+      renombrar_miembro: {
+        Args: { p_nombre: string; p_sistema: string; p_usuario: string }
+        Returns: undefined
+      }
       reporte_comisiones: {
         Args: { p_desde: string; p_hasta: string; p_sistema: string }
         Returns: {
+          a_pagar: number
           beneficiario_id: string
+          especialidad: string
           generado: number
           liquidado: number
           nombre: string
           operaciones: number
+          pacientes: number
           pendiente: number
+          retencion: number
         }[]
       }
       resumen_dashboard: { Args: { p_sistema: string }; Returns: Json }
@@ -3046,7 +3451,9 @@ export type Database = {
       estado_cita:
         | "programada"
         | "confirmada"
+        | "por_cobrar"
         | "en_espera"
+        | "llamado"
         | "en_consulta"
         | "completada"
         | "cancelada"
@@ -3073,6 +3480,7 @@ export type Database = {
         | "psicologia"
         | "nutricion"
         | "terapia"
+        | "quiosco"
       tipo_entrada_clinica:
         | "consulta"
         | "evolucion"
@@ -3218,7 +3626,9 @@ export const Constants = {
       estado_cita: [
         "programada",
         "confirmada",
+        "por_cobrar",
         "en_espera",
+        "llamado",
         "en_consulta",
         "completada",
         "cancelada",
@@ -3247,6 +3657,7 @@ export const Constants = {
         "psicologia",
         "nutricion",
         "terapia",
+        "quiosco",
       ],
       tipo_entrada_clinica: [
         "consulta",

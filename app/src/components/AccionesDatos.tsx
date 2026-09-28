@@ -63,7 +63,7 @@ export function AccionesDatos<T>({
     if (v === null || v === undefined || v === "") return "";
     switch (c.tipo) {
       case "moneda":
-        return moneda(Number(v), sistema.moneda);
+        return moneda(Number(v));
       case "numero":
         return Number(v).toLocaleString("es-DO");
       case "fecha":

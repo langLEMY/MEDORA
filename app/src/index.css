@@ -118,17 +118,62 @@
   animation: brillo 1.4s var(--ease-entrada-salida) infinite;
 }
 
-/* Cambio de tema: fundido único de la pantalla (ver lib/tema.ts#cambiarTemaAnimado). */
+/*
+ * Cambio de tema (lib/tema.ts#cambiarTemaAnimado): la captura vieja queda quieta y
+ * opaca debajo, y la nueva aparece encima con un fundido. Con el fundido cruzado
+ * por defecto las dos capas bajan a la vez y a mitad de camino se ve un "valle"
+ * de brillo; así el color pasa directo de un tema al otro.
+ */
 .cambiando-tema,
 .cambiando-tema *,
 .cambiando-tema *::before,
 .cambiando-tema *::after {
   transition: none !important;
 }
-::view-transition-old(root),
+::view-transition-old(root) {
+  animation: none;
+}
 ::view-transition-new(root) {
-  animation-duration: 260ms;
-  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  animation: tema-aparece 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  mix-blend-mode: normal;
+}
+@keyframes tema-aparece {
+  from {
+    opacity: 0;
+  }
+}
+
+/* --- Preferencias del usuario (lib/preferencias.ts) ------------------------ */
+/* Tamaño de texto: todo está en rem, así escala la interfaz entera en proporción. */
+html[data-texto="grande"] {
+  font-size: 112.5%;
+}
+html[data-texto="muy-grande"] {
+  font-size: 125%;
+}
+/* Densidad: Tailwind 4 calcula todo el espaciado desde --spacing. */
+html[data-densidad="compacta"] {
+  --spacing: 0.215rem;
+}
+/* Contraste alto: textos secundarios y bordes más marcados. */
+html[data-contraste="alto"] {
+  --texto-2: #1d2939;
+  --texto-3: #475467;
+  --borde: #b9c0cc;
+  --borde-fuerte: #8a94a6;
+}
+html[data-contraste="alto"][data-tema="oscuro"] {
+  --texto-2: #d0d5dd;
+  --texto-3: #98a2b3;
+  --borde: #3a4252;
+  --borde-fuerte: #56607a;
+}
+html[data-movimiento="reducido"] *,
+html[data-movimiento="reducido"] *::before,
+html[data-movimiento="reducido"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -141,6 +186,11 @@
 }
 
 @media print {
+  /* Recibos y reportes salen igual sin importar el tamaño de texto elegido. */
+  html {
+    font-size: 16px !important;
+    --spacing: 0.25rem !important;
+  }
   .no-imprimir {
     display: none !important;
   }

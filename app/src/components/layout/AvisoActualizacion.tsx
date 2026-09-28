@@ -50,7 +50,7 @@ export function AvisoActualizacion() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">MEDORA {version} está disponible</p>
-              <p className="mt-0.5 text-[13px] text-texto-2">
+              <p className="mt-0.5 text-[0.8125rem] text-texto-2">
                 {error ?? (progreso !== null ? "Descargando y verificando…" : "Se instala en menos de un minuto.")}
               </p>
             </div>

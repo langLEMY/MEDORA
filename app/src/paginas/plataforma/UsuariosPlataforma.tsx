@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Building2, KeyRound, Plus, Power, Search, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Building2, KeyRound, LockKeyhole, Plus, Power, Search, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
@@ -10,14 +10,15 @@ import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento
 import { Avatar, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { ETIQUETA_ROL } from "@/lib/permisos";
 import { datos, invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
-import { cn, fechaHora, relativo } from "@/lib/utils";
+import { cn, correoVisible, fechaHora, relativo, sugerirUsuario, USUARIO_RE } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
-import { MostrarCredenciales, SelectorRoles } from "../Personal";
+import { AsignarPassword, MostrarCredenciales, SelectorRoles, type Credenciales } from "../Personal";
 
 interface UsuarioPlataforma {
   id: string;
   nombre_completo: string;
   email: string;
+  nombre_usuario: string | null;
   telefono: string | null;
   es_superadmin: boolean;
   activo: boolean;
@@ -36,7 +37,7 @@ export function UsuariosPlataforma() {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
   const [nuevo, setNuevo] = useState(false);
-  const [credenciales, setCredenciales] = useState<{ email: string; password: string } | null>(null);
+  const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
 
   const q = useQuery({
     queryKey: CLAVE,
@@ -47,7 +48,7 @@ export function UsuariosPlataforma() {
     () =>
       (q.data ?? []).filter((u) => {
         const t = texto.trim().toLowerCase();
-        if (t && !`${u.nombre_completo} ${u.email}`.toLowerCase().includes(t)) return false;
+        if (t && !`${u.nombre_completo} ${u.nombre_usuario ?? ""} ${u.email}`.toLowerCase().includes(t)) return false;
         if (filtro === "activos") return u.activo;
         if (filtro === "desactivados") return !u.activo;
         if (filtro === "superadmin") return u.es_superadmin;
@@ -62,7 +63,7 @@ export function UsuariosPlataforma() {
     <>
       <Tarjeta className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-borde p-3">
-          <Entrada icono={<Search />} placeholder="Buscar por nombre o correo…" value={texto} onChange={(e) => setTexto(e.target.value)} contenedor="w-72" />
+          <Entrada icono={<Search />} placeholder="Buscar por nombre, usuario o correo…" value={texto} onChange={(e) => setTexto(e.target.value)} contenedor="w-72" />
           <Segmentado
             id="filtro-usuarios"
             valor={filtro}
@@ -97,7 +98,9 @@ export function UsuariosPlataforma() {
                       <span className="truncate text-sm font-medium">{u.nombre_completo || "Sin nombre"}</span>
                       {u.id === sesion?.user.id && <span className="text-xs text-texto-3">(tú)</span>}
                     </span>
-                    <span className="block truncate text-xs text-texto-3">{u.email}</span>
+                    <span className="block truncate text-xs text-texto-3">
+                      {[u.nombre_usuario && `@${u.nombre_usuario}`, correoVisible(u.email)].filter(Boolean).join(" · ")}
+                    </span>
                   </span>
                   <span className="flex gap-1.5">
                     {u.es_superadmin && (
@@ -134,16 +137,18 @@ function NuevoUsuario({
 }: {
   abierto: boolean;
   onCerrar: () => void;
-  onCreado: (c: { email: string; password: string }) => void;
+  onCreado: (c: Credenciales) => void;
 }) {
   const qc = useQueryClient();
   const [nombre, setNombre] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [email, setEmail] = useState("");
   const [superadmin, setSuperadmin] = useState(false);
 
   useEffect(() => {
     if (abierto) {
       setNombre("");
+      setUsuario("");
       setEmail("");
       setSuperadmin(false);
     }
@@ -151,11 +156,17 @@ function NuevoUsuario({
 
   const m = useMutation({
     mutationFn: () =>
-      invocar<{ password_temporal: string }>("plataforma-usuarios", { accion: "crear", nombre_completo: nombre, email, es_superadmin: superadmin }),
+      invocar<{ password_temporal: string; nombre_usuario: string }>("plataforma-usuarios", {
+        accion: "crear",
+        nombre_completo: nombre,
+        nombre_usuario: usuario,
+        email: email.trim() || undefined,
+        es_superadmin: superadmin,
+      }),
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: CLAVE });
       onCerrar();
-      onCreado({ email, password: r.password_temporal });
+      onCreado({ usuario: r.nombre_usuario, password: r.password_temporal });
     },
     onError: (e) => toast.error((e as Error).message),
   });
@@ -172,15 +183,30 @@ function NuevoUsuario({
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton cargando={m.isPending} disabled={nombre.trim().length < 3 || !email.includes("@")} onClick={() => m.mutate()}>
+          <Boton cargando={m.isPending} disabled={nombre.trim().length < 3 || !USUARIO_RE.test(usuario)} onClick={() => m.mutate()}>
             Crear usuario
           </Boton>
         </>
       }
     >
       <div className="space-y-4">
-        <Entrada etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        <Entrada etiqueta="Correo" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Entrada
+          etiqueta="Nombre completo"
+          value={nombre}
+          onChange={(e) => {
+            if (!usuario || usuario === sugerirUsuario(nombre)) setUsuario(sugerirUsuario(e.target.value));
+            setNombre(e.target.value);
+          }}
+        />
+        <Entrada
+          etiqueta="Usuario"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value.toLowerCase().replace(/\s/g, ""))}
+          ayuda="Con él inicia sesión."
+        />
+        <Entrada etiqueta="Correo (opcional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Interruptor activo={superadmin} onChange={setSuperadmin} etiqueta="Superadministración de la plataforma" />
       </div>
     </Modal>
@@ -202,21 +228,24 @@ function DetalleUsuario({
 }: {
   usuario: UsuarioPlataforma | null;
   onCerrar: () => void;
-  onCredenciales: (c: { email: string; password: string }) => void;
+  onCredenciales: (c: Credenciales) => void;
 }) {
   const { sesion, recargar } = useSesion();
   const qc = useQueryClient();
   const [ultimo, setUltimo] = useState(usuario);
   const [nombre, setNombre] = useState("");
+  const [usuarioAcceso, setUsuarioAcceso] = useState("");
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
   const [superadmin, setSuperadmin] = useState(false);
   const [agregando, setAgregando] = useState<{ sistema: string; roles: Rol[] } | null>(null);
+  const [asignar, setAsignar] = useState(false);
 
   useEffect(() => {
     if (!usuario) return;
     setUltimo(usuario);
     setNombre(usuario.nombre_completo);
+    setUsuarioAcceso(usuario.nombre_usuario ?? "");
     setEmail(usuario.email);
     setTelefono(usuario.telefono ?? "");
     setSuperadmin(usuario.es_superadmin);
@@ -252,10 +281,11 @@ function DetalleUsuario({
   };
 
   const accion = useMutation({
-    mutationFn: (cuerpo: Record<string, unknown>) => invocar<{ password_temporal?: string }>("plataforma-usuarios", { usuario_id: u!.id, ...cuerpo }),
+    mutationFn: (cuerpo: Record<string, unknown>) => invocar<{ password_temporal?: string; nombre_usuario?: string | null }>("plataforma-usuarios", { usuario_id: u!.id, ...cuerpo }),
     onSuccess: async (r, cuerpo) => {
       await refrescar();
-      if (cuerpo.accion === "restablecer_password" && r.password_temporal) onCredenciales({ email: u!.email, password: r.password_temporal });
+      if (cuerpo.accion === "restablecer_password" && r.password_temporal)
+        onCredenciales({ usuario: r.nombre_usuario ?? u!.email, password: r.password_temporal });
       else if (cuerpo.accion === "desactivar") toast.success("Usuario desactivado: ya no puede entrar a MEDORA.");
       else if (cuerpo.accion === "activar") toast.success("Usuario reactivado.");
       else toast.success("Cambios guardados.");
@@ -290,7 +320,7 @@ function DetalleUsuario({
 
   if (!u) return null;
   const disponibles = (sistemas.data ?? []).filter((s) => !membresias.data?.some((m) => m.sistema_id === s.id));
-  const cambiosDatos = nombre !== u.nombre_completo || email !== u.email || telefono !== (u.telefono ?? "") || superadmin !== u.es_superadmin;
+  const cambiosDatos = nombre !== u.nombre_completo || usuarioAcceso !== (u.nombre_usuario ?? "") || email !== u.email || telefono !== (u.telefono ?? "") || superadmin !== u.es_superadmin;
 
   return (
     <Modal
@@ -307,11 +337,26 @@ function DetalleUsuario({
     >
       <div className="space-y-8">
         <section className="space-y-4">
-          <h3 className="text-[11px] font-semibold tracking-wide text-texto-3 uppercase">Cuenta</h3>
+          <h3 className="text-[0.6875rem] font-semibold tracking-wide text-texto-3 uppercase">Cuenta</h3>
           <Entrada etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
           <div className="grid grid-cols-2 gap-4">
-            <Entrada etiqueta="Correo (usuario de acceso)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Entrada
+              etiqueta="Usuario de acceso"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={usuarioAcceso}
+              onChange={(e) => setUsuarioAcceso(e.target.value.toLowerCase().replace(/\s/g, ""))}
+              error={usuarioAcceso && !USUARIO_RE.test(usuarioAcceso) ? "Solo minúsculas, números, punto o guion" : undefined}
+            />
             <Entrada etiqueta="Teléfono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+            <Entrada
+              etiqueta="Correo"
+              type="email"
+              contenedor="col-span-2"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              ayuda="Identidad interna y contacto. Para entrar se usa el usuario (o este correo si no tiene usuario)."
+            />
           </div>
           <Interruptor activo={superadmin} onChange={setSuperadmin} etiqueta="Superadministración de la plataforma" />
           <AnimatePresence initial={false}>
@@ -322,6 +367,7 @@ function DetalleUsuario({
                     variante="secundario"
                     onClick={() => {
                       setNombre(u.nombre_completo);
+                      setUsuarioAcceso(u.nombre_usuario ?? "");
                       setEmail(u.email);
                       setTelefono(u.telefono ?? "");
                       setSuperadmin(u.es_superadmin);
@@ -338,6 +384,7 @@ function DetalleUsuario({
                         telefono,
                         es_superadmin: superadmin,
                         ...(email !== u.email ? { email } : {}),
+                        ...(usuarioAcceso && usuarioAcceso !== u.nombre_usuario ? { nombre_usuario: usuarioAcceso } : {}),
                       })
                     }
                   >
@@ -351,7 +398,7 @@ function DetalleUsuario({
 
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-[11px] font-semibold tracking-wide text-texto-3 uppercase">Acceso a sistemas</h3>
+            <h3 className="text-[0.6875rem] font-semibold tracking-wide text-texto-3 uppercase">Acceso a sistemas</h3>
             {!agregando && disponibles.length > 0 && (
               <Boton tamano="sm" variante="secundario" icono={<Plus className="size-3.5" />} onClick={() => setAgregando({ sistema: disponibles[0].id, roles: [] })}>
                 Agregar a un sistema
@@ -396,7 +443,7 @@ function DetalleUsuario({
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-[11px] font-semibold tracking-wide text-texto-3 uppercase">Seguridad</h3>
+          <h3 className="text-[0.6875rem] font-semibold tracking-wide text-texto-3 uppercase">Seguridad</h3>
           <div className="flex items-center gap-3 rounded-xl border border-borde p-4">
             <KeyRound className="size-4 text-texto-3" />
             <div className="flex-1">
@@ -405,6 +452,16 @@ function DetalleUsuario({
             </div>
             <Boton variante="secundario" tamano="sm" cargando={accion.isPending && accion.variables?.accion === "restablecer_password"} onClick={() => accion.mutate({ accion: "restablecer_password" })}>
               Restablecer
+            </Boton>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-borde p-4">
+            <LockKeyhole className="size-4 text-texto-3" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Asignar contraseña</p>
+              <p className="text-xs text-texto-3">Escribe tú la contraseña; puedes pedir que la cambie al entrar.</p>
+            </div>
+            <Boton variante="secundario" tamano="sm" onClick={() => setAsignar(true)}>
+              Asignar
             </Boton>
           </div>
           <div
@@ -436,6 +493,10 @@ function DetalleUsuario({
           </div>
         </section>
       </div>
+      <AsignarPassword
+        usuario={asignar ? { id: u.id, nombre: u.nombre_completo, acceso: u.nombre_usuario ?? u.email } : null}
+        onCerrar={() => setAsignar(false)}
+      />
     </Modal>
   );
 }

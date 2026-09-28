@@ -21,6 +21,7 @@ instalacion/Output/
 
 # Supabase CLI local
 supabase/.temp/
+**/supabase/.temp/
 supabase/.branches/
 
 # Claude Code: configuración personal

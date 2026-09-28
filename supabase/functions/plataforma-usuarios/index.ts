@@ -1,13 +1,14 @@
 // Administración global de usuarios (solo superadministración activa).
-//   { accion: "crear", email, nombre_completo, es_superadmin? }
-//   { accion: "actualizar", usuario_id, nombre_completo?, email?, telefono?, es_superadmin? }
+//   { accion: "crear", nombre_usuario, email?, nombre_completo, es_superadmin? }
+//   { accion: "actualizar", usuario_id, nombre_completo?, nombre_usuario?, email?, telefono?, es_superadmin? }
 //   { accion: "desactivar" | "activar", usuario_id }
-//   { accion: "restablecer_password", usuario_id }
+//   { accion: "restablecer_password", usuario_id }                      → temporal aleatoria
+//   { accion: "establecer_password", usuario_id, password, debe_cambiar? } → la que elija el superadmin
 //   { accion: "ping" }  (diagnóstico: comprueba que las Edge Functions responden)
 //   { accion: "limpiar_archivos_sistema", sistema_id }  (tras eliminar un sistema)
 // Las membresías (sistemas y roles) se editan directo por PostgREST: el RLS ya
 // permite al superadmin gestionarlas.
-import { clienteServicio, cors, EMAIL_RE, error, json, passwordTemporal } from "../_shared/comun.ts";
+import { clienteServicio, cors, credencialesNuevas, EMAIL_RE, error, json, normalizarUsuario, passwordTemporal, USUARIO_RE } from "../_shared/comun.ts";
 
 // Bloqueo en Auth por ~100 años: no puede iniciar sesión ni renovar su token.
 const BLOQUEO = "876000h";
@@ -46,22 +47,24 @@ Deno.serve(async (req) => {
 
   switch (c.accion) {
     case "crear": {
-      const email = String(c.email ?? "").trim().toLowerCase();
+      const cred = credencialesNuevas(c);
       const nombre = String(c.nombre_completo ?? "").trim();
-      if (!EMAIL_RE.test(email)) return error("Correo electrónico inválido.");
+      if ("error" in cred) return error(cred.error);
       if (nombre.length < 3) return error("Escribe el nombre completo.");
+      const { data: ocupado } = await admin.from("perfiles").select("id").eq("nombre_usuario", cred.usuario).maybeSingle();
+      if (ocupado) return error(`El usuario "${cred.usuario}" ya existe.`);
       const password = passwordTemporal();
       const { data, error: e } = await admin.auth.admin.createUser({
-        email,
+        email: cred.email,
         password,
         email_confirm: true,
-        user_metadata: { nombre_completo: nombre, debe_cambiar_password: true },
+        user_metadata: { nombre_completo: nombre, nombre_usuario: cred.usuario, debe_cambiar_password: true },
       });
       if (e || !data.user) return error(e?.message ?? "No se pudo crear la cuenta.");
       if (c.es_superadmin === true) {
         await admin.from("perfiles").update({ es_superadmin: true }).eq("id", data.user.id);
       }
-      return json({ ok: true, usuario_id: data.user.id, password_temporal: password });
+      return json({ ok: true, usuario_id: data.user.id, nombre_usuario: cred.usuario, password_temporal: password });
     }
 
     case "actualizar": {
@@ -69,6 +72,13 @@ Deno.serve(async (req) => {
       const cambios: Record<string, unknown> = {};
       if (typeof c.nombre_completo === "string") cambios.nombre_completo = c.nombre_completo.trim();
       if (typeof c.telefono === "string") cambios.telefono = c.telefono.trim() || null;
+      if (typeof c.nombre_usuario === "string") {
+        const usuario = normalizarUsuario(c.nombre_usuario);
+        if (!USUARIO_RE.test(usuario)) return error("Nombre de usuario inválido.");
+        const { data: ocupado } = await admin.from("perfiles").select("id").eq("nombre_usuario", usuario).neq("id", usuarioId).maybeSingle();
+        if (ocupado) return error(`El usuario "${usuario}" ya existe.`);
+        cambios.nombre_usuario = usuario;
+      }
       if (typeof c.es_superadmin === "boolean") {
         if (!c.es_superadmin && (await quedariaSinSuperadmin())) return error("Debe quedar al menos un superadmin activo.");
         cambios.es_superadmin = c.es_superadmin;
@@ -106,8 +116,18 @@ Deno.serve(async (req) => {
       const password = passwordTemporal();
       const { error: e } = await admin.auth.admin.updateUserById(usuarioId, { password });
       if (e) return error(e.message);
-      await admin.from("perfiles").update({ debe_cambiar_password: true }).eq("id", usuarioId);
-      return json({ ok: true, password_temporal: password });
+      const { data: p } = await admin.from("perfiles").update({ debe_cambiar_password: true }).eq("id", usuarioId).select("nombre_usuario, email").single();
+      return json({ ok: true, password_temporal: password, nombre_usuario: p?.nombre_usuario ?? p?.email ?? null });
+    }
+
+    case "establecer_password": {
+      if (!usuarioId) return error("Falta el usuario.");
+      const password = String(c.password ?? "");
+      if (password.length < 8) return error("La contraseña debe tener al menos 8 caracteres.");
+      const { error: e } = await admin.auth.admin.updateUserById(usuarioId, { password });
+      if (e) return error(e.message);
+      await admin.from("perfiles").update({ debe_cambiar_password: c.debe_cambiar === true }).eq("id", usuarioId);
+      return json({ ok: true });
     }
 
     case "ping":

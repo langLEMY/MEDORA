@@ -1,5 +1,6 @@
 import { CONVERSORES, normalizarClave, type Conversor } from "./excel";
 import { ETIQUETA_ROL, ROLES } from "./permisos";
+import { cedula, rnc, sugerirUsuario } from "./utils";
 
 export interface CampoImportacion {
   clave: string;
@@ -67,6 +68,13 @@ export const IMPORTACIONES = {
           f.nombres = partes[0];
           f.apellidos = partes.slice(1).join(" ");
         }
+      }
+      // Cédula dominicana → 000-0000000-0 (así se reconoce el duplicado). Si no
+      // tiene 11 dígitos no se pierde: queda como documento "otro".
+      if (f.documento && (!f.documento_tipo || f.documento_tipo === "cedula")) {
+        const ced = cedula(String(f.documento));
+        f.documento_tipo = ced ? "cedula" : "otro";
+        if (ced) f.documento = ced;
       }
       if (f.edad !== null && f.edad !== undefined && !f.fecha_nacimiento) {
         f.notas = [f.notas, `Edad declarada al importar: ${f.edad}`].filter(Boolean).join(" · ");
@@ -139,6 +147,7 @@ export const IMPORTACIONES = {
           f.apellidos = partes.slice(Math.ceil(partes.length / 2)).join(" ");
         }
       }
+      if (f.cedula) f.cedula = cedula(String(f.cedula)) ?? f.cedula;
       return f;
     },
   },
@@ -146,12 +155,13 @@ export const IMPORTACIONES = {
   personal: {
     id: "personal",
     titulo: "Personal con acceso a MEDORA",
-    descripcion: "Crea cuentas con contraseña temporal (se descargan al final en Excel). Si el correo ya existe, solo se le da acceso a este sistema.",
+    descripcion: "Crea cuentas con usuario y contraseña temporal (se descargan al final en Excel). Si el usuario ya existe, solo se le da acceso a este sistema.",
     destino: "edge:gestion-usuarios",
     tamanoLote: 25,
     campos: [
       c("nombre_completo", "Nombre completo", ["nombre", "nombres y apellidos", "empleado"], { requerido: true, ejemplo: "Dra. Laura Méndez" }),
-      c("email", "Correo", ["email", "e-mail", "usuario"], { requerido: true, ejemplo: "lmendez@hospital.do" }),
+      c("nombre_usuario", "Usuario", ["nombre usuario", "login", "user"], { ejemplo: "laura.mendez" }),
+      c("email", "Correo", ["email", "e-mail", "correo electronico"], { ejemplo: "lmendez@hospital.do" }),
       c("roles", "Roles", ["rol", "cargo", "perfil"], { requerido: true, ejemplo: "Médico, Administración" }),
       c("especialidad", "Especialidad", []),
       c("exequatur", "Exequátur", ["exequatur"]),
@@ -167,6 +177,8 @@ export const IMPORTACIONES = {
         ),
       ];
       if (!(f.roles as string[]).length) f.roles = null;
+      // Sin columna de usuario: se sugiere a partir del nombre (ana.perez).
+      f.nombre_usuario = String(f.nombre_usuario ?? "").trim().toLowerCase() || sugerirUsuario(String(f.nombre_completo ?? ""));
       return f;
     },
   },
@@ -197,6 +209,93 @@ export const IMPORTACIONES = {
     ],
   },
 
+  parametrosNomina: {
+    id: "parametros-nomina",
+    titulo: "Parámetros TSS",
+    descripcion: "Una fila por concepto: AFP empleado, SFS empleado, AFP empleador, SFS empleador, SRL, INFOTEP, Tope AFP y Tope SFS (mensual; 0 = sin tope).",
+    destino: "importar_parametros_nomina",
+    campos: [
+      c("concepto", "Concepto", ["parametro", "descripcion", "nombre"], { requerido: true, ejemplo: "AFP empleado" }),
+      c("valor", "Valor", ["porcentaje", "tasa", "%", "monto"], { conversor: "numero", requerido: true, ejemplo: 2.87 }),
+    ],
+  },
+
+  escalaIsr: {
+    id: "escala-isr",
+    titulo: "Escala de ISR",
+    descripcion: "Reemplaza la escala anual completa. Una fila por tramo; el último tramo puede dejar «Hasta» vacío.",
+    destino: "importar_escala_isr",
+    tamanoLote: 1000,
+    campos: [
+      c("hasta", "Hasta (anual)", ["hasta", "limite", "renta hasta", "monto hasta"], { conversor: "numero", ejemplo: 416220 }),
+      c("tasa", "Tasa %", ["tasa", "porcentaje", "%"], { conversor: "numero", requerido: true, ejemplo: 0 }),
+      c("fijo", "Monto fijo", ["fijo", "cuota fija", "mas"], { conversor: "numero", ejemplo: 0 }),
+    ],
+  },
+
+  novedadesNomina: {
+    id: "novedades-nomina",
+    titulo: "Novedades de la nómina",
+    descripcion: "Horas extra, bonos, otros ingresos y descuentos de cada empleado de esta nómina (por cédula o nombre). Las columnas vacías no cambian nada.",
+    destino: "importar_novedades_nomina",
+    campos: [
+      c("cedula", "Cédula", ["documento", "identificacion"], { ejemplo: "402-0000000-1" }),
+      c("empleado", "Empleado", ["nombre", "nombre completo", "nombres y apellidos"], { ejemplo: "Juan Pérez" }),
+      c("horas_extra", "Horas extra (RD$)", ["horas extra", "extras", "horas extras"], { conversor: "numero", ejemplo: 1500 }),
+      c("bonos", "Bonos", ["bono", "bonificacion", "incentivo"], { conversor: "numero", ejemplo: 0 }),
+      c("otros_ingresos", "Otros ingresos", ["otros ingresos", "comisiones", "pago por pacientes"], { conversor: "numero", ejemplo: 0 }),
+      c("otras_deducciones", "Otras deducciones", ["deducciones", "descuentos", "prestamo", "adelanto"], { conversor: "numero", ejemplo: 0 }),
+    ],
+    ajustar: (f) => {
+      if (f.cedula) f.cedula = cedula(String(f.cedula)) ?? f.cedula;
+      return f;
+    },
+  },
+
+  cuentasContables: {
+    id: "cuentas-contables",
+    titulo: "Catálogo de cuentas",
+    descripcion: "Crea o actualiza cuentas por código. La cuenta padre sale del código (6.2.05 → 6.2) y el tipo, si no viene, del primer dígito (1 activo … 6 gasto).",
+    destino: "importar_cuentas_contables",
+    tamanoLote: 1000,
+    campos: [
+      c("codigo", "Código", ["cuenta", "no cuenta", "numero cuenta", "cod"], { requerido: true, ejemplo: "6.2.05" }),
+      c("nombre", "Nombre", ["descripcion", "nombre cuenta", "cuenta contable"], { requerido: true, ejemplo: "Combustible" }),
+      c("tipo", "Tipo", ["tipo cuenta", "naturaleza", "clase"], { conversor: "tipoCuenta", ejemplo: "Gasto" }),
+      c("acepta_movimiento", "Acepta movimiento", ["movimiento", "detalle", "auxiliar"], { conversor: "booleano", ejemplo: "Sí" }),
+    ],
+  },
+
+  reglasComision: {
+    id: "reglas-comision",
+    titulo: "Reglas de comisión",
+    descripcion:
+      "Una fila por regla. Indica la persona (o un rol), a qué servicio o categoría aplica, y si es porcentaje o monto fijo por paciente/servicio. Si ya existe una regla con el mismo nombre, se actualiza.",
+    destino: "importar_reglas_comision",
+    campos: [
+      c("nombre", "Nombre de la regla", ["regla", "nombre"], { ejemplo: "Dra. Méndez · consultas" }),
+      c("persona", "Persona", ["medico", "doctor", "profesional", "empleado", "usuario", "beneficiario"], { ejemplo: "Laura Méndez" }),
+      c("rol", "Rol", ["cargo", "perfil"], { ejemplo: "Médico" }),
+      c("especialidad", "Especialidad", ["area medica"], { ejemplo: "Odontología" }),
+      c("retencion", "Retención %", ["retencion", "isr", "descuento"], { conversor: "numero", ejemplo: 10 }),
+      c("servicio", "Servicio", ["procedimiento", "codigo servicio"], { ejemplo: "Consulta medicina familiar" }),
+      c("categoria", "Categoría", ["area", "tipo servicio"], { conversor: "categoriaServicio", ejemplo: "Consulta" }),
+      c("tipo", "Tipo", ["tipo comision", "forma"], { conversor: "tipoComision", ejemplo: "Por paciente" }),
+      c("valor", "Valor", ["monto", "porcentaje", "tarifa", "pago por paciente"], { conversor: "numero", requerido: true, ejemplo: 250 }),
+      c("base", "Base", ["sobre"], { conversor: "baseComision", ejemplo: "Bruto" }),
+      c("aplica_a", "Se paga al", ["aplica a", "paga a"], { conversor: "aplicaComision", ejemplo: "Profesional" }),
+      c("vigente_desde", "Vigente desde", ["desde", "inicio"], { conversor: "fecha" }),
+      c("vigente_hasta", "Vigente hasta", ["hasta", "fin"], { conversor: "fecha" }),
+    ],
+    ajustar: (f) => {
+      if (f.rol) {
+        const k = normalizarClave(String(f.rol));
+        f.rol = ROLES.find((r) => normalizarClave(r) === k || normalizarClave(ETIQUETA_ROL[r]) === k || normalizarClave(ETIQUETA_ROL[r]).startsWith(k)) ?? null;
+      }
+      return f;
+    },
+  },
+
   proveedores: {
     id: "proveedores",
     titulo: "Proveedores",
@@ -210,6 +309,10 @@ export const IMPORTACIONES = {
       c("contacto", "Contacto", ["persona contacto", "vendedor"]),
       c("direccion", "Dirección", []),
     ],
+    ajustar: (f) => {
+      if (f.rnc) f.rnc = rnc(String(f.rnc)) ?? f.rnc;
+      return f;
+    },
   },
 } satisfies Record<string, DefinicionImportacion>;
 

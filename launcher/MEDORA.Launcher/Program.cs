@@ -3,6 +3,19 @@ using System.Runtime.InteropServices;
 
 namespace MEDORA.Launcher;
 
+/// <summary>Cómo se abre MEDORA en este equipo.</summary>
+public enum Modo
+{
+    /// <summary>Ventana normal del personal.</summary>
+    Normal,
+
+    /// <summary>Quiosco táctil de turnos: pantalla completa, sin salida sin contraseña.</summary>
+    Quiosco,
+
+    /// <summary>Solo la pantalla de llamados de la sala (TV).</summary>
+    Pantalla,
+}
+
 internal static class Program
 {
     public static readonly string CarpetaDatos = Path.Combine(
@@ -11,9 +24,16 @@ internal static class Program
     // Hilo STA de punta a punta: WebView2 inicializa su propio apartamento COM y choca
     // (RPC_E_CHANGED_MODE) si el hilo no fue STA desde el arranque. Por eso Main es síncrono.
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
-        using var instancia = new Mutex(initiallyOwned: true, "MEDORA.Launcher.InstanciaUnica", out var esPrimera);
+        // --quiosco: pantalla táctil de turnos (y la TV de la sala si hay otro monitor).
+        // --pantalla: solo la pantalla de llamados (PC dedicada a la TV).
+        var modo = args.Any(a => a.Equals("--quiosco", StringComparison.OrdinalIgnoreCase)) ? Modo.Quiosco
+            : args.Any(a => a.Equals("--pantalla", StringComparison.OrdinalIgnoreCase)) ? Modo.Pantalla
+            : Modo.Normal;
+
+        var nombreMutex = "MEDORA.Launcher.InstanciaUnica" + (modo == Modo.Normal ? "" : "." + modo);
+        using var instancia = new Mutex(initiallyOwned: true, nombreMutex, out var esPrimera);
         if (!esPrimera)
         {
             TraerAlFrente();
@@ -27,7 +47,7 @@ internal static class Program
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => RegistrarCrash(e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => RegistrarCrash(e.ExceptionObject as Exception);
-        Application.Run(new FormPrincipal());
+        Application.Run(new FormPrincipal(modo));
     }
 
     private static void RegistrarCrash(Exception? ex)

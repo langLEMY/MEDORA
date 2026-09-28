@@ -160,7 +160,7 @@ function SistemasPlataforma() {
                       cambiarSistema(s.id);
                       navigate("/personal");
                     }}
-                    className="group/b inline-flex items-center gap-1 text-[13px] font-medium text-marca-texto"
+                    className="group/b inline-flex items-center gap-1 text-[0.8125rem] font-medium text-marca-texto"
                   >
                     Administrar <ArrowRight className="size-3.5 transition-transform group-hover/b:translate-x-0.5" />
                   </button>
@@ -335,7 +335,7 @@ function NuevoSistema({
       <div className="space-y-5">
         <Entrada etiqueta="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} ayuda={nombre ? `Identificador: ${slugificar(nombre)}` : undefined} />
         <div>
-          <p className="mb-2 text-[13px] font-medium text-texto-2">Color</p>
+          <p className="mb-2 text-[0.8125rem] font-medium text-texto-2">Color</p>
           <div className="flex flex-wrap gap-2">
             {COLORES_MARCA.map((c) => (
               <button

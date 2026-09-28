@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import { AreaTexto, Entrada, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { useAseguradoras } from "@/lib/consultas";
 import { mensajeError, supabase, type Fila } from "@/lib/supabase";
+import { cedula } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 
 const opcional = z
@@ -17,7 +18,7 @@ const opcional = z
   .transform((v) => (v === "" ? null : v))
   .nullable();
 
-const esquema = z.object({
+const base = z.object({
   nombres: z.string().trim().min(1, "Requerido"),
   apellidos: z.string().trim().min(1, "Requerido"),
   documento_tipo: z.enum(["cedula", "pasaporte", "menor", "otro"]),
@@ -36,8 +37,21 @@ const esquema = z.object({
   contacto_emergencia_telefono: opcional,
   notas: opcional,
 });
-type Entrada_ = z.input<typeof esquema>;
-type Salida = z.output<typeof esquema>;
+
+/** Cédula de la JCE: 11 dígitos, guardada como 000-0000000-0. Un documento
+ *  ya registrado que no cambia se respeta (datos migrados). */
+const crearEsquema = (documentoOriginal?: string | null) =>
+  base.transform((d, ctx) => {
+    if (d.documento_tipo !== "cedula" || !d.documento || d.documento === documentoOriginal) return d;
+    const formateada = cedula(d.documento);
+    if (!formateada) {
+      ctx.addIssue({ code: "custom", path: ["documento"], message: "La cédula debe tener 11 dígitos" });
+      return z.NEVER;
+    }
+    return { ...d, documento: formateada };
+  });
+type Entrada_ = z.input<typeof base>;
+type Salida = z.output<typeof base>;
 
 const vacio: Entrada_ = {
   nombres: "",
@@ -62,7 +76,7 @@ const vacio: Entrada_ = {
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <fieldset className="space-y-4">
-      <legend className="mb-3 text-[11px] font-semibold tracking-wide text-texto-3 uppercase">{titulo}</legend>
+      <legend className="mb-3 text-[0.6875rem] font-semibold tracking-wide text-texto-3 uppercase">{titulo}</legend>
       {children}
     </fieldset>
   );
@@ -72,16 +86,20 @@ export function FormPaciente({
   abierto,
   onCerrar,
   paciente,
+  inicial,
   onGuardado,
 }: {
   abierto: boolean;
   onCerrar: () => void;
   paciente?: Fila<"pacientes"> | null;
+  /** Datos para empezar un paciente nuevo (p. ej. lo que se escribió en el buscador). */
+  inicial?: { nombres?: string; apellidos?: string; documento?: string };
   onGuardado?: (id: string) => void;
 }) {
   const { sistemaId } = useSistema();
   const qc = useQueryClient();
   const aseguradoras = useAseguradoras(sistemaId);
+  const esquema = useMemo(() => crearEsquema(paciente?.documento), [paciente?.documento]);
   const { register, handleSubmit, reset, formState } = useForm<Entrada_, unknown, Salida>({
     resolver: zodResolver(esquema),
     defaultValues: vacio,
@@ -95,8 +113,8 @@ export function FormPaciente({
         Object.keys(vacio).map((k) => [k, (paciente as Record<string, unknown>)[k] ?? ""]),
       ) as Entrada_;
       reset(valores);
-    } else reset(vacio);
-  }, [abierto, paciente, reset]);
+    } else reset({ ...vacio, ...inicial });
+  }, [abierto, paciente, inicial, reset]);
 
   const guardar = useMutation({
     mutationFn: async (d: Salida) => {
@@ -153,7 +171,7 @@ export function FormPaciente({
               <option value="menor">Menor de edad</option>
               <option value="otro">Otro</option>
             </Selector>
-            <Entrada etiqueta="Número de documento" placeholder="000-0000000-0" {...register("documento")} />
+            <Entrada etiqueta="Número de documento" placeholder="000-0000000-0" error={e.documento?.message} {...register("documento")} />
             <Entrada etiqueta="Fecha de nacimiento" type="date" {...register("fecha_nacimiento")} />
             <Selector etiqueta="Sexo" {...register("sexo")}>
               <option value="">—</option>

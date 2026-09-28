@@ -4,8 +4,9 @@ import { ArrowRight, CalendarCheck, Clock, PackageMinus, TrendingUp, Users } fro
 import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
+import { MedicosAhora, TurnosEnVivo } from "@/components/WidgetsInicio";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { ESTADO_CITA, useCitas } from "@/lib/consultas";
+import { ESTADO_CITA, nombrePaciente, useCitas } from "@/lib/consultas";
 import { puede } from "@/lib/permisos";
 import { datos, supabase, type EstadoCita } from "@/lib/supabase";
 import { hora, moneda } from "@/lib/utils";
@@ -30,9 +31,9 @@ function saludo() {
 
 export default function Dashboard() {
   const { perfil } = useSesion();
-  const { sistema, sistemaId, roles, esSuperadmin } = useSistema();
-  const verFinanzas = puede(roles, "caja");
-  const verInventario = puede(roles, "inventario");
+  const { sistema, sistemaId, roles, permisos, esSuperadmin, soloPropio } = useSistema();
+  const verFinanzas = puede(roles, "caja", false, permisos);
+  const verInventario = puede(roles, "inventario", false, permisos);
 
   const resumen = useQuery({
     queryKey: ["dashboard", sistemaId],
@@ -55,10 +56,10 @@ export default function Dashboard() {
     {
       etiqueta: "Ingresos de hoy",
       valor: Number(r?.ingresos_hoy ?? 0),
-      extra: `${moneda(r?.ingresos_mes, sistema.moneda)} este mes`,
+      extra: `${moneda(r?.ingresos_mes)} este mes`,
       icono: TrendingUp,
       ver: verFinanzas,
-      formato: (n: number) => moneda(n, sistema.moneda),
+      formato: (n: number) => moneda(n),
     },
     { etiqueta: "Insumos bajo mínimo", valor: r?.stock_bajo ?? 0, extra: "Revisar inventario", icono: PackageMinus, ver: verInventario },
   ].filter((k) => k.ver);
@@ -95,12 +96,12 @@ export default function Dashboard() {
           <motion.div key={k.etiqueta} variants={itemEscalonado}>
             <Tarjeta className="group relative overflow-hidden p-5">
               <div className="flex items-center justify-between">
-                <span className="text-[13px] font-medium text-texto-2">{k.etiqueta}</span>
+                <span className="text-[0.8125rem] font-medium text-texto-2">{k.etiqueta}</span>
                 <span className="grid size-8 place-items-center rounded-lg bg-marca-suave text-marca transition-transform duration-300 group-hover:scale-105">
                   <k.icono className="size-4" />
                 </span>
               </div>
-              <div className="mt-3 text-[28px] font-semibold tracking-[-0.02em]">
+              <div className="mt-3 text-[1.75rem] font-semibold tracking-[-0.02em]">
                 {resumen.isLoading ? <Esqueleto className="h-8 w-24" /> : <NumeroAnimado valor={k.valor} formato={k.formato} />}
               </div>
               <p className="mt-1 text-xs text-texto-3">{k.extra}</p>
@@ -113,7 +114,7 @@ export default function Dashboard() {
         <Tarjeta className="p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-[15px] font-semibold">Actividad de los últimos 14 días</h2>
+              <h2 className="text-[0.9375rem] font-semibold">Actividad de los últimos 14 días</h2>
               <p className="text-xs text-texto-3">Citas atendidas{verFinanzas ? " e ingresos netos" : ""}</p>
             </div>
           </div>
@@ -152,7 +153,7 @@ export default function Dashboard() {
                         new Date(String(f) + "T00:00:00"),
                       )
                     }
-                    formatter={(v, n) => (n === "ingresos" ? [moneda(Number(v), sistema.moneda), "Ingresos"] : [v, "Citas"])}
+                    formatter={(v, n) => (n === "ingresos" ? [moneda(Number(v)), "Ingresos"] : [v, "Citas"])}
                   />
                   <Area
                     type="monotone"
@@ -170,8 +171,8 @@ export default function Dashboard() {
 
         <Tarjeta className="flex flex-col">
           <div className="flex items-center justify-between border-b border-borde px-5 py-4">
-            <h2 className="text-[15px] font-semibold">Agenda de hoy</h2>
-            <Link to="/recepcion" className="flex items-center gap-1 text-[13px] font-medium text-marca-texto hover:underline">
+            <h2 className="text-[0.9375rem] font-semibold">Agenda de hoy</h2>
+            <Link to="/recepcion" className="flex items-center gap-1 text-[0.8125rem] font-medium text-marca-texto hover:underline">
               Recepción <ArrowRight className="size-3.5" />
             </Link>
           </div>
@@ -188,11 +189,11 @@ export default function Dashboard() {
               <motion.ul variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
                 {citas.data!.map((c) => (
                   <motion.li key={c.id} variants={itemEscalonado} className="flex items-center gap-3 px-5 py-3">
-                    <span className="w-11 text-[13px] font-medium text-texto-2 tabular">{hora(c.inicio)}</span>
-                    <Avatar nombre={`${c.paciente?.nombres} ${c.paciente?.apellidos}`} tamano={28} />
+                    <span className="w-11 text-[0.8125rem] font-medium text-texto-2 tabular">{hora(c.inicio)}</span>
+                    <Avatar nombre={nombrePaciente(c)} tamano={28} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
-                        {c.paciente?.nombres} {c.paciente?.apellidos}
+                        {nombrePaciente(c)}
                       </p>
                       <p className="truncate text-xs text-texto-3">{c.medico?.nombre_completo}</p>
                     </div>
@@ -204,6 +205,14 @@ export default function Dashboard() {
           </div>
         </Tarjeta>
       </div>
+
+      {/* Quien opera la clínica (no los médicos, que ven solo lo suyo) sigue los turnos y los médicos en vivo. */}
+      {!soloPropio && puede(roles, "recepcion", false, permisos) && (
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <TurnosEnVivo />
+          <MedicosAhora />
+        </div>
+      )}
     </>
   );
 }

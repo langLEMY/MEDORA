@@ -15,6 +15,7 @@ import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos } from "@/components/AccionesDatos";
+import { IMPORTACIONES } from "@/lib/importaciones";
 
 type Vista = "diario" | "balanza" | "catalogo" | "configuracion" | "ncf";
 
@@ -94,7 +95,7 @@ interface Asiento {
 }
 
 function LibroDiario() {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const cuentas = useCuentas(sistemaId);
   const hoy = new Date();
   const [desde, setDesde] = useState(isoDia(new Date(hoy.getFullYear(), hoy.getMonth(), 1)));
@@ -122,7 +123,7 @@ function LibroDiario() {
   });
 
   const nombre = (c: string) => cuentas.data?.find((x) => x.codigo === c)?.nombre ?? "";
-  const $ = (v: number) => moneda(v, sistema.moneda);
+  const $ = (v: number) => moneda(v);
 
   return (
     <>
@@ -195,7 +196,7 @@ function LibroDiario() {
                         transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                         className="overflow-hidden"
                       >
-                        <table className="mx-5 mb-4 w-[calc(100%-2.5rem)] rounded-xl bg-superficie-2/60 text-[13px]">
+                        <table className="mx-5 mb-4 w-[calc(100%-2.5rem)] rounded-xl bg-superficie-2/60 text-[0.8125rem]">
                           <tbody>
                             {[...a.lineas]
                               .sort((x, y) => Number(y.debe) - Number(x.debe))
@@ -251,7 +252,7 @@ interface LineaManual {
 }
 
 function AsientoManual({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const qc = useQueryClient();
   const nueva = (): LineaManual => ({ clave: Date.now() + Math.random(), cuenta: "", debe: "", haber: "", descripcion: "" });
   const [fechaA, setFechaA] = useState(isoDia());
@@ -300,7 +301,7 @@ function AsientoManual({ abierto, onCerrar }: { abierto: boolean; onCerrar: () =
       pie={
         <>
           <span className={cn("mr-auto text-sm font-medium", cuadra ? "text-exito" : "text-aviso")}>
-            {cuadra ? "Cuadrado" : `Diferencia: ${moneda(Math.abs(debe - haber), sistema.moneda)}`}
+            {cuadra ? "Cuadrado" : `Diferencia: ${moneda(Math.abs(debe - haber))}`}
           </span>
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
@@ -317,7 +318,7 @@ function AsientoManual({ abierto, onCerrar }: { abierto: boolean; onCerrar: () =
           <Entrada etiqueta="Concepto" value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Ej. Depósito de efectivo al banco" />
         </div>
         <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_150px_130px_130px_36px] gap-2 px-1 text-[11px] font-medium tracking-wide text-texto-3 uppercase">
+          <div className="grid grid-cols-[1fr_150px_130px_130px_36px] gap-2 px-1 text-[0.6875rem] font-medium tracking-wide text-texto-3 uppercase">
             <span>Cuenta</span>
             <span>Descripción</span>
             <span className="text-right">Debe</span>
@@ -357,8 +358,8 @@ function AsientoManual({ abierto, onCerrar }: { abierto: boolean; onCerrar: () =
           </Boton>
         </div>
         <div className="flex justify-end gap-8 border-t border-borde pt-3 text-sm font-semibold tabular">
-          <span>Debe {moneda(debe, sistema.moneda)}</span>
-          <span>Haber {moneda(haber, sistema.moneda)}</span>
+          <span>Debe {moneda(debe)}</span>
+          <span>Haber {moneda(haber)}</span>
         </div>
       </div>
     </Modal>
@@ -366,7 +367,7 @@ function AsientoManual({ abierto, onCerrar }: { abierto: boolean; onCerrar: () =
 }
 
 function Balanza() {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const hoy = new Date();
   const [desde, setDesde] = useState(isoDia(new Date(hoy.getFullYear(), 0, 1)));
   const [hasta, setHasta] = useState(isoDia());
@@ -375,7 +376,7 @@ function Balanza() {
     queryKey: ["balanza", sistemaId, desde, hasta],
     queryFn: async () => datos(await supabase.rpc("balanza_comprobacion", { p_sistema: sistemaId, p_desde: desde, p_hasta: hasta })) ?? [],
   });
-  const $ = (v: number) => moneda(v, sistema.moneda);
+  const $ = (v: number) => moneda(v);
   const filas = q.data ?? [];
   const td = filas.reduce((s, f) => s + Number(f.debe), 0);
   const th = filas.reduce((s, f) => s + Number(f.haber), 0);
@@ -393,7 +394,7 @@ function Balanza() {
           ] as const
         ).map(([k, v]) => (
           <Tarjeta key={k} className="p-5">
-            <p className="text-[13px] text-texto-2">{k}</p>
+            <p className="text-[0.8125rem] text-texto-2">{k}</p>
             <p className={cn("mt-2 text-2xl font-semibold tracking-[-0.02em] tabular", k.startsWith("Resultado") && (v < 0 ? "text-peligro" : "text-exito"))}>{$(v)}</p>
           </Tarjeta>
         ))}
@@ -427,7 +428,7 @@ function Balanza() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-borde bg-superficie-2/60 text-left text-[11px] tracking-wide text-texto-3 uppercase">
+              <tr className="border-b border-borde bg-superficie-2/60 text-left text-[0.6875rem] tracking-wide text-texto-3 uppercase">
                 <th className="px-5 py-2 font-medium">Cuenta</th>
                 <th className="px-5 py-2 text-right font-medium">Debe</th>
                 <th className="px-5 py-2 text-right font-medium">Haber</th>
@@ -487,11 +488,26 @@ function Catalogo() {
     <Tarjeta className="overflow-hidden">
       <div className="flex items-center gap-3 border-b border-borde p-3">
         <Entrada icono={<Search />} placeholder="Buscar por código o nombre…" value={texto} onChange={(e) => setTexto(e.target.value)} contenedor="w-80" />
-        {escribir && (
-          <Boton className="ml-auto" icono={<Plus className="size-4" />} onClick={() => setEditar("nueva")}>
-            Nueva cuenta
-          </Boton>
-        )}
+        <div className="ml-auto flex gap-2">
+          <AccionesDatos
+            titulo="Catálogo de cuentas"
+            columnas={[
+              { titulo: "Código", valor: (c: CuentaContable) => c.codigo },
+              { titulo: "Nombre", valor: (c) => c.nombre },
+              { titulo: "Tipo", valor: (c) => c.tipo.charAt(0).toUpperCase() + c.tipo.slice(1) },
+              { titulo: "Acepta movimiento", valor: (c) => c.acepta_movimiento },
+              { titulo: "Activa", valor: (c) => c.activo, soloExcel: true },
+            ]}
+            obtener={async () => cuentas.data ?? []}
+            importaciones={escribir ? [IMPORTACIONES.cuentasContables] : []}
+            onImportado={() => void qc.invalidateQueries({ queryKey: ["cuentas", sistemaId] })}
+          />
+          {escribir && (
+            <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nueva")}>
+              Nueva cuenta
+            </Boton>
+          )}
+        </div>
       </div>
       {cuentas.isLoading ? (
         <FilasEsqueleto />
@@ -596,6 +612,7 @@ const CONCEPTOS: { clave: string; etiqueta: string; grupo: string }[] = [
   { clave: "cxc_aseguradoras", etiqueta: "Cuentas por cobrar a ARS", grupo: "Cobros y pagos" },
   { clave: "anticipos_pacientes", etiqueta: "Anticipos de pacientes", grupo: "Cobros y pagos" },
   { clave: "descuentos", etiqueta: "Descuentos concedidos", grupo: "Cobros y pagos" },
+  { clave: "ingreso_fondo_interno", etiqueta: "Fondo interno (lo paga la ARS)", grupo: "Cobros y pagos" },
   { clave: "inventario", etiqueta: "Inventario", grupo: "Compras" },
   { clave: "itbis_compras", etiqueta: "ITBIS pagado en compras", grupo: "Compras" },
   { clave: "cxp", etiqueta: "Cuentas por pagar a proveedores", grupo: "Compras" },
@@ -634,16 +651,32 @@ function Configuracion() {
   const editable = puedeEscribir.contabilidad(roles);
 
   if (q.isLoading) return <Esqueleto className="h-80 rounded-2xl" />;
+  const faltan = CONCEPTOS.filter((c) => !valor(c.clave));
   return (
     <div className="grid gap-4 xl:grid-cols-2">
+      <Tarjeta className={cn("p-4 xl:col-span-2", faltan.length ? "border-aviso/40" : "")}>
+        {faltan.length ? (
+          <p className="text-sm">
+            <span className="font-semibold text-aviso">Faltan {faltan.length} por asignar.</span>{" "}
+            <span className="text-texto-2">
+              Mientras falten, las operaciones de ese concepto no podrán registrarse: {faltan.map((c) => c.etiqueta).join(", ")}.
+            </span>
+          </p>
+        ) : (
+          <p className="text-sm text-texto-2">
+            <span className="font-semibold text-exito">Todo asignado.</span> Cada cobro, compra, nómina y comisión sabe a qué cuenta va. Solo cámbialo si tu contador usa otra
+            estructura.
+          </p>
+        )}
+      </Tarjeta>
       {grupos.map((g) => (
         <Tarjeta key={g} className="p-5">
-          <h2 className="mb-1 text-[15px] font-semibold">{g}</h2>
+          <h2 className="mb-1 text-[0.9375rem] font-semibold">{g}</h2>
           {g.startsWith("Ingresos") && <p className="mb-3 text-xs text-texto-3">Cada cobro acredita el ingreso a la cuenta de la categoría del servicio.</p>}
           <div className="space-y-3">
             {CONCEPTOS.filter((c) => c.grupo === g).map((c) => (
               <div key={c.clave} className="grid grid-cols-[1fr_1.3fr] items-center gap-3">
-                <span className="text-sm text-texto-2">{c.etiqueta}</span>
+                <span className={cn("text-sm", valor(c.clave) ? "text-texto-2" : "font-medium text-aviso")}>{c.etiqueta}</span>
                 {editable ? (
                   <SelectorCuenta compacto valor={valor(c.clave)} onChange={(cuenta) => m.mutate({ clave: c.clave, cuenta })} />
                 ) : (

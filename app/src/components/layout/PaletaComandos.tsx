@@ -1,14 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import { AnimatePresence, motion } from "motion/react";
-import { Plus, Search, UserRound } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CalendarPlus,
+  HandCoins,
+  Megaphone,
+  Moon,
+  Receipt,
+  Search,
+  ShoppingCart,
+  Sun,
+  Ticket,
+  Tv,
+  UserCog,
+  UserPlus,
+  UserRound,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { puede } from "@/lib/permisos";
-import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { puede, puedeEscribir, ROLES_PROFESIONALES } from "@/lib/permisos";
+import { cambiarPreferencias, usePreferencias } from "@/lib/preferencias";
+import { mensajeError, supabase } from "@/lib/supabase";
 import { patronBusqueda } from "@/lib/utils";
-import { useSesion } from "@/sesion/SesionProvider";
+import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
 import { NAVEGACION } from "./navegacion";
 
 function useDebounce<T>(valor: T, ms = 200) {
@@ -21,7 +38,7 @@ function useDebounce<T>(valor: T, ms = 200) {
 }
 
 export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerrar: () => void }) {
-  const { sistema, roles, esSuperadmin } = useSesion();
+  const { sistema, roles, permisos, esSuperadmin, perfil } = useSesion();
   const navigate = useNavigate();
   const [texto, setTexto] = useState("");
   const busqueda = useDebounce(texto);
@@ -51,8 +68,47 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
   };
 
   const modulos = NAVEGACION.filter((i) =>
-    i.soloSuperadmin ? esSuperadmin : i.modulo ? puede(roles, i.modulo, esSuperadmin) : true,
+    i.soloSuperadmin ? esSuperadmin : i.ocultoPropio && soloLoPropio(roles) ? false : i.modulo ? puede(roles, i.modulo, esSuperadmin, permisos) : true,
   );
+
+  // Acciones rápidas: abren la ventana correspondiente (?accion=…, ver lib/accionUrl) o actúan aquí mismo.
+  const { tema } = usePreferencias();
+  const oscuro = tema === "oscuro" || (tema === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const propio = soloLoPropio(roles);
+  const conSistema = !!sistema;
+  const llamar = async () => {
+    onCerrar();
+    const { data, error } = await supabase.rpc("llamar_siguiente", { p_sistema: sistema!.id });
+    if (error) toast.error(mensajeError(error));
+    else if (data) toast.success(`Llamando al turno ${(data as { turno: string }).turno}`);
+    else toast.info("No hay pacientes esperando.");
+    navigate("/recepcion");
+  };
+  const acciones: { id: string; etiqueta: string; icono: React.ReactNode; claves: string; ver: boolean; hacer: () => void }[] = [
+    { id: "llamar", etiqueta: "Llamar al siguiente paciente", icono: <Megaphone />, claves: "turno consulta cola", ver: conSistema && roles.some((r) => ROLES_PROFESIONALES.includes(r)), hacer: () => void llamar() },
+    { id: "cobro", etiqueta: "Nuevo cobro", icono: <Receipt />, claves: "factura cobrar pagar caja", ver: conSistema && puedeEscribir.caja(roles), hacer: () => ir("/caja?accion=cobro") },
+    { id: "llegada", etiqueta: "Dar turno (registrar llegada)", icono: <Ticket />, claves: "turno llegada recepcion", ver: conSistema && !propio && puedeEscribir.citas(roles), hacer: () => ir("/recepcion?accion=llegada") },
+    { id: "paciente", etiqueta: "Registrar paciente", icono: <UserPlus />, claves: "nuevo paciente expediente", ver: conSistema && puedeEscribir.pacientes(roles), hacer: () => ir("/pacientes?accion=nuevo") },
+    { id: "cita", etiqueta: "Programar cita", icono: <CalendarPlus />, claves: "agenda cita", ver: conSistema && puedeEscribir.citas(roles), hacer: () => ir("/agenda?accion=nueva") },
+    { id: "anticipo", etiqueta: "Nuevo anticipo", icono: <HandCoins />, claves: "deposito adelanto caja", ver: conSistema && puedeEscribir.caja(roles), hacer: () => ir("/caja?accion=anticipo") },
+    { id: "movimiento", etiqueta: "Ingreso o egreso de caja", icono: <ArrowLeftRight />, claves: "movimiento gasto efectivo caja", ver: conSistema && puedeEscribir.caja(roles), hacer: () => ir("/caja?accion=movimiento") },
+    { id: "compra", etiqueta: "Registrar gasto o compra", icono: <ShoppingCart />, claves: "compra gasto proveedor factura luz", ver: conSistema && puedeEscribir.compras(roles), hacer: () => ir("/compras?accion=nueva") },
+    { id: "pantalla", etiqueta: "Abrir pantalla de la sala", icono: <Tv />, claves: "tv llamados turnos", ver: conSistema && !propio && puede(roles, "recepcion", esSuperadmin, permisos), hacer: () => ir("/pantalla") },
+    {
+      id: "tema",
+      etiqueta: oscuro ? "Cambiar a tema claro" : "Cambiar a tema oscuro",
+      icono: oscuro ? <Sun /> : <Moon />,
+      claves: "tema oscuro claro modo noche",
+      ver: true,
+      hacer: () => {
+        onCerrar();
+        cambiarPreferencias({ tema: oscuro ? "claro" : "oscuro" }, perfil?.id);
+      },
+    },
+    { id: "perfil", etiqueta: "Mi perfil y personalización", icono: <UserCog />, claves: "perfil foto contraseña preferencias", ver: true, hacer: () => ir("/perfil") },
+  ];
+  const q = busqueda.trim().toLowerCase();
+  const accionesVisibles = acciones.filter((a) => a.ver && (!q || a.etiqueta.toLowerCase().includes(q) || a.claves.includes(q)));
 
   return createPortal(
     <AnimatePresence>
@@ -76,7 +132,7 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
             <Command
               shouldFilter={false}
               onKeyDown={(e) => e.key === "Escape" && onCerrar()}
-              className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-texto-3 [&_[cmdk-group-heading]]:uppercase"
+              className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-[0.6875rem] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-texto-3 [&_[cmdk-group-heading]]:uppercase"
             >
               <div className="flex items-center gap-3 border-b border-borde px-4">
                 <Search className="size-4 text-texto-3" />
@@ -84,8 +140,8 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
                   autoFocus
                   value={texto}
                   onValueChange={setTexto}
-                  placeholder="Busca un paciente por nombre, cédula o expediente…"
-                  className="h-13 flex-1 bg-transparent text-[15px] outline-none placeholder:text-texto-3"
+                  placeholder="Busca un paciente, una acción o una pantalla…"
+                  className="h-13 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-texto-3"
                 />
               </div>
               <Command.List className="max-h-[50vh] overflow-y-auto p-1.5">
@@ -104,14 +160,13 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
                     ))}
                   </Command.Group>
                 )}
-                {!busqueda && (
+                {accionesVisibles.length > 0 && (
                   <Command.Group heading="Acciones">
-                    <Item onSelect={() => ir("/pacientes?nuevo=1")} icono={<Plus />}>
-                      Registrar paciente
-                    </Item>
-                    <Item onSelect={() => ir("/agenda?nueva=1")} icono={<Plus />}>
-                      Programar cita
-                    </Item>
+                    {accionesVisibles.map((a) => (
+                      <Item key={a.id} onSelect={a.hacer} icono={a.icono}>
+                        {a.etiqueta}
+                      </Item>
+                    ))}
                   </Command.Group>
                 )}
                 <Command.Group heading="Ir a">

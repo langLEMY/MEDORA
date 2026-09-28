@@ -2,9 +2,48 @@ import { clsx, type ClassValue } from "clsx";
 
 export const cn = (...c: ClassValue[]) => clsx(c);
 
-export function moneda(valor: number | string | null | undefined, codigo = "DOP") {
-  const n = Number(valor ?? 0);
-  return new Intl.NumberFormat("es-DO", { style: "currency", currency: codigo, maximumFractionDigits: 2 }).format(n);
+const fmtMoneda = new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 2 });
+
+/** Pesos dominicanos (RD$). MEDORA opera solo en República Dominicana. */
+export function moneda(valor: number | string | null | undefined) {
+  return fmtMoneda.format(Number(valor ?? 0));
+}
+
+// Identificación dominicana (JCE / DGII). Espejo de privado.tg_identificacion_rd.
+const digitos = (v?: string | null) => (v ?? "").replace(/\D/g, "");
+
+/** Cédula como 000-0000000-0, o null si no tiene 11 dígitos. */
+export function cedula(v?: string | null) {
+  const d = digitos(v);
+  return d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 10)}-${d.slice(10)}` : null;
+}
+
+/** RNC solo con dígitos (9, u 11 si es cédula), o null si no es válido. */
+export function rnc(v?: string | null) {
+  const d = digitos(v);
+  return d.length === 9 || d.length === 11 ? d : null;
+}
+
+/** Teléfono dominicano (809/829/849, con o sin +1) → "809-000-0000"; null si no es válido. */
+export function telefonoRd(v?: string | null) {
+  let d = digitos(v);
+  if (d.length === 11 && d.startsWith("1")) d = d.slice(1);
+  return d.length === 10 && /^(809|829|849)/.test(d) ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : null;
+}
+
+/** Correo (espejo de perfiles.correo_contacto). */
+export const CORREO_RE = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i;
+
+/** Nombre de usuario de acceso (espejo de perfiles.ck_perfiles_nombre_usuario). */
+export const USUARIO_RE = /^[a-z0-9][a-z0-9._-]{1,39}$/;
+
+/** Correo de contacto real (los internos *.invalid solo existen para Auth). */
+export const correoVisible = (email?: string | null) => (email && !email.endsWith(".invalid") ? email : null);
+
+/** Sugerencia de usuario a partir del nombre: "Ana María Pérez" → "ana.perez". */
+export function sugerirUsuario(nombre: string) {
+  const p = slugificar(nombre).split("-").filter(Boolean);
+  return p.length > 1 ? `${p[0]}.${p[p.length - 1]}` : (p[0] ?? "");
 }
 
 export function numero(valor: number | null | undefined) {

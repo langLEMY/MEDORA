@@ -5,6 +5,7 @@ import { useCuentas, type CuentaContable } from "@/lib/consultas";
 import { cn } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 import { Campo } from "./ui/campos";
+import { Capa, usePosicionFlotante } from "./ui/flotante";
 
 const TONO_TIPO: Record<string, string> = {
   activo: "text-[#1570ef]",
@@ -45,9 +46,14 @@ export function SelectorCuenta({
   const [texto, setTexto] = useState("");
   const [indice, setIndice] = useState(0);
   const raiz = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const pos = usePosicionFlotante(raiz, abierto, { anchoMin: 340, alto: 340 });
 
   useEffect(() => {
-    const fuera = (e: MouseEvent) => !raiz.current?.contains(e.target as Node) && setAbierto(false);
+    const fuera = (e: MouseEvent) => {
+      const n = e.target as Node;
+      if (!raiz.current?.contains(n) && !panel.current?.contains(n)) setAbierto(false);
+    };
     document.addEventListener("mousedown", fuera);
     return () => document.removeEventListener("mousedown", fuera);
   }, []);
@@ -116,15 +122,17 @@ export function SelectorCuenta({
         )}
         <ChevronsUpDown className="size-4 shrink-0 text-texto-3" />
       </button>
+      <Capa>
       <AnimatePresence>
-        {abierto && (
+        {abierto && pos && (
           <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            ref={panel}
+            initial={{ opacity: 0, y: pos.arriba ? 4 : -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.08 } }}
             transition={{ type: "spring", duration: 0.22, bounce: 0.1 }}
-            style={{ transformOrigin: "top" }}
-            className="absolute inset-x-0 top-full z-40 mt-1.5 min-w-[340px] overflow-hidden rounded-xl border border-borde bg-superficie shadow-lg"
+            style={pos.estilo}
+            className="z-[60] flex flex-col overflow-hidden rounded-xl border border-borde bg-superficie shadow-lg"
           >
             <div className="flex items-center gap-2 border-b border-borde px-3">
               <Search className="size-4 text-texto-3" />
@@ -148,7 +156,7 @@ export function SelectorCuenta({
                 className="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-texto-3"
               />
             </div>
-            <ul className="max-h-72 overflow-y-auto p-1">
+            <ul className="min-h-0 flex-1 overflow-y-auto p-1">
               {resultados.length === 0 ? (
                 <li className="px-3 py-4 text-center text-sm text-texto-3">Sin cuentas que coincidan.</li>
               ) : (
@@ -162,7 +170,7 @@ export function SelectorCuenta({
                     >
                       <span className="w-16 font-mono text-xs text-texto-2 tabular">{resaltar(c.codigo)}</span>
                       <span className="min-w-0 flex-1 truncate">{resaltar(c.nombre)}</span>
-                      <span className={cn("text-[11px] capitalize", TONO_TIPO[c.tipo])}>{c.tipo}</span>
+                      <span className={cn("text-[0.6875rem] capitalize", TONO_TIPO[c.tipo])}>{c.tipo}</span>
                     </button>
                   </li>
                 ))
@@ -171,6 +179,7 @@ export function SelectorCuenta({
           </motion.div>
         )}
       </AnimatePresence>
+      </Capa>
     </div>
   );
 

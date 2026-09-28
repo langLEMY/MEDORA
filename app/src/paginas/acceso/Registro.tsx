@@ -7,6 +7,7 @@ import { Entrada } from "@/components/ui/campos";
 import { Insignia } from "@/components/ui/superficies";
 import { ETIQUETA_ROL } from "@/lib/permisos";
 import { invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
+import { USUARIO_RE } from "@/lib/utils";
 
 interface InfoCodigo {
   otorga_superadmin: boolean;
@@ -19,6 +20,7 @@ export function Registro({ onVolver }: { onVolver: () => void }) {
   const [codigo, setCodigo] = useState("");
   const [info, setInfo] = useState<InfoCodigo | null>(null);
   const [nombre, setNombre] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmar, setConfirmar] = useState("");
@@ -45,8 +47,15 @@ export function Registro({ onVolver }: { onVolver: () => void }) {
     if (password !== confirmar) return setError("Las contraseñas no coinciden.");
     setCargando(true);
     try {
-      await invocar("registro-invitacion", { accion: "registrar", codigo, nombre_completo: nombre, email, password });
-      const { error: errLogin } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      const r = await invocar<{ email: string }>("registro-invitacion", {
+        accion: "registrar",
+        codigo,
+        nombre_completo: nombre,
+        nombre_usuario: usuario,
+        email: email.trim() || undefined,
+        password,
+      });
+      const { error: errLogin } = await supabase.auth.signInWithPassword({ email: r.email, password });
       if (errLogin) throw errLogin;
       void supabase.rpc("registrar_evento", { p_accion: "LOGIN" });
       toast.success("Cuenta creada. ¡Bienvenido a MEDORA!");
@@ -118,11 +127,21 @@ export function Registro({ onVolver }: { onVolver: () => void }) {
               </div>
             </div>
             <Entrada etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-            <Entrada etiqueta="Correo electrónico" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Entrada
+              etiqueta="Nombre de usuario"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="nombre.apellido"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value.toLowerCase().replace(/\s/g, ""))}
+              ayuda="Con él iniciarás sesión."
+            />
+            <Entrada etiqueta="Correo (opcional)" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <Entrada etiqueta="Contraseña" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} ayuda="Mínimo 10 caracteres." />
             <Entrada etiqueta="Confirmar contraseña" type="password" autoComplete="new-password" value={confirmar} onChange={(e) => setConfirmar(e.target.value)} />
             {error && <p className="rounded-lg bg-[color-mix(in_oklab,var(--peligro)_8%,transparent)] px-3 py-2 text-sm text-peligro">{error}</p>}
-            <Boton type="submit" tamano="lg" className="w-full justify-center" cargando={cargando} disabled={nombre.trim().length < 3 || !email.includes("@")}>
+            <Boton type="submit" tamano="lg" className="w-full justify-center" cargando={cargando} disabled={nombre.trim().length < 3 || !USUARIO_RE.test(usuario)}>
               Crear mi cuenta
             </Boton>
           </motion.form>

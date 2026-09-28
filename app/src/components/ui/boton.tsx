@@ -15,9 +15,9 @@ const VARIANTES: Record<Variante, string> = {
 };
 
 const TAMANOS: Record<Tamano, string> = {
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-lg",
+  sm: "h-8 px-3 text-[0.8125rem] gap-1.5 rounded-lg",
   md: "h-9 px-3.5 text-sm gap-2 rounded-[10px]",
-  lg: "h-11 px-5 text-[15px] gap-2 rounded-xl",
+  lg: "h-11 px-5 text-[0.9375rem] gap-2 rounded-xl",
   icono: "h-9 w-9 rounded-[10px] justify-center",
 };
 

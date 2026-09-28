@@ -1,17 +1,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, useAnimation } from "motion/react";
-import { Lock, Mail } from "lucide-react";
+import { Lock, User } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Boton } from "@/components/ui/boton";
 import { Entrada } from "@/components/ui/campos";
-import { mensajeError, supabase } from "@/lib/supabase";
+import { invocar, mensajeError, supabase } from "@/lib/supabase";
 import { PantallaAcceso } from "./PantallaAcceso";
 import { Registro } from "./Registro";
 
 const esquema = z.object({
-  email: z.email("Correo inválido"),
+  usuario: z.string().trim().min(2, "Escribe tu usuario"),
   password: z.string().min(1, "Escribe tu contraseña"),
 });
 type Datos = z.infer<typeof esquema>;
@@ -22,9 +22,17 @@ export function Login() {
   const sacudir = useAnimation();
   const { register, handleSubmit, formState } = useForm<Datos>({ resolver: zodResolver(esquema) });
 
-  const entrar = handleSubmit(async ({ email, password }) => {
+  const entrar = handleSubmit(async ({ usuario, password }) => {
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    // Usuario → correo de Auth (también acepta el correo directamente).
+    const { data: email, error: errUsuario } = await supabase.rpc("correo_de_acceso", { p_usuario: usuario });
+    let { error } = errUsuario ? { error: errUsuario } : await supabase.auth.signInWithPassword({ email: email!, password });
+    // Contraseña heredada de FUNBIDE (formato que Supabase no lee): el servidor la
+    // verifica, la registra en Auth la primera vez y se reintenta el acceso.
+    if (error && !errUsuario && error.code === "invalid_credentials") {
+      const legado = await invocar<{ email: string }>("acceso-legado", { usuario, password }).catch(() => null);
+      if (legado) ({ error } = await supabase.auth.signInWithPassword({ email: legado.email, password }));
+    }
     if (error) {
       setError(mensajeError(error));
       // Sacudida corta: "no" sin necesidad de leer.
@@ -44,17 +52,18 @@ export function Login() {
   return (
     <PantallaAcceso>
       <h2 className="text-2xl font-semibold tracking-[-0.02em]">Bienvenido de nuevo</h2>
-      <p className="mt-1.5 text-sm text-texto-2">Inicia sesión con tu cuenta institucional.</p>
+      <p className="mt-1.5 text-sm text-texto-2">Inicia sesión con el usuario que te asignó la administración.</p>
 
       <motion.form animate={sacudir} onSubmit={entrar} className="mt-8 space-y-4" noValidate>
         <Entrada
-          etiqueta="Correo electrónico"
-          type="email"
+          etiqueta="Usuario"
           autoComplete="username"
-          icono={<Mail />}
-          placeholder="nombre@hospital.com"
-          error={formState.errors.email?.message}
-          {...register("email")}
+          autoCapitalize="none"
+          spellCheck={false}
+          icono={<User />}
+          placeholder="nombre.apellido"
+          error={formState.errors.usuario?.message}
+          {...register("usuario")}
         />
         <Entrada
           etiqueta="Contraseña"

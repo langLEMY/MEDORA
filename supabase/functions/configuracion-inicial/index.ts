@@ -4,11 +4,12 @@
 // SembradorUsuarioInicial de FUNBIDE, pero del lado del servidor.
 //
 // verify_jwt = false: se llama antes de que exista cualquier cuenta.
-import { clienteServicio, cors, EMAIL_RE, error, json } from "../_shared/comun.ts";
+import { clienteServicio, cors, EMAIL_RE, error, json, normalizarUsuario, USUARIO_RE } from "../_shared/comun.ts";
 
 interface Solicitud {
   codigo: string;
   nombre_completo: string;
+  nombre_usuario?: string;
   email: string;
   password: string;
   sistema?: { nombre: string; slug: string };
@@ -29,6 +30,8 @@ Deno.serve(async (req) => {
   const email = cuerpo.email?.trim().toLowerCase() ?? "";
   if (nombre.length < 3) return error("Escribe tu nombre completo.");
   if (!EMAIL_RE.test(email)) return error("Correo electrónico inválido.");
+  const usuario = normalizarUsuario(cuerpo.nombre_usuario);
+  if (usuario && !USUARIO_RE.test(usuario)) return error("Nombre de usuario inválido.");
   if (!cuerpo.password || cuerpo.password.length < 10) {
     return error("La contraseña debe tener al menos 10 caracteres.");
   }
@@ -51,7 +54,7 @@ Deno.serve(async (req) => {
     email,
     password: cuerpo.password,
     email_confirm: true,
-    user_metadata: { nombre_completo: nombre },
+    user_metadata: { nombre_completo: nombre, nombre_usuario: usuario || undefined },
   });
   if (errCrear || !creado.user) {
     return error(errCrear?.message ?? "No se pudo crear la cuenta.", 400);

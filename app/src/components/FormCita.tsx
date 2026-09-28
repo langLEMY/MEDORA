@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { claves, useMedicos, useSedes, useServicios } from "@/lib/consultas";
+import { OpcionesMedicos } from "./OpcionesMedicos";
 import { mensajeError, supabase, type EstadoCita, type Tablas } from "@/lib/supabase";
 import { isoDia } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
@@ -93,6 +94,28 @@ export function FormCita({
     if (paciente && medico) guardar.mutate();
   };
 
+  // Solo lo que se agenda con ese médico: las consultas de su especialidad (o, si su
+  // especialidad no tiene consultas, sus estudios, como en Sonografía). Nunca análisis
+  // de laboratorio ni medicamentos. Sin médico elegido: las consultas por especialidad.
+  const especialidad = medicos.data?.find((m) => m.usuario_id === medico)?.especialidad?.trim() || null;
+  const opciones = useMemo(() => {
+    const activos = (servicios.data ?? []).filter((s) => s.activo && !["laboratorio", "farmacia"].includes(s.categoria));
+    const delArea = especialidad ? activos.filter((s) => s.especialidad === especialidad) : [];
+    const consultasArea = delArea.filter((s) => s.categoria === "consulta");
+    if (consultasArea.length) return consultasArea;
+    if (delArea.length) return delArea;
+    return activos.filter((s) => s.categoria === "consulta" && s.especialidad);
+  }, [servicios.data, especialidad]);
+
+  // Al cambiar de médico: si el servicio ya no aplica se quita; si hay una sola consulta, se elige sola.
+  useEffect(() => {
+    if (servicio && !opciones.some((s) => s.id === servicio)) setServicio("");
+    if (!servicio && medico && opciones.length === 1) {
+      setServicio(opciones[0].id);
+      setDuracion(opciones[0].duracion_min);
+    }
+  }, [opciones, medico, servicio]);
+
   return (
     <Modal
       abierto={abierto}
@@ -120,12 +143,7 @@ export function FormCita({
             error={intentado && !medico ? "Selecciona un profesional" : undefined}
           >
             <option value="">Seleccionar…</option>
-            {medicos.data?.map((m) => (
-              <option key={m.usuario_id} value={m.usuario_id}>
-                {m.perfil?.nombre_completo}
-                {m.especialidad ? ` · ${m.especialidad}` : ""}
-              </option>
-            ))}
+            <OpcionesMedicos medicos={medicos.data ?? []} />
           </Selector>
           <Selector
             etiqueta="Servicio"
@@ -136,14 +154,24 @@ export function FormCita({
               if (s) setDuracion(s.duracion_min);
             }}
           >
-            <option value="">Consulta general</option>
-            {servicios.data
-              ?.filter((s) => s.activo)
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre}
-                </option>
-              ))}
+            <option value="">Sin especificar</option>
+            {especialidad && opciones.every((s) => s.especialidad === especialidad)
+              ? opciones.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
+                  </option>
+                ))
+              : [...new Set(opciones.map((s) => s.especialidad ?? ""))].sort((a, b) => a.localeCompare(b, "es")).map((esp) => (
+                  <optgroup key={esp} label={esp || "Otras"}>
+                    {opciones
+                      .filter((s) => (s.especialidad ?? "") === esp)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))}
           </Selector>
         </div>
         <div className="grid grid-cols-3 gap-4">

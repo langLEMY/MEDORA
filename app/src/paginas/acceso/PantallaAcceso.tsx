@@ -38,7 +38,7 @@ export function PantallaAcceso({ children }: { children: ReactNode }) {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-              className="text-[38px] leading-[1.1] font-semibold tracking-[-0.03em]"
+              className="text-[2.375rem] leading-[1.1] font-semibold tracking-[-0.03em]"
             >
               La gestión hospitalaria,
               <br />
@@ -56,7 +56,7 @@ export function PantallaAcceso({ children }: { children: ReactNode }) {
                 <motion.li
                   key={texto}
                   variants={{ i: { opacity: 0, x: -8 }, v: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-                  className="flex items-center gap-3 text-[15px] text-white/75"
+                  className="flex items-center gap-3 text-[0.9375rem] text-white/75"
                 >
                   <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/10 ring-1 ring-white/15">
                     <Icono className="size-4 text-[#5eead4]" />
@@ -88,29 +88,102 @@ export function PantallaAcceso({ children }: { children: ReactNode }) {
   );
 }
 
+const SALIDA = [0.23, 1, 0.32, 1] as const;
+
+/**
+ * Arranque de MEDORA. El logo hace un "pop" corto (1 → 1.09 → 1) y la "M" se dibuja sola; el nombre entra letra por letra y un halo late
+ * detrás mientras carga la sesión. Al salir se abre (crece y se desvanece) hacia el
+ * login o la app. index.html pinta el mismo logo estático desde el primer cuadro,
+ * así nunca se ve la ventana vacía. Con movimiento reducido todo aparece quieto.
+ */
 export function Splash() {
   return (
-    <div className="grid h-full place-items-center bg-fondo">
+    <div className="relative grid h-full place-items-center overflow-hidden bg-fondo">
+      {/* Resplandor de marca de fondo: solo opacidad. */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.94 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "spring", duration: 0.5, bounce: 0.2 }}
-        className="flex flex-col items-center gap-5"
+        aria-hidden
+        className="pointer-events-none absolute size-[36rem] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,#14b8a6_22%,transparent),transparent)]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 1, 0.6] }}
+        exit={{ opacity: 0, transition: { duration: 0.25 } }}
+        transition={{ duration: 1.6, ease: "easeOut" }}
+      />
+
+      <motion.div
+        className="relative flex flex-col items-center"
+        exit={{ opacity: 0, scale: 1.06, transition: { duration: 0.28, ease: SALIDA } }}
       >
-        <motion.div
-          animate={{ scale: [1, 1.04, 1] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <Isotipo className="size-14" />
-        </motion.div>
-        <div className="h-1 w-28 overflow-hidden rounded-full bg-superficie-2">
+        <div className="relative grid size-20 place-items-center">
+          {/* Halo que late mientras carga (transform + opacidad). */}
+          {[0, 0.9].map((retraso) => (
+            <motion.span
+              key={retraso}
+              aria-hidden
+              className="absolute inset-0 rounded-[1.4rem] border-2 border-[#14b8a6]"
+              initial={{ opacity: 0, scale: 1 }}
+              animate={{ opacity: [0, 0.45, 0], scale: [1, 1.45] }}
+              transition={{ duration: 1.8, delay: 0.7 + retraso, repeat: Infinity, ease: "easeOut" }}
+            />
+          ))}
+          {/* Arranca igual que el logo estático de index.html (sin parpadeo) y hace el "pop". */}
           <motion.div
-            className="h-full w-1/2 rounded-full bg-[#14b8a6]"
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: [0.77, 0, 0.175, 1] }}
-          />
+            initial={{ scale: 1 }}
+            animate={{ scale: [1, 1.09, 0.98, 1] }}
+            transition={{ duration: 0.6, times: [0, 0.35, 0.7, 1], ease: SALIDA }}
+            className="drop-shadow-[0_12px_28px_rgba(20,184,166,0.35)]"
+          >
+            <IsotipoAnimado />
+          </motion.div>
         </div>
+
+        <p className="mt-6 flex overflow-hidden text-[1.375rem] font-semibold tracking-[0.3em] text-texto" aria-label="MEDORA">
+          {"MEDORA".split("").map((letra, i) => (
+            <motion.span
+              key={i}
+              aria-hidden
+              initial={{ opacity: 0, y: "60%" }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.35 + i * 0.045, ease: SALIDA }}
+            >
+              {letra}
+            </motion.span>
+          ))}
+        </p>
+        <motion.p
+          className="mt-1.5 text-[0.8125rem] tracking-wide text-texto-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.75 }}
+        >
+          Gestión hospitalaria
+        </motion.p>
       </motion.div>
     </div>
+  );
+}
+
+/** Isotipo con la "M" que se dibuja (pathLength). */
+function IsotipoAnimado() {
+  return (
+    <svg viewBox="0 0 64 64" className="size-20" aria-hidden>
+      <defs>
+        <linearGradient id="medora-splash" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#14B8A6" />
+          <stop offset="1" stopColor="#0E7490" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="16" fill="url(#medora-splash)" />
+      <motion.path
+        d="M16 44V22l10 12 6-8 6 8 10-12v22"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 0.7, delay: 0.15, ease: [0.65, 0, 0.35, 1] }}
+      />
+    </svg>
   );
 }

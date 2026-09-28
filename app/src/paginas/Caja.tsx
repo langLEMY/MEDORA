@@ -4,6 +4,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Ban,
+  Clock,
   FileText,
   HandCoins,
   Lock,
@@ -19,14 +20,31 @@ import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
 import { EstadoCuenta, type ContactoCuenta } from "@/components/EstadoCuenta";
 import { SelectorPaciente, type PacienteBreve } from "@/components/SelectorPaciente";
+import { SelectorServicio } from "@/components/SelectorServicio";
 import { Boton } from "@/components/ui/boton";
-import { AreaTexto, Entrada, Segmentado, Selector } from "@/components/ui/campos";
+import { AreaTexto, Campo, Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
-import { EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { CATEGORIAS_SERVICIO, claves, METODOS_PAGO, TIPOS_NCF, useAseguradoras, usePersonal, useServicios } from "@/lib/consultas";
+import { Avatar, EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
+import {
+  CATEGORIAS_SERVICIO,
+  claves,
+  METODOS_PAGO,
+  nombrePaciente,
+  SELECT_CITA,
+  TIPOS_NCF,
+  useAseguradoras,
+  useMedicos,
+  useServicios,
+  useTurnosHoy,
+  type CitaConRelaciones,
+} from "@/lib/consultas";
+import { BloqueTurno, destinoTurno, TicketTurno } from "@/components/TicketTurno";
+import { useTiempoReal } from "@/lib/tiempoReal";
+import { useAccionUrl } from "@/lib/accionUrl";
+import { OpcionesMedicos } from "@/components/OpcionesMedicos";
 import { puedeEscribir } from "@/lib/permisos";
-import { datos, mensajeError, supabase, type MetodoPago } from "@/lib/supabase";
+import { datos, mensajeError, supabase, type Fila, type MetodoPago } from "@/lib/supabase";
 import { cn, fecha, fechaHora, hora, isoDia, moneda, relativo } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
@@ -43,6 +61,7 @@ interface CobroFila {
   total: number;
   subtotal: number;
   cobertura_seguro: number;
+  monto_fondo: number;
   descuento: number;
   monto_credito: number;
   metodo: MetodoPago;
@@ -53,15 +72,16 @@ interface CobroFila {
   profesional: { nombre_completo: string } | null;
   aseguradora: { nombre: string } | null;
   anulacion: { motivo: string }[] | null;
-  pagos: { metodo: MetodoPago; monto: number; referencia: string | null }[];
+  cita: { turno: string | null; especialidad: string | null; medico_id: string | null; medico: { nombre_completo: string } | null } | null;
+  pagos: { metodo: MetodoPago; monto: number; referencia: string | null; recibido: number | null }[];
   detalles: { descripcion: string; categoria: string; cantidad: number; precio_unitario: number; cobertura: number; total: number }[];
 }
 
 const SELECT_COBRO =
-  "id, numero, ncf, tipo_ncf, cliente_rnc, cliente_nombre, total, subtotal, cobertura_seguro, descuento, monto_credito, metodo, numero_autorizacion, creado_en, " +
+  "id, numero, ncf, tipo_ncf, cliente_rnc, cliente_nombre, total, subtotal, cobertura_seguro, monto_fondo, descuento, monto_credito, metodo, numero_autorizacion, creado_en, " +
   "paciente:pacientes!cobros_sistema_id_paciente_id_fkey(nombres, apellidos, expediente, documento), cajero:perfiles!cobros_cajero_perfil_fk(nombre_completo), " +
   "profesional:perfiles!cobros_profesional_perfil_fk(nombre_completo), aseguradora:aseguradoras!cobros_sistema_id_aseguradora_id_fkey(nombre), " +
-  "anulacion:anulaciones_cobro(motivo), pagos:cobro_pagos(metodo, monto, referencia), detalles:cobro_detalles(descripcion, categoria, cantidad, precio_unitario, cobertura, total)";
+  "anulacion:anulaciones_cobro(motivo), cita:citas!cobros_sistema_id_cita_id_fkey(turno, especialidad, medico_id, medico:perfiles!citas_medico_perfil_fk(nombre_completo)), pagos:cobro_pagos(metodo, monto, referencia, recibido), detalles:cobro_detalles(descripcion, categoria, cantidad, precio_unitario, cobertura, total)";
 
 type Vista = "cobros" | "anticipos" | "cxc" | "movimientos" | "turnos";
 
@@ -83,14 +103,27 @@ const COLUMNAS_COBROS: ColumnaDatos<CobroFila>[] = [
 
 export default function Caja() {
   const { sesion } = useSesion();
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const qc = useQueryClient();
   const yo = sesion!.user.id;
   const operar = puedeEscribir.caja(roles);
   const [vista, setVista] = useState<Vista>("cobros");
-  const [abrir, setAbrir] = useState(false);
   const [cerrar, setCerrar] = useState(false);
   const [cobrar, setCobrar] = useState(false);
+  // Paciente que llegó a recepción y espera cobro para recibir su turno.
+  const [citaCobro, setCitaCobro] = useState<CitaConRelaciones | null>(null);
+  const [exonerar, setExonerar] = useState<CitaConRelaciones | null>(null);
+  const [ticket, setTicket] = useState<CitaConRelaciones | null>(null);
+  useAccionUrl({
+    cobro: () => operar && setCobrar(true),
+    anticipo: () => operar && setAnticipo(true),
+    movimiento: () => {
+      if (!operar) return;
+      // El movimiento manual necesita el turno abierto (se abre solo con el primer cobro).
+      if (turno.data) setMovimiento(true);
+      else toast.info("Primero registra un cobro: el turno de caja se abre solo.");
+    },
+  });
   const [anticipo, setAnticipo] = useState(false);
   const [movimiento, setMovimiento] = useState(false);
   const [recibo, setRecibo] = useState<CobroFila | null>(null);
@@ -101,6 +134,12 @@ export default function Caja() {
     queryKey: [...claves.caja(sistemaId), "turno", yo],
     queryFn: async () =>
       datos(await supabase.from("turnos_caja").select("*").eq("sistema_id", sistemaId).eq("cajero_id", yo).eq("estado", "abierto").maybeSingle()),
+  });
+
+  const fondo = useQuery({
+    queryKey: ["sistema", sistemaId, "fondo_caja"],
+    enabled: operar,
+    queryFn: async () => Number(datos(await supabase.from("sistemas").select("fondo_caja").eq("id", sistemaId).single())?.fondo_caja ?? 0),
   });
 
   const inicioHoy = useMemo(() => {
@@ -143,12 +182,13 @@ export default function Caja() {
         titulo="Caja y facturación"
         descripcion="Cobros con NCF, anticipos, cuentas por cobrar y cierres de turno."
         acciones={
-          operar &&
-          t && (
+          operar && (
             <>
-              <Boton variante="secundario" icono={<ArrowUpRight className="size-4" />} onClick={() => setMovimiento(true)}>
-                Movimiento
-              </Boton>
+              {t && (
+                <Boton variante="secundario" icono={<ArrowUpRight className="size-4" />} onClick={() => setMovimiento(true)}>
+                  Movimiento
+                </Boton>
+              )}
               <Boton variante="secundario" icono={<HandCoins className="size-4" />} onClick={() => setAnticipo(true)}>
                 Anticipo
               </Boton>
@@ -186,8 +226,8 @@ export default function Caja() {
               ].map(([k, v]) => (
                 <div key={k as string}>
                   <p className="text-xs text-texto-3">{k}</p>
-                  <p className="text-[17px] font-semibold tracking-[-0.01em]">
-                    <NumeroAnimado valor={v as number} formato={(n) => moneda(n, sistema.moneda)} />
+                  <p className="text-[1.0625rem] font-semibold tracking-[-0.01em]">
+                    <NumeroAnimado valor={v as number} formato={(n) => moneda(n)} />
                   </p>
                 </div>
               ))}
@@ -201,15 +241,24 @@ export default function Caja() {
                 <Lock className="size-[18px]" />
               </span>
               <div className="flex-1">
-                <p className="text-sm font-semibold">No tienes un turno abierto</p>
-                <p className="text-xs text-texto-3">Abre tu turno con el efectivo inicial para empezar a cobrar.</p>
+                <p className="text-sm font-semibold">Caja cerrada</p>
+                <p className="text-xs text-texto-3">
+                  Tu turno se abre solo con el primer cobro, con {moneda(fondo.data ?? 0)} de fondo en caja.
+                </p>
               </div>
-              <Boton icono={<Unlock className="size-4" />} onClick={() => setAbrir(true)}>
-                Abrir turno
-              </Boton>
             </div>
           )}
         </Tarjeta>
+      )}
+
+      {operar && (
+        <PendientesCobro
+          onCobrar={(c) => {
+            setCitaCobro(c);
+            setCobrar(true);
+          }}
+          onExonerar={setExonerar}
+        />
       )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -228,7 +277,7 @@ export default function Caja() {
         {vista === "cobros" && (
           <div className="flex items-center gap-3">
             <p className="text-sm text-texto-2">
-              Facturado hoy: <span className="font-semibold text-texto tabular">{moneda(totalHoy, sistema.moneda)}</span>
+              Facturado hoy: <span className="font-semibold text-texto tabular">{moneda(totalHoy)}</span>
             </p>
             <AccionesDatos titulo="Cobros del día" columnas={COLUMNAS_COBROS} obtener={async () => cobros.data ?? []} />
           </div>
@@ -251,7 +300,7 @@ export default function Caja() {
                       <motion.li key={c.id} variants={itemEscalonado} className="group flex items-center gap-4 px-5 py-3 text-sm">
                         <span className="w-28">
                           <span className="block font-medium tabular">{c.numero}</span>
-                          {c.ncf && <span className="block font-mono text-[11px] text-texto-3">{c.ncf}</span>}
+                          {c.ncf && <span className="block font-mono text-[0.6875rem] text-texto-3">{c.ncf}</span>}
                         </span>
                         <span className="w-12 text-texto-3 tabular">{hora(c.creado_en)}</span>
                         <span className={cn("min-w-0 flex-1 truncate", anulado && "text-texto-3 line-through")}>
@@ -265,13 +314,13 @@ export default function Caja() {
                           {Number(c.cobertura_seguro) > 0 && <Insignia tono="info">ARS</Insignia>}
                           {anulado && <Insignia tono="peligro">Anulado</Insignia>}
                         </span>
-                        <span className="w-32 text-right font-semibold tabular">{moneda(c.total, sistema.moneda)}</span>
-                        <div className="flex w-20 justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          <button onClick={() => setRecibo(c)} title="Ver factura" className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto">
+                        <span className="w-32 text-right font-semibold tabular">{moneda(c.total)}</span>
+                        <div className="flex w-20 justify-end gap-1">
+                          <button onClick={() => setRecibo(c)} title="Imprimir factura" className="grid size-8 place-items-center rounded-lg text-texto-2 hover:bg-superficie-2 hover:text-texto">
                             <Printer className="size-4" />
                           </button>
                           {operar && !anulado && (
-                            <button onClick={() => setAnular(c)} title="Anular" className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-peligro">
+                            <button onClick={() => setAnular(c)} title="Anular" className="grid size-8 place-items-center rounded-lg text-texto-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-superficie-2 hover:text-peligro">
                               <Ban className="size-4" />
                             </button>
                           )}
@@ -314,7 +363,7 @@ export default function Caja() {
                       <span className="text-texto-2">{METODOS_PAGO[m.metodo]}</span>
                       <span className={cn("w-32 text-right font-semibold tabular", m.tipo === "egreso" && "text-peligro")}>
                         {m.tipo === "egreso" ? "−" : ""}
-                        {moneda(m.monto, sistema.moneda)}
+                        {moneda(m.monto)}
                       </span>
                     </li>
                   ))}
@@ -327,11 +376,14 @@ export default function Caja() {
         </motion.div>
       </AnimatePresence>
 
-      <AbrirTurno abierto={abrir} onCerrar={() => setAbrir(false)} onListo={invalidar} />
       {t && <CerrarTurno abierto={cerrar} onCerrar={() => setCerrar(false)} turnoId={t.id} esperado={esperado} onListo={invalidar} />}
       <NuevoCobro
         abierto={cobrar}
-        onCerrar={() => setCobrar(false)}
+        cita={citaCobro}
+        onCerrar={() => {
+          setCobrar(false);
+          setCitaCobro(null);
+        }}
         onListo={async (id) => {
           invalidar();
           const { data } = await supabase.from("cobros").select(SELECT_COBRO).eq("id", id).single();
@@ -350,7 +402,124 @@ export default function Caja() {
       <Factura cobro={recibo} onCerrar={() => setRecibo(null)} />
       <AnularCobro cobro={anular} onCerrar={() => setAnular(null)} onListo={invalidar} />
       <ComprobanteTicket comprobante={comprobante} onCerrar={() => setComprobante(null)} />
+      <Exonerar
+        cita={exonerar}
+        onCerrar={() => setExonerar(null)}
+        onListo={(c) => {
+          setExonerar(null);
+          setTicket(c);
+        }}
+      />
+      <TicketTurno cita={ticket} onCerrar={() => setTicket(null)} />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pendientes de cobro (llegaron a recepción; al cobrar reciben su turno)
+// ---------------------------------------------------------------------------
+function PendientesCobro({ onCobrar, onExonerar }: { onCobrar: (c: CitaConRelaciones) => void; onExonerar: (c: CitaConRelaciones) => void }) {
+  const { sistemaId, roles } = useSistema();
+  const turnos = useTurnosHoy(sistemaId);
+  useTiempoReal("citas", sistemaId, [[...claves.citas(sistemaId)]]);
+  const pendientes = (turnos.data ?? []).filter((c) => c.estado === "por_cobrar").sort((a, b) => (a.llegada_en ?? "").localeCompare(b.llegada_en ?? ""));
+  const admin = roles.includes("admin");
+  if (!pendientes.length) return null;
+
+  return (
+    <Tarjeta className="mb-4 overflow-hidden border-aviso/40">
+      <div className="flex items-center gap-2 border-b border-borde px-5 py-2.5">
+        <Clock className="size-4 text-aviso" />
+        <span className="text-sm font-semibold">Pendientes de cobro</span>
+        <Insignia tono="aviso">{pendientes.length}</Insignia>
+        <span className="ml-auto text-xs text-texto-3">Al cobrar se les asigna el turno</span>
+      </div>
+      <ul className="divide-y divide-borde">
+        {pendientes.map((c) => (
+          <li key={c.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+            <span className="min-w-0 flex-1">
+              <span className={cn("block truncate font-medium", !c.paciente && "text-aviso")}>
+                {c.turno && <span className="mr-1.5 font-mono font-bold text-marca-texto">{c.turno}</span>}
+                {nombrePaciente(c)}
+              </span>
+              <span className="block truncate text-xs text-texto-3">
+                {!c.paciente && "Al cobrar, búscalo o regístralo · "}
+                {destinoTurno(c)}
+                {c.servicio ? ` · ${c.servicio.nombre}` : ""}
+                {c.llegada_en ? ` · llegó ${hora(c.llegada_en)}` : ""}
+              </span>
+            </span>
+            {c.prioridad && <Insignia tono="aviso">{c.motivo_prioridad ?? "Prioridad"}</Insignia>}
+            {admin && (
+              <Boton variante="fantasma" tamano="sm" onClick={() => onExonerar(c)}>
+                Exonerar
+              </Boton>
+            )}
+            <Boton tamano="sm" icono={<Receipt className="size-3.5" />} onClick={() => onCobrar(c)}>
+              Cobrar
+            </Boton>
+          </li>
+        ))}
+      </ul>
+    </Tarjeta>
+  );
+}
+
+function Exonerar({ cita, onCerrar, onListo }: { cita: CitaConRelaciones | null; onCerrar: () => void; onListo: (c: CitaConRelaciones) => void }) {
+  const { sistemaId } = useSistema();
+  const qc = useQueryClient();
+  const [motivo, setMotivo] = useState("");
+  // Turno del quiosco sin paciente: hay que saber a quién se exonera.
+  const [paciente, setPaciente] = useState<PacienteBreve | null>(null);
+  useEffect(() => {
+    if (cita) {
+      setMotivo("");
+      setPaciente(null);
+    }
+  }, [cita]);
+  const falta = !!cita && !cita.paciente_id;
+  const m = useMutation({
+    mutationFn: async () => {
+      if (falta) datos(await supabase.rpc("identificar_turno", { p_cita: cita!.id, p_paciente: paciente!.id }));
+      datos(await supabase.rpc("exonerar_turno", { p_cita: cita!.id, p_motivo: motivo }));
+      return datos(await supabase.from("citas").select(SELECT_CITA).eq("id", cita!.id).single()) as unknown as CitaConRelaciones;
+    },
+    onSuccess: (c) => {
+      toast.success(`Exonerado · turno ${c.turno}`);
+      void qc.invalidateQueries({ queryKey: claves.citas(sistemaId) });
+      onListo(c);
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  return (
+    <Modal
+      abierto={!!cita}
+      onCerrar={onCerrar}
+      ancho="sm"
+      titulo="Exonerar el pago"
+      descripcion={
+        cita
+          ? `${falta ? "El paciente" : nombrePaciente(cita)} pasa a la consulta sin cobrar. Queda registrado quién lo autorizó.`
+          : undefined
+      }
+      pie={
+        <>
+          <Boton variante="secundario" onClick={onCerrar}>
+            Cancelar
+          </Boton>
+          <Boton cargando={m.isPending} disabled={motivo.trim().length < 3 || (falta && !paciente)} onClick={() => m.mutate()}>
+            Exonerar y dar turno
+          </Boton>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {falta && (
+          <SelectorPaciente etiqueta="¿Quién es? (tomó turno en el quiosco)" valor={paciente} onChange={setPaciente} textoInicial={cita?.cedula_llegada ?? undefined} />
+        )}
+        <AreaTexto etiqueta="Motivo" placeholder="Ej. paciente de escasos recursos, jornada gratuita…" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+      </div>
+    </Modal>
   );
 }
 
@@ -358,7 +527,7 @@ export default function Caja() {
 // Turnos
 // ---------------------------------------------------------------------------
 function Turnos() {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const [arqueo, setArqueo] = useState<{ id: string; cajero: string; abierto_en: string; cerrado_en: string | null; apertura: number; esperado: number | null; declarado: number | null; notas: string | null } | null>(null);
   const turnos = useQuery({
     queryKey: [...claves.caja(sistemaId), "turnos"],
@@ -394,12 +563,12 @@ function Turnos() {
                   </Insignia>
                 ) : dif !== null && Math.abs(dif) >= 0.01 ? (
                   <Insignia tono={dif < 0 ? "peligro" : "aviso"}>
-                    {dif < 0 ? "Faltante" : "Sobrante"} {moneda(Math.abs(dif), sistema.moneda)}
+                    {dif < 0 ? "Faltante" : "Sobrante"} {moneda(Math.abs(dif))}
                   </Insignia>
                 ) : (
                   <Insignia tono="neutro">Cuadrado</Insignia>
                 )}
-                <span className="w-32 text-right tabular">{x.monto_esperado !== null ? moneda(x.monto_esperado, sistema.moneda) : "—"}</span>
+                <span className="w-32 text-right tabular">{x.monto_esperado !== null ? moneda(x.monto_esperado) : "—"}</span>
                 <button
                   title="Reporte de arqueo"
                   onClick={() =>
@@ -436,14 +605,13 @@ function Arqueo({
   turno: { id: string; cajero: string; abierto_en: string; cerrado_en: string | null; apertura: number; esperado: number | null; declarado: number | null; notas: string | null } | null;
   onCerrar: () => void;
 }) {
-  const { sistema } = useSistema();
   const q = useQuery({
     queryKey: ["arqueo", turno?.id],
     enabled: !!turno,
     queryFn: async () =>
       datos(await supabase.from("movimientos_financieros").select("tipo, categoria, concepto, monto, metodo, creado_en").eq("turno_id", turno!.id).order("creado_en")) ?? [],
   });
-  const $ = (v: number) => moneda(v, sistema.moneda);
+  const $ = (v: number) => moneda(v);
   const movs = q.data ?? [];
   const metodos = [...new Set(movs.map((m) => m.metodo))];
   const suma = (tipo: string, metodo?: string) => movs.filter((m) => m.tipo === tipo && (!metodo || m.metodo === metodo)).reduce((s, m) => s + Number(m.monto), 0);
@@ -480,14 +648,14 @@ function Arqueo({
               ]}
               pie={["Diferencia", dif === null ? "—" : `${dif < 0 ? "Faltante " : dif > 0 ? "Sobrante " : ""}${$(Math.abs(dif))}`]}
             />
-            <div className="text-[12px]">
+            <div className="text-[0.75rem]">
               {turno.notas && (
                 <p>
                   <b>Notas de cierre:</b> {turno.notas}
                 </p>
               )}
-              <p className="mt-16 w-56 border-t border-[#101828] pt-1 text-center text-[11px]">Cajero</p>
-              <p className="mt-12 w-56 border-t border-[#101828] pt-1 text-center text-[11px]">Supervisor</p>
+              <p className="mt-16 w-56 border-t border-[#101828] pt-1 text-center text-[0.6875rem]">Cajero</p>
+              <p className="mt-12 w-56 border-t border-[#101828] pt-1 text-center text-[0.6875rem]">Supervisor</p>
             </div>
           </div>
           <div className="mt-6">
@@ -499,40 +667,6 @@ function Arqueo({
         </>
       )}
     </Documento>
-  );
-}
-
-function AbrirTurno({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar: () => void; onListo: () => void }) {
-  const { sistemaId } = useSistema();
-  const [monto, setMonto] = useState("0");
-  const m = useMutation({
-    mutationFn: async () => datos(await supabase.rpc("abrir_turno_caja", { p_sistema: sistemaId, p_monto_apertura: Number(monto) || 0 })),
-    onSuccess: () => {
-      toast.success("Turno abierto");
-      onListo();
-      onCerrar();
-    },
-    onError: (e) => toast.error(mensajeError(e)),
-  });
-  return (
-    <Modal
-      abierto={abierto}
-      onCerrar={onCerrar}
-      ancho="sm"
-      titulo="Abrir turno de caja"
-      pie={
-        <>
-          <Boton variante="secundario" onClick={onCerrar}>
-            Cancelar
-          </Boton>
-          <Boton cargando={m.isPending} onClick={() => m.mutate()}>
-            Abrir turno
-          </Boton>
-        </>
-      }
-    >
-      <Entrada etiqueta="Efectivo inicial en caja" type="number" min={0} step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} />
-    </Modal>
   );
 }
 
@@ -549,7 +683,6 @@ function CerrarTurno({
   esperado: number;
   onListo: () => void;
 }) {
-  const { sistema } = useSistema();
   const [declarado, setDeclarado] = useState("");
   const [notas, setNotas] = useState("");
   const dif = declarado === "" ? null : Number(declarado) - esperado;
@@ -584,7 +717,7 @@ function CerrarTurno({
       <div className="space-y-4">
         <div className="flex items-center justify-between rounded-xl bg-superficie-2 px-4 py-3 text-sm">
           <span className="text-texto-2">Efectivo esperado</span>
-          <span className="font-semibold tabular">{moneda(esperado, sistema.moneda)}</span>
+          <span className="font-semibold tabular">{moneda(esperado)}</span>
         </div>
         <Entrada etiqueta="Efectivo contado" type="number" step="0.01" value={declarado} onChange={(e) => setDeclarado(e.target.value)} />
         <AnimatePresence>
@@ -595,7 +728,7 @@ function CerrarTurno({
               exit={{ opacity: 0, height: 0 }}
               className={cn("overflow-hidden text-sm font-medium", dif < 0 ? "text-peligro" : "text-aviso")}
             >
-              {dif < 0 ? "Faltante" : "Sobrante"} de {moneda(Math.abs(dif), sistema.moneda)}
+              {dif < 0 ? "Faltante" : "Sobrante"} de {moneda(Math.abs(dif))}
             </motion.p>
           )}
         </AnimatePresence>
@@ -621,39 +754,70 @@ interface Pago {
   metodo: MetodoPago;
   monto: string;
   referencia: string;
+  /** Efectivo que entregó el paciente (para calcular la devuelta). */
+  recibido?: string;
+  /** Sigue el total mientras la cajera no escriba otro monto. */
+  auto?: boolean;
 }
 
-function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar: () => void; onListo: (id: string) => void }) {
-  const { sistema, sistemaId } = useSistema();
+/** Línea de cobro para un servicio del catálogo (o en blanco para "Otro concepto"). */
+function lineaDe(s: Fila<"servicios"> | undefined, enBlanco = false): Linea[] {
+  if (!s && !enBlanco) return [];
+  return [{ clave: Date.now(), servicio_id: s?.id ?? "", descripcion: s?.nombre ?? "", categoria: s?.categoria ?? "otro", cantidad: 1, precio: Number(s?.precio ?? 0) }];
+}
+
+function NuevoCobro({
+  abierto,
+  cita,
+  onCerrar,
+  onListo,
+}: {
+  abierto: boolean;
+  /** Si viene de recepción: paciente, servicio y médico ya elegidos; al cobrar se activa el turno. */
+  cita?: CitaConRelaciones | null;
+  onCerrar: () => void;
+  onListo: (id: string) => void;
+}) {
+  const { sistemaId } = useSistema();
   const servicios = useServicios(sistemaId);
   const aseguradoras = useAseguradoras(sistemaId);
-  const personal = usePersonal(sistemaId);
+  const personal = useMedicos(sistemaId);
   const [paciente, setPaciente] = useState<PacienteBreve | null>(null);
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [aseguradora, setAseguradora] = useState("");
   const [autorizacion, setAutorizacion] = useState("");
   const [descuento, setDescuento] = useState("0");
+  const [conNcf, setConNcf] = useState(false);
   const [tipoNcf, setTipoNcf] = useState("B02");
   const [clienteRnc, setClienteRnc] = useState("");
   const [clienteNombre, setClienteNombre] = useState("");
   const [profesional, setProfesional] = useState("");
-  const [vendedor, setVendedor] = useState("");
+  const { perfil } = useSesion();
+  const [area, setArea] = useState<string | null>(null);
 
   useEffect(() => {
     if (!abierto) return;
-    setPaciente(null);
+    setArea(cita?.especialidad ?? null);
+    setPaciente(cita?.paciente ? { ...cita.paciente } : null);
     setLineas([]);
-    setPagos([]);
+    // Por defecto el paciente paga todo en efectivo; para dejarlo a crédito se quita el pago.
+    setPagos([{ clave: 1, metodo: "efectivo", monto: "", referencia: "", auto: true }]);
     setAseguradora("");
     setAutorizacion("");
     setDescuento("0");
     setTipoNcf("B02");
     setClienteRnc("");
     setClienteNombre("");
-    setProfesional("");
-    setVendedor("");
-  }, [abierto]);
+    setProfesional(cita?.medico_id ?? "");
+    setConNcf(false);
+  }, [abierto, cita]);
+
+  // El servicio que eligió recepción entra solo (cuando el catálogo ya cargó).
+  useEffect(() => {
+    if (!abierto || !cita?.servicio_id || !servicios.data) return;
+    setLineas((ls) => (ls.length ? ls : lineaDe(servicios.data!.find((s) => s.id === cita.servicio_id))));
+  }, [abierto, cita, servicios.data]);
 
   useEffect(() => {
     setAseguradora(paciente?.aseguradora_id ?? "");
@@ -677,20 +841,34 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
   const coberturas = useQuery({
     queryKey: ["coberturas", sistemaId, aseguradora],
     enabled: !!aseguradora,
-    queryFn: async () => datos(await supabase.from("coberturas").select("servicio_id, monto_cubierto").eq("aseguradora_id", aseguradora)),
+    queryFn: async () => datos(await supabase.from("coberturas").select("servicio_id, monto_cubierto, precio").eq("aseguradora_id", aseguradora)),
   });
 
+  // Tarifario de la aseguradora elegida: precio pactado y monto cubierto por servicio.
+  const pactados = useMemo(
+    () =>
+      aseguradora && coberturas.data
+        ? new Map(coberturas.data.map((c) => [c.servicio_id, { precio: c.precio === null ? null : Number(c.precio), monto_cubierto: Number(c.monto_cubierto) }]))
+        : null,
+    [aseguradora, coberturas.data],
+  );
+  // Vista previa; el servidor recalcula con las mismas reglas (registrar_cobro).
+  const precioLinea = (l: Linea) => (l.servicio_id ? (pactados?.get(l.servicio_id)?.precio ?? l.precio) : l.precio);
   const cubierto = (l: Linea) => {
-    if (!aseguradora || !l.servicio_id) return 0;
-    const c = coberturas.data?.find((x) => x.servicio_id === l.servicio_id);
-    return c ? Math.min(Number(c.monto_cubierto), l.precio) * l.cantidad : 0;
+    const c = l.servicio_id ? pactados?.get(l.servicio_id) : undefined;
+    return c ? Math.min(c.monto_cubierto, precioLinea(l)) * l.cantidad : 0;
   };
-  const subtotal = lineas.reduce((s, l) => s + l.precio * l.cantidad, 0);
+  const subtotal = lineas.reduce((s, l) => s + precioLinea(l) * l.cantidad, 0);
   const cobertura = lineas.reduce((s, l) => s + cubierto(l), 0);
   const total = Math.max(subtotal - cobertura - (Number(descuento) || 0), 0);
   const pagado = pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0);
   const credito = Math.max(total - pagado, 0);
   const excede = pagado - total > 0.004;
+  const devuelta = pagos.reduce((s, p) => (p.metodo === "efectivo" && Number(p.recibido) > Number(p.monto) ? s + Number(p.recibido) - Number(p.monto) : s), 0);
+
+  useEffect(() => {
+    setPagos((ps) => (ps.some((p) => p.auto) ? ps.map((p) => (p.auto ? { ...p, monto: total > 0 ? total.toFixed(2) : "" } : p)) : ps));
+  }, [total]);
 
   // Ítems agrupados por categoría (como quedarán en la factura y en el asiento).
   const grupos = useMemo(() => {
@@ -703,11 +881,7 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
   const disponibles = [...METODOS_DINERO, ...((saldoAnticipo.data ?? 0) > 0 ? (["anticipo"] as MetodoPago[]) : [])].filter((m) => !metodosUsados.has(m));
 
   const agregarLinea = (servicioId: string) => {
-    const s = servicios.data?.find((x) => x.id === servicioId);
-    setLineas((ls) => [
-      ...ls,
-      { clave: Date.now(), servicio_id: s?.id ?? "", descripcion: s?.nombre ?? "", categoria: s?.categoria ?? "otro", cantidad: 1, precio: Number(s?.precio ?? 0) },
-    ]);
+    setLineas((ls) => [...ls, ...lineaDe(servicios.data?.find((x) => x.id === servicioId), true)]);
   };
 
   const agregarPago = () => {
@@ -718,9 +892,12 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
     setPagos((ps) => [...ps, { clave: Date.now(), metodo, monto: monto ? monto.toFixed(2) : "", referencia: "" }]);
   };
 
-  const medicos = personal.data?.filter((m) => m.activo && m.atiende_agenda) ?? [];
-  const activos = personal.data?.filter((m) => m.activo) ?? [];
-  const hayNcf = (tipo: string) => secuencias.data?.some((s) => s.tipo === tipo);
+  // Médicos del área elegida (si hay alguno); si no, todos, agrupados por especialidad.
+  const todosMedicos = personal.data ?? [];
+  const delArea = area ? todosMedicos.filter((m) => m.especialidad === area) : [];
+  const medicos = delArea.length ? delArea : todosMedicos;
+  const hayNcf = (tipo: string) => !!secuencias.data?.some((s) => s.tipo === tipo);
+  const haySecuencias = (secuencias.data?.length ?? 0) > 0;
 
   const m = useMutation({
     mutationFn: async () =>
@@ -733,19 +910,21 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
               ? { servicio_id: l.servicio_id, cantidad: l.cantidad }
               : { descripcion: l.descripcion, categoria: l.categoria, cantidad: l.cantidad, precio_unitario: l.precio },
           ),
-          p_pagos: pagos.filter((p) => Number(p.monto) > 0).map((p) => ({ metodo: p.metodo, monto: Number(p.monto), referencia: p.referencia || null })),
+          p_pagos: pagos
+            .filter((p) => Number(p.monto) > 0)
+            .map((p) => ({ metodo: p.metodo, monto: Number(p.monto), referencia: p.referencia || null, recibido: p.metodo === "efectivo" && Number(p.recibido) > 0 ? Number(p.recibido) : null })),
           p_aseguradora: aseguradora || undefined,
           p_autorizacion: autorizacion || undefined,
           p_descuento: Number(descuento) || 0,
-          p_tipo_ncf: tipoNcf || undefined,
+          p_tipo_ncf: conNcf ? tipoNcf : undefined,
           p_cliente_rnc: clienteRnc || undefined,
           p_cliente_nombre: clienteNombre || undefined,
           p_profesional: profesional || undefined,
-          p_vendedor: vendedor || undefined,
+          p_cita: cita?.id,
         }),
-      ) as { id: string; numero: string; ncf: string | null },
+      ) as { id: string; numero: string; ncf: string | null; turno: string | null },
     onSuccess: (r) => {
-      toast.success(`Cobro ${r.numero}${r.ncf ? ` · NCF ${r.ncf}` : ""} registrado`);
+      toast.success(`Cobro ${r.numero}${r.ncf ? ` · NCF ${r.ncf}` : ""} registrado${r.turno ? ` · turno ${r.turno}` : ""}`);
       onCerrar();
       onListo(r.id);
     },
@@ -758,13 +937,12 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
       abierto={abierto}
       onCerrar={onCerrar}
       titulo="Nuevo cobro"
-      descripcion="Los montos definitivos los calcula el servidor con los precios del catálogo."
       pie={
         <>
           <div className="mr-auto text-sm">
             <span className="text-texto-2">Total </span>
             <span className="text-lg font-semibold tabular">
-              <NumeroAnimado valor={total} formato={(n) => moneda(n, sistema.moneda)} />
+              <NumeroAnimado valor={total} formato={(n) => moneda(n)} />
             </span>
           </div>
           <Boton variante="secundario" onClick={onCerrar}>
@@ -777,24 +955,31 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
       }
     >
       <div className="space-y-6">
-        <SelectorPaciente valor={paciente} onChange={setPaciente} />
+        {/* Turno del quiosco sin registrar: llega con su cédula ya buscada (o se registra aquí). */}
+        <SelectorPaciente valor={paciente} onChange={setPaciente} textoInicial={cita && !cita.paciente ? (cita.cedula_llegada ?? undefined) : undefined} />
+
+        {/* El seguro va antes que los servicios: define precios pactados y cobertura. */}
+        <section className="grid grid-cols-2 gap-4">
+          <Selector etiqueta="Seguro médico" value={aseguradora} onChange={(e) => setAseguradora(e.target.value)}>
+            <option value="">Sin seguro (privado)</option>
+            {aseguradoras.data
+              ?.filter((a) => a.activo)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nombre}
+                </option>
+              ))}
+          </Selector>
+          <Entrada etiqueta="No. de autorización" value={autorizacion} onChange={(e) => setAutorizacion(e.target.value)} disabled={!aseguradora} />
+        </section>
 
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] font-medium text-texto-2">Conceptos</span>
+            <span className="text-[0.8125rem] font-medium text-texto-2">Servicios</span>
             <div className="flex gap-2">
-              <Selector value="" onChange={(e) => e.target.value && agregarLinea(e.target.value)} contenedor="w-56">
-                <option value="">+ Servicio…</option>
-                {servicios.data
-                  ?.filter((s) => s.activo)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre} · {moneda(s.precio, sistema.moneda)}
-                    </option>
-                  ))}
-              </Selector>
-              <Boton variante="secundario" onClick={() => agregarLinea("")}>
-                Otro
+              <SelectorServicio servicios={servicios.data ?? []} pactados={pactados} area={area} onArea={setArea} onElegir={(s) => agregarLinea(s.id)} />
+              <Boton variante="secundario" onClick={() => agregarLinea("")} title="Cobrar algo que no está en el catálogo">
+                Otro concepto
               </Boton>
             </div>
           </div>
@@ -804,9 +989,9 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
             ) : (
               grupos.map(([cat, ls]) => (
                 <div key={cat}>
-                  <div className="flex items-center justify-between bg-superficie-2/70 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-texto-3 uppercase">
+                  <div className="flex items-center justify-between bg-superficie-2/70 px-3 py-1.5 text-[0.6875rem] font-semibold tracking-wide text-texto-3 uppercase">
                     <span>{CATEGORIAS_SERVICIO[cat] ?? cat}</span>
-                    <span className="tabular">{moneda(ls.reduce((s, l) => s + l.precio * l.cantidad, 0), sistema.moneda)}</span>
+                    <span className="tabular">{moneda(ls.reduce((s, l) => s + precioLinea(l) * l.cantidad, 0))}</span>
                   </div>
                   <AnimatePresence initial={false}>
                     {ls.map((l) => (
@@ -850,7 +1035,7 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
                             className="h-8 w-14 rounded-lg border border-borde bg-superficie px-2 text-sm tabular"
                           />
                           {l.servicio_id ? (
-                            <span className="w-24 text-right text-sm tabular">{moneda(l.precio, sistema.moneda)}</span>
+                            <span className="w-24 text-right text-sm tabular">{moneda(precioLinea(l))}</span>
                           ) : (
                             <input
                               type="number"
@@ -861,7 +1046,11 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
                               className="h-8 w-24 rounded-lg border border-borde bg-superficie px-2 text-right text-sm tabular"
                             />
                           )}
-                          {cubierto(l) > 0 && <Insignia tono="info">−{moneda(cubierto(l), sistema.moneda)}</Insignia>}
+                          {cubierto(l) > 0 ? (
+                            <Insignia tono="info">−{moneda(cubierto(l))}</Insignia>
+                          ) : (
+                            aseguradora && pactados && <Insignia tono="aviso">No lo cubre el seguro</Insignia>
+                          )}
                           <button
                             onClick={() => setLineas((x) => x.filter((y) => y.clave !== l.clave))}
                             className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-peligro"
@@ -879,64 +1068,72 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
         </section>
 
         <section className="grid grid-cols-2 gap-4">
-          <Selector etiqueta="Aseguradora" value={aseguradora} onChange={(e) => setAseguradora(e.target.value)}>
-            <option value="">Sin seguro (privado)</option>
-            {aseguradoras.data
-              ?.filter((a) => a.activo)
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombre}
-                </option>
-              ))}
+          <Selector etiqueta="Médico que atendió" value={profesional} onChange={(e) => setProfesional(e.target.value)}>
+            <option value="">Seleccionar…</option>
+            <OpcionesMedicos medicos={medicos} />
           </Selector>
-          <Entrada etiqueta="No. de autorización" value={autorizacion} onChange={(e) => setAutorizacion(e.target.value)} disabled={!aseguradora} />
           <Entrada etiqueta="Descuento" type="number" min={0} step="0.01" value={descuento} onChange={(e) => setDescuento(e.target.value)} />
-          <Selector etiqueta="Comprobante fiscal" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value)}>
-            <option value="">Sin NCF (recibo interno)</option>
-            {Object.entries(TIPOS_NCF).map(([k, v]) => (
-              <option key={k} value={k} disabled={!hayNcf(k)}>
-                {v}
-                {!hayNcf(k) ? " (sin secuencia)" : ""}
-              </option>
-            ))}
-          </Selector>
+          {/* Quien cobra es el vendedor/comisionista: lo fija el servidor con la sesión. */}
+          <Campo etiqueta="Procesado por" className="col-span-2">
+            {() => (
+              <div className="flex h-9 items-center gap-2.5 rounded-[10px] border border-borde bg-superficie-2 px-2.5 text-sm">
+                <Avatar nombre={perfil?.nombre_completo} foto={perfil?.foto} tamano={22} />
+                <span className="flex-1 truncate font-medium">{perfil?.nombre_completo}</span>
+                <Lock className="size-3.5 text-texto-3" />
+              </div>
+            )}
+          </Campo>
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-borde p-3.5">
+          <Interruptor
+            activo={conNcf}
+            onChange={(v) => {
+              setConNcf(v);
+              // Al activarlo, preselecciona un tipo con secuencia disponible (B02 si la hay).
+              if (v && !hayNcf(tipoNcf)) setTipoNcf(secuencias.data?.[0]?.tipo ?? "B02");
+            }}
+            etiqueta="Emitir comprobante fiscal (NCF)"
+            disabled={!haySecuencias}
+          />
+          {!haySecuencias && <p className="text-xs text-texto-3">Primero hay que cargar los comprobantes autorizados por la DGII (Contabilidad → Comprobantes fiscales).</p>}
           <AnimatePresence initial={false}>
-            {(tipoNcf === "B01" || tipoNcf === "B14" || tipoNcf === "B15") && (
+            {conNcf && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="col-span-2 grid grid-cols-2 gap-4 overflow-hidden"
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="overflow-hidden"
               >
-                <Entrada etiqueta="RNC / cédula del cliente" value={clienteRnc} onChange={(e) => setClienteRnc(e.target.value)} />
-                <Entrada etiqueta="Razón social" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} />
+                <div className="grid grid-cols-2 gap-4 pt-1">
+                  <Selector etiqueta="Tipo de comprobante" contenedor="col-span-2" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value)}>
+                    {Object.entries(TIPOS_NCF)
+                      .filter(([k]) => hayNcf(k))
+                      .map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                  </Selector>
+                  {tipoNcf !== "B02" && (
+                    <>
+                      <Entrada etiqueta="RNC / cédula del cliente" value={clienteRnc} onChange={(e) => setClienteRnc(e.target.value)} />
+                      <Entrada etiqueta="Razón social" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} />
+                    </>
+                  )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
-          <Selector etiqueta="Profesional que atendió" value={profesional} onChange={(e) => setProfesional(e.target.value)}>
-            <option value="">—</option>
-            {medicos.map((x) => (
-              <option key={x.usuario_id} value={x.usuario_id}>
-                {x.perfil?.nombre_completo}
-              </option>
-            ))}
-          </Selector>
-          <Selector etiqueta="Vendedor / comisionista" value={vendedor} onChange={(e) => setVendedor(e.target.value)}>
-            <option value="">—</option>
-            {activos.map((x) => (
-              <option key={x.usuario_id} value={x.usuario_id}>
-                {x.perfil?.nombre_completo}
-              </option>
-            ))}
-          </Selector>
         </section>
 
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] font-medium text-texto-2">Pagos</span>
+            <span className="text-[0.8125rem] font-medium text-texto-2">Pagos</span>
             <div className="flex items-center gap-3">
               {(saldoAnticipo.data ?? 0) > 0 && (
-                <span className="text-xs text-exito">Anticipo disponible: {moneda(saldoAnticipo.data, sistema.moneda)}</span>
+                <span className="text-xs text-exito">Anticipo disponible: {moneda(saldoAnticipo.data)}</span>
               )}
               <Boton variante="secundario" tamano="sm" icono={<Plus className="size-3.5" />} disabled={disponibles.length === 0} onClick={agregarPago}>
                 Agregar pago
@@ -971,16 +1168,30 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
                       step="0.01"
                       placeholder="Monto"
                       value={p.monto}
-                      onChange={(e) => setPagos((x) => x.map((y) => (y.clave === p.clave ? { ...y, monto: e.target.value } : y)))}
+                      onChange={(e) => setPagos((x) => x.map((y) => (y.clave === p.clave ? { ...y, monto: e.target.value, auto: false } : y)))}
                       className="h-9 w-36 rounded-[10px] border border-borde bg-superficie px-3 text-right text-sm tabular"
                     />
-                    <input
-                      placeholder={p.metodo === "efectivo" || p.metodo === "anticipo" ? "" : "Referencia / últimos 4"}
-                      disabled={p.metodo === "efectivo" || p.metodo === "anticipo"}
-                      value={p.referencia}
-                      onChange={(e) => setPagos((x) => x.map((y) => (y.clave === p.clave ? { ...y, referencia: e.target.value } : y)))}
-                      className="h-9 min-w-0 flex-1 rounded-[10px] border border-borde bg-superficie px-3 text-sm disabled:opacity-40"
-                    />
+                    {p.metodo === "efectivo" ? (
+                      // En efectivo: cuánto entregó el paciente, para la devuelta.
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="Recibe RD$"
+                        title="Efectivo que entrega el paciente"
+                        value={p.recibido ?? ""}
+                        onChange={(e) => setPagos((x) => x.map((y) => (y.clave === p.clave ? { ...y, recibido: e.target.value } : y)))}
+                        className="h-9 min-w-0 flex-1 rounded-[10px] border border-borde bg-superficie px-3 text-right text-sm tabular"
+                      />
+                    ) : (
+                      <input
+                        placeholder={p.metodo === "anticipo" ? "" : "Referencia / últimos 4"}
+                        disabled={p.metodo === "anticipo"}
+                        value={p.referencia}
+                        onChange={(e) => setPagos((x) => x.map((y) => (y.clave === p.clave ? { ...y, referencia: e.target.value } : y)))}
+                        className="h-9 min-w-0 flex-1 rounded-[10px] border border-borde bg-superficie px-3 text-sm disabled:opacity-40"
+                      />
+                    )}
                     <button
                       onClick={() => setPagos((x) => x.filter((y) => y.clave !== p.clave))}
                       className="grid size-9 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-peligro"
@@ -991,26 +1202,36 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
                 </motion.div>
               ))}
             </AnimatePresence>
-            {pagos.length === 0 && <p className="rounded-xl bg-superficie-2 px-4 py-3 text-sm text-texto-3">Sin pagos: todo el monto quedará a crédito del paciente.</p>}
+            {pagos.length === 0 && (
+              <p className="rounded-xl bg-[color-mix(in_oklab,var(--aviso)_10%,var(--superficie))] px-4 py-3 text-sm text-aviso">
+                Sin pagos: el total quedará como deuda del paciente.
+              </p>
+            )}
           </div>
         </section>
 
         <dl className="space-y-1.5 rounded-xl bg-superficie-2 px-4 py-3 text-sm">
           {[
             ["Subtotal", subtotal],
-            ["Cobertura del seguro (CxC ARS)", -cobertura],
+            ["Cubre el seguro", -cobertura],
             ["Descuento", -(Number(descuento) || 0)],
-            ["Total a cargo del paciente", total],
+            ["Paga el paciente", total],
             ["Pagado", pagado],
           ].map(([k, v]) => (
             <div key={k as string} className="flex justify-between">
               <dt className="text-texto-2">{k}</dt>
-              <dd className="tabular">{moneda(v as number, sistema.moneda)}</dd>
+              <dd className="tabular">{moneda(v as number)}</dd>
             </div>
           ))}
+          {devuelta > 0 && (
+            <div className="flex justify-between text-base font-semibold">
+              <dt>Devuelta</dt>
+              <dd className="tabular">{moneda(devuelta)}</dd>
+            </div>
+          )}
           <div className={cn("flex justify-between border-t border-borde pt-1.5 font-semibold", excede ? "text-peligro" : credito > 0 ? "text-aviso" : "text-exito")}>
-            <dt>{excede ? "Los pagos superan el total" : credito > 0 ? "Queda a crédito (CxC paciente)" : "Pagado completo"}</dt>
-            <dd className="tabular">{moneda(excede ? pagado - total : credito, sistema.moneda)}</dd>
+            <dt>{excede ? "Los pagos superan el total" : credito > 0 ? "Queda debiendo" : "Pagado completo"}</dt>
+            <dd className="tabular">{moneda(excede ? pagado - total : credito)}</dd>
           </div>
         </dl>
       </div>
@@ -1022,7 +1243,13 @@ function NuevoCobro({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar
 // Factura / recibo con ítems agrupados por categoría
 // ---------------------------------------------------------------------------
 function Factura({ cobro, onCerrar }: { cobro: CobroFila | null; onCerrar: () => void }) {
-  const { sistema } = useSistema();
+  const { sistema, sistemaId } = useSistema();
+  const emisor = useQuery({
+    queryKey: ["sistema", sistemaId, "membrete"],
+    staleTime: 5 * 60_000,
+    queryFn: async () =>
+      datos(await supabase.from("sistemas").select("razon_social, rnc, direccion, telefono").eq("id", sistemaId).single()),
+  }).data;
   const [ultimo, setUltimo] = useState(cobro);
   useEffect(() => {
     if (cobro) setUltimo(cobro);
@@ -1033,10 +1260,17 @@ function Factura({ cobro, onCerrar }: { cobro: CobroFila | null; onCerrar: () =>
   const grupos = new Map<string, CobroFila["detalles"]>();
   (c.detalles ?? []).forEach((d) => grupos.set(d.categoria, [...(grupos.get(d.categoria) ?? []), d]));
   const linea = "my-2 border-dashed border-black/40";
+  const pagado = (c.pagos ?? []).reduce((s, p) => s + Number(p.monto), 0);
+  const cobertura = Number(c.subtotal) > 0 ? Math.round((Number(c.cobertura_seguro) / Number(c.subtotal)) * 100) : 0;
 
   return (
     <Documento abierto={!!cobro} onCerrar={onCerrar} titulo={c.ncf ? `Factura ${c.ncf}` : `Recibo ${c.numero}`} nombreArchivo={`${c.ncf ?? c.numero} - ${c.paciente?.nombres} ${c.paciente?.apellidos}`} formato="ticket">
-      <p className="text-center text-[14px] font-bold">{sistema.nombre}</p>
+      {(sistema.logo_factura ?? sistema.logo_url) && <img src={(sistema.logo_factura ?? sistema.logo_url)!} alt="" className="mx-auto mb-1.5 max-h-20 w-auto" />}
+      <p className="text-center text-[0.875rem] font-bold">{(emisor?.razon_social || sistema.nombre).toUpperCase()}</p>
+      {emisor?.rnc && <p className="text-center">RNC {emisor.rnc}</p>}
+      {emisor?.direccion && <p className="text-center">{emisor.direccion}</p>}
+      {emisor?.telefono && <p className="text-center">Tel. {emisor.telefono}</p>}
+      <hr className={linea} />
       {c.ncf ? (
         <>
           <p className="text-center font-bold">{TIPOS_NCF[c.tipo_ncf ?? ""]?.split(" · ")[1]?.toUpperCase() ?? "FACTURA"}</p>
@@ -1066,7 +1300,7 @@ function Factura({ cobro, onCerrar }: { cobro: CobroFila | null; onCerrar: () =>
               <span className="truncate">
                 {Number(d.cantidad)} × {d.descripcion}
               </span>
-              <span>{moneda(Number(d.precio_unitario) * Number(d.cantidad), sistema.moneda)}</span>
+              <span>{moneda(Number(d.precio_unitario) * Number(d.cantidad))}</span>
             </div>
           ))}
         </div>
@@ -1074,25 +1308,34 @@ function Factura({ cobro, onCerrar }: { cobro: CobroFila | null; onCerrar: () =>
       <hr className={linea} />
       <div className="flex justify-between">
         <span>Subtotal</span>
-        <span>{moneda(c.subtotal, sistema.moneda)}</span>
+        <span>{moneda(c.subtotal)}</span>
       </div>
-      {Number(c.cobertura_seguro) > 0 && (
+      {c.aseguradora && (
+        <>
+          <div className="flex justify-between">
+            <span>
+              Cubre {c.aseguradora.nombre} ({cobertura}%)
+            </span>
+            <span>−{moneda(c.cobertura_seguro)}</span>
+          </div>
+          {c.numero_autorizacion && <p>Autorización: {c.numero_autorizacion}</p>}
+        </>
+      )}
+      {Number(c.monto_fondo) > 0 && (
         <div className="flex justify-between">
-          <span>
-            Seguro {c.aseguradora?.nombre ?? ""} {c.numero_autorizacion ? `(Aut. ${c.numero_autorizacion})` : ""}
-          </span>
-          <span>−{moneda(c.cobertura_seguro, sistema.moneda)}</span>
+          <span>Fondo interno de la fundación</span>
+          <span>{moneda(c.monto_fondo)}</span>
         </div>
       )}
       {Number(c.descuento) > 0 && (
         <div className="flex justify-between">
           <span>Descuento</span>
-          <span>−{moneda(c.descuento, sistema.moneda)}</span>
+          <span>−{moneda(c.descuento)}</span>
         </div>
       )}
-      <div className="flex justify-between text-[14px] font-bold">
+      <div className="flex justify-between text-[0.875rem] font-bold">
         <span>TOTAL</span>
-        <span>{moneda(c.total, sistema.moneda)}</span>
+        <span>{moneda(c.total)}</span>
       </div>
       <hr className={linea} />
       {(c.pagos ?? []).map((p) => (
@@ -1101,19 +1344,38 @@ function Factura({ cobro, onCerrar }: { cobro: CobroFila | null; onCerrar: () =>
             {METODOS_PAGO[p.metodo]}
             {p.referencia ? ` · ${p.referencia}` : ""}
           </span>
-          <span>{moneda(p.monto, sistema.moneda)}</span>
+          <span>{moneda(p.monto)}</span>
         </div>
       ))}
+      <div className="flex justify-between">
+        <span>Monto pagado</span>
+        <span>{moneda(pagado)}</span>
+      </div>
+      {(c.pagos ?? [])
+        .filter((p) => p.recibido && Number(p.recibido) > Number(p.monto))
+        .map((p) => (
+          <div key={`dev-${p.metodo}`}>
+            <div className="flex justify-between">
+              <span>Efectivo recibido</span>
+              <span>{moneda(p.recibido)}</span>
+            </div>
+            <div className="flex justify-between font-bold">
+              <span>Devuelta</span>
+              <span>{moneda(Number(p.recibido) - Number(p.monto))}</span>
+            </div>
+          </div>
+        ))}
       {Number(c.monto_credito) > 0 && (
         <div className="flex justify-between font-bold">
-          <span>PENDIENTE (crédito)</span>
-          <span>{moneda(c.monto_credito, sistema.moneda)}</span>
+          <span>SALDO PENDIENTE</span>
+          <span>{moneda(c.monto_credito)}</span>
         </div>
       )}
       {c.anulacion?.length ? <p className="mt-2 text-center font-bold">*** ANULADO ***</p> : null}
+      {c.cita?.turno && !c.anulacion?.length && <BloqueTurno turno={c.cita.turno} destino={destinoTurno(c.cita)} />}
       <hr className={linea} />
       <p className="text-center">Cajero: {c.cajero?.nombre_completo}</p>
-      <p className="text-center">¡Gracias por su visita!</p>
+      <p className="text-center">¡Gracias por confiar en nosotros!</p>
     </Documento>
   );
 }
@@ -1250,7 +1512,7 @@ interface Comprobante {
 }
 
 function Anticipos({ onComprobante }: { onComprobante: (c: Comprobante) => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const q = useQuery({
     queryKey: [...claves.caja(sistemaId), "anticipos"],
     queryFn: async () =>
@@ -1279,7 +1541,7 @@ function Anticipos({ onComprobante }: { onComprobante: (c: Comprobante) => void 
                 {a.paciente?.nombres} {a.paciente?.apellidos}
               </span>
               <Insignia>{METODOS_PAGO[a.metodo]}</Insignia>
-              <span className="w-32 text-right font-semibold tabular">{moneda(a.monto, sistema.moneda)}</span>
+              <span className="w-32 text-right font-semibold tabular">{moneda(a.monto)}</span>
               <button
                 title="Comprobante"
                 onClick={() =>
@@ -1416,7 +1678,7 @@ function ComprobanteTicket({ comprobante: c, onCerrar }: { comprobante: Comproba
   if (!x) return null;
   return (
     <Documento abierto={!!c} onCerrar={onCerrar} titulo={`${x.titulo} ${x.numero}`} nombreArchivo={`${x.titulo} ${x.numero}`} formato="ticket">
-      <p className="text-center text-[14px] font-bold">{sistema.nombre}</p>
+      <p className="text-center text-[0.875rem] font-bold">{sistema.nombre}</p>
       <p className="text-center font-bold">{x.titulo.toUpperCase()}</p>
       <p className="text-center">
         {x.numero} · {fecha(x.fecha + "T00:00:00")}
@@ -1428,9 +1690,9 @@ function ComprobanteTicket({ comprobante: c, onCerrar }: { comprobante: Comproba
         </p>
       ))}
       <hr className="my-2 border-dashed border-black/40" />
-      <div className="flex justify-between text-[14px] font-bold">
+      <div className="flex justify-between text-[0.875rem] font-bold">
         <span>MONTO</span>
-        <span>{moneda(x.monto, sistema.moneda)}</span>
+        <span>{moneda(x.monto)}</span>
       </div>
       <p className="mt-6 text-center">______________________</p>
       <p className="text-center">Firma</p>
@@ -1454,7 +1716,7 @@ interface Cxc {
 }
 
 function CuentasPorCobrar({ onComprobante }: { onComprobante: (c: Comprobante) => void }) {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const [deudor, setDeudor] = useState<"paciente" | "aseguradora">("paciente");
   const [abonar, setAbonar] = useState<{ cxc: Cxc; nombre: string } | null>(null);
   const [estado, setEstado] = useState<ContactoCuenta | null>(null);
@@ -1501,7 +1763,7 @@ function CuentasPorCobrar({ onComprobante }: { onComprobante: (c: Comprobante) =
           ]}
         />
         <p className="text-sm text-texto-2">
-          Total por cobrar: <span className="font-semibold text-texto tabular">{moneda(total, sistema.moneda)}</span>
+          Total por cobrar: <span className="font-semibold text-texto tabular">{moneda(total)}</span>
         </p>
       </div>
       <Tarjeta className="overflow-hidden">
@@ -1515,7 +1777,7 @@ function CuentasPorCobrar({ onComprobante }: { onComprobante: (c: Comprobante) =
               <motion.li key={k} variants={itemEscalonado} className="px-5 py-3.5">
                 <div className="mb-2 flex items-center gap-3">
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold">{nombreDe(k)}</span>
-                  <span className="text-sm font-semibold tabular">{moneda(fs.reduce((s, f) => s + pend(f), 0), sistema.moneda)}</span>
+                  <span className="text-sm font-semibold tabular">{moneda(fs.reduce((s, f) => s + pend(f), 0))}</span>
                   <Boton
                     tamano="sm"
                     variante="secundario"
@@ -1536,7 +1798,7 @@ function CuentasPorCobrar({ onComprobante }: { onComprobante: (c: Comprobante) =
                           {f.numero_autorizacion ? ` · Aut. ${f.numero_autorizacion}` : ""}
                         </span>
                       )}
-                      <span className="ml-auto w-28 text-right font-medium tabular">{moneda(pend(f), sistema.moneda)}</span>
+                      <span className="ml-auto w-28 text-right font-medium tabular">{moneda(pend(f))}</span>
                       {puedeEscribir.abonos(roles) && (
                         <Boton tamano="sm" variante="suave" onClick={() => setAbonar({ cxc: f, nombre: nombreDe(k) })}>
                           Abonar
@@ -1575,7 +1837,7 @@ function Abonar({
   onCerrar: () => void;
   onListo: (c: Comprobante) => void;
 }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const qc = useQueryClient();
   const [monto, setMonto] = useState("");
   const [metodo, setMetodo] = useState<MetodoPago>("efectivo");
@@ -1616,7 +1878,7 @@ function Abonar({
           [deudor === "paciente" ? "Paciente" : "Aseguradora", d!.nombre],
           ["Aplicado a", d!.cxc.ncf ?? d!.cxc.numero],
           ["Método", METODOS_PAGO[metodo]],
-          ["Saldo restante", moneda(pendiente - Number(monto), sistema.moneda)],
+          ["Saldo restante", moneda(pendiente - Number(monto))],
         ],
       });
     },
@@ -1629,7 +1891,7 @@ function Abonar({
       onCerrar={onCerrar}
       ancho="sm"
       titulo={`Abonar a ${d?.cxc.ncf ?? d?.cxc.numero ?? ""}`}
-      descripcion={`${d?.nombre ?? ""} · pendiente ${moneda(pendiente, sistema.moneda)}`}
+      descripcion={`${d?.nombre ?? ""} · pendiente ${moneda(pendiente)}`}
       pie={
         <>
           <Boton variante="secundario" onClick={onCerrar}>

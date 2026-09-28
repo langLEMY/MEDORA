@@ -19,9 +19,9 @@ type Pestana = "historial" | "citas" | "cobros" | "datos";
 
 export default function PacienteDetalle() {
   const { id = "" } = useParams();
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles, permisos } = useSistema();
   const verHistorial = puedeEscribir.verHistorial(roles);
-  const verCobros = puede(roles, "caja");
+  const verCobros = puede(roles, "caja", false, permisos);
   const [pestana, setPestana] = useState<Pestana>(verHistorial ? "historial" : "citas");
   const [editar, setEditar] = useState(false);
 
@@ -90,7 +90,7 @@ export default function PacienteDetalle() {
           <Avatar nombre={nombre} tamano={64} className="ring-4 ring-superficie" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-[22px] font-semibold tracking-[-0.02em]">{nombre}</h1>
+              <h1 className="text-[1.375rem] font-semibold tracking-[-0.02em]">{nombre}</h1>
               <Insignia tono="marca">{p.expediente}</Insignia>
             </div>
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-texto-2">
@@ -181,7 +181,7 @@ export default function PacienteDetalle() {
                       <span className="flex-1 text-texto-2">{fechaHora(c.creado_en)}</span>
                       <span className="capitalize text-texto-2">{c.metodo}</span>
                       {c.anulacion && c.anulacion.length > 0 && <Insignia tono="peligro">Anulado</Insignia>}
-                      <span className="w-32 text-right font-medium tabular">{moneda(c.total, sistema.moneda)}</span>
+                      <span className="w-32 text-right font-medium tabular">{moneda(c.total)}</span>
                     </li>
                   ))}
                 </ul>

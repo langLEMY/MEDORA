@@ -26,7 +26,7 @@ export function Logotipo({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <Isotipo />
-      <span className="text-[17px] font-semibold tracking-[0.08em] text-texto">MEDORA</span>
+      <span className="text-[1.0625rem] font-semibold tracking-[0.08em] text-texto">MEDORA</span>
     </div>
   );
 }

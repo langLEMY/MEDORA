@@ -1,9 +1,10 @@
 // Alta de cuenta con un código de invitación generado por la superadministración.
+// Los códigos son solo para administradores; el resto del personal lo crea un admin.
 //   { accion: "verificar", codigo }                              → a qué da acceso
-//   { accion: "registrar", codigo, nombre_completo, email, password }
+//   { accion: "registrar", codigo, nombre_completo, nombre_usuario, email?, password }
 // verify_jwt = false: quien se registra todavía no tiene cuenta. El código (60 bits
 // aleatorios, con vencimiento y usos máximos) es la autorización.
-import { clienteServicio, cors, EMAIL_RE, error, json } from "../_shared/comun.ts";
+import { clienteServicio, cors, credencialesNuevas, error, json } from "../_shared/comun.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -26,20 +27,23 @@ Deno.serve(async (req) => {
   if (cuerpo.accion !== "registrar") return error("Acción desconocida.");
 
   const nombre = String(cuerpo.nombre_completo ?? "").trim();
-  const email = String(cuerpo.email ?? "").trim().toLowerCase();
   const password = String(cuerpo.password ?? "");
+  const cred = credencialesNuevas(cuerpo);
   if (nombre.length < 3) return error("Escribe tu nombre completo.");
-  if (!EMAIL_RE.test(email)) return error("Correo electrónico inválido.");
+  if ("error" in cred) return error(cred.error);
   if (password.length < 10) return error("La contraseña debe tener al menos 10 caracteres.");
 
-  const { data: existente } = await admin.from("perfiles").select("id").eq("email", email).maybeSingle();
-  if (existente) return error("Ya existe una cuenta con ese correo. Inicia sesión o pide que te agreguen desde Personal.", 409);
+  const [{ data: porUsuario }, { data: porCorreo }] = await Promise.all([
+    admin.from("perfiles").select("id").eq("nombre_usuario", cred.usuario).maybeSingle(),
+    admin.from("perfiles").select("id").eq("email", cred.email).maybeSingle(),
+  ]);
+  if (porUsuario || porCorreo) return error("Ese usuario o correo ya existe. Inicia sesión o pide que te agreguen desde Personal.", 409);
 
   const { data: creado, error: errCrear } = await admin.auth.admin.createUser({
-    email,
+    email: cred.email,
     password,
     email_confirm: true,
-    user_metadata: { nombre_completo: nombre },
+    user_metadata: { nombre_completo: nombre, nombre_usuario: cred.usuario },
   });
   if (errCrear || !creado.user) return error(errCrear?.message ?? "No se pudo crear la cuenta.");
 
@@ -51,5 +55,5 @@ Deno.serve(async (req) => {
     return error(errCanje.message, 409);
   }
 
-  return json({ ok: true });
+  return json({ ok: true, email: cred.email });
 });

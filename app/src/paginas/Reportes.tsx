@@ -44,7 +44,7 @@ export default function Reportes() {
                 <r.icono className="size-5" />
               </span>
               <span>
-                <span className="block text-[15px] font-semibold">{r.titulo}</span>
+                <span className="block text-[0.9375rem] font-semibold">{r.titulo}</span>
                 <span className="mt-0.5 block text-sm text-texto-2">{r.descripcion}</span>
               </span>
             </Tarjeta>
@@ -142,7 +142,7 @@ function useRango() {
 }
 
 function Ventas({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const r = useRango();
   const q = useQuery({
     queryKey: ["reporte-ventas", sistemaId, r.desde, r.hasta],
@@ -186,7 +186,7 @@ function Ventas({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void 
       };
     },
   });
-  const $ = (v: number) => moneda(v, sistema.moneda);
+  const $ = (v: number) => moneda(v);
   return (
     <Documento abierto={abierto} onCerrar={onCerrar} titulo="Ventas por período" nombreArchivo={`Ventas ${r.desde} a ${r.hasta}`}>
       <Rango {...r} />
@@ -222,7 +222,7 @@ function Ventas({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void 
 }
 
 function Antiguedad({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const aseguradoras = useAseguradoras(sistemaId);
   const [deudor, setDeudor] = useState<"paciente" | "aseguradora">("aseguradora");
   const q = useQuery({
@@ -253,7 +253,7 @@ function Antiguedad({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => v
     v[i] += monto;
     grupos.set(k, v);
   });
-  const $ = (v: number) => (v ? moneda(v, sistema.moneda) : "");
+  const $ = (v: number) => (v ? moneda(v) : "");
   const tot = [0, 1, 2, 3].map((i) => [...grupos.values()].reduce((s, v) => s + v[i], 0));
   return (
     <Documento abierto={abierto} onCerrar={onCerrar} titulo="Antigüedad de CxC" nombreArchivo={`Antigüedad CxC ${deudor} ${isoDia()}`}>
@@ -274,8 +274,8 @@ function Antiguedad({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => v
       ) : (
         <TablaDocumento
           encabezados={[deudor === "paciente" ? "Paciente" : "Aseguradora", ...tramos.map((t) => `${t} días`), "Total"]}
-          filas={[...grupos.entries()].map(([k, v]) => [k, ...v.map($), moneda(v.reduce((a, b) => a + b, 0), sistema.moneda)])}
-          pie={["Total", ...tot.map((v) => moneda(v, sistema.moneda)), moneda(tot.reduce((a, b) => a + b, 0), sistema.moneda)]}
+          filas={[...grupos.entries()].map(([k, v]) => [k, ...v.map($), moneda(v.reduce((a, b) => a + b, 0))])}
+          pie={["Total", ...tot.map((v) => moneda(v)), moneda(tot.reduce((a, b) => a + b, 0))]}
         />
       )}
     </Documento>
@@ -283,7 +283,7 @@ function Antiguedad({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => v
 }
 
 function ComprasReporte({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const r = useRango();
   const q = useQuery({
     queryKey: ["reporte-compras", sistemaId, r.desde, r.hasta],
@@ -300,7 +300,7 @@ function ComprasReporte({ abierto, onCerrar }: { abierto: boolean; onCerrar: () 
       ) as unknown as { numero: string; fecha: string; ncf_proveedor: string | null; forma_pago: string; subtotal: number; itbis: number; total: number; proveedor: { nombre: string; rnc: string | null } | null; anulacion: unknown[] }[],
   });
   const validas = (q.data ?? []).filter((c) => !c.anulacion?.length);
-  const $ = (v: number) => moneda(v, sistema.moneda);
+  const $ = (v: number) => moneda(v);
   return (
     <Documento abierto={abierto} onCerrar={onCerrar} titulo="Compras por período" nombreArchivo={`Compras ${r.desde} a ${r.hasta}`}>
       <Rango {...r} />

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Tono } from "@/components/ui/superficies";
+import type { Permisos } from "./permisos";
 import { datos, supabase, type EstadoCita, type Rol } from "./supabase";
 
 /** Claves de react-query: siempre llevan el sistema, así cambiar de sistema no mezcla cachés. */
@@ -24,8 +25,10 @@ export interface Miembro {
   sede_id: string | null;
   activo: boolean;
   atiende_agenda: boolean;
+  consultorio: string | null;
+  permisos: Permisos;
   creado_en: string;
-  perfil: { nombre_completo: string; email: string; telefono: string | null } | null;
+  perfil: { nombre_completo: string; nombre_usuario: string | null; email: string; telefono: string | null; foto: string | null } | null;
 }
 
 export function usePersonal(sistemaId: string) {
@@ -35,17 +38,38 @@ export function usePersonal(sistemaId: string) {
       datos(
         await supabase
           .from("membresias")
-          .select("id, usuario_id, roles, especialidad, exequatur, sede_id, activo, atiende_agenda, creado_en, perfil:perfiles!membresias_usuario_id_fkey(nombre_completo, email, telefono)")
+          .select("id, usuario_id, roles, especialidad, exequatur, sede_id, activo, atiende_agenda, consultorio, permisos, creado_en, perfil:perfiles!membresias_usuario_id_fkey(nombre_completo, nombre_usuario, email, telefono, foto)")
           .eq("sistema_id", sistemaId)
           .order("creado_en"),
       ) as unknown as Miembro[],
   });
 }
 
-/** Profesionales con agenda propia (médicos, psicología, nutrición, terapia…). */
+/** Roles que atienden pacientes. Caja o recepción no aparecen aunque tengan "atiende citas" marcado. */
+const ROLES_CLINICOS: Rol[] = ["medico", "psicologia", "nutricion", "terapia"];
+export const SIN_ESPECIALIDAD = "Sin especialidad";
+
+/** Profesionales con agenda propia, ordenados por especialidad y nombre. */
 export function useMedicos(sistemaId: string) {
   const q = usePersonal(sistemaId);
-  return { ...q, data: q.data?.filter((m) => m.activo && m.atiende_agenda) };
+  const data = q.data
+    ?.filter((m) => m.activo && m.atiende_agenda && m.roles.some((r) => ROLES_CLINICOS.includes(r)))
+    .sort(
+      (a, b) =>
+        (a.especialidad ?? "￿").localeCompare(b.especialidad ?? "￿", "es") ||
+        (a.perfil?.nombre_completo ?? "").localeCompare(b.perfil?.nombre_completo ?? "", "es"),
+    );
+  return { ...q, data };
+}
+
+/** Médicos agrupados por especialidad (para <optgroup> y filtros). */
+export function porEspecialidad(medicos: Miembro[]) {
+  const grupos = new Map<string, Miembro[]>();
+  for (const m of medicos) {
+    const k = m.especialidad?.trim() || SIN_ESPECIALIDAD;
+    grupos.set(k, [...(grupos.get(k) ?? []), m]);
+  }
+  return [...grupos.entries()];
 }
 
 export interface CuentaContable {
@@ -134,7 +158,9 @@ export function useSedes(sistemaId: string) {
 export const ESTADO_CITA: Record<EstadoCita, { etiqueta: string; tono: Tono }> = {
   programada: { etiqueta: "Programada", tono: "neutro" },
   confirmada: { etiqueta: "Confirmada", tono: "info" },
+  por_cobrar: { etiqueta: "Por cobrar", tono: "aviso" },
   en_espera: { etiqueta: "En espera", tono: "aviso" },
+  llamado: { etiqueta: "Llamado", tono: "info" },
   en_consulta: { etiqueta: "En consulta", tono: "violeta" },
   completada: { etiqueta: "Completada", tono: "exito" },
   cancelada: { etiqueta: "Cancelada", tono: "peligro" },
@@ -150,16 +176,60 @@ export interface CitaConRelaciones {
   notas: string | null;
   llegada_en: string | null;
   paciente_id: string;
-  medico_id: string;
+  /** null = en la cola de la especialidad, sin médico todavía. */
+  medico_id: string | null;
   servicio_id: string | null;
   sede_id: string | null;
-  paciente: { id: string; nombres: string; apellidos: string; expediente: string } | null;
+  especialidad: string | null;
+  turno: string | null;
+  turno_en: string | null;
+  prioridad: boolean;
+  motivo_prioridad: string | null;
+  llamado_en: string | null;
+  llamado_veces: number;
+  motivo_exoneracion: string | null;
+  /** Turno del quiosco sin paciente registrado: caja o recepción lo identifica. */
+  por_identificar: boolean;
+  cedula_llegada: string | null;
+  paciente: { id: string; nombres: string; apellidos: string; expediente: string; documento: string | null; aseguradora_id: string | null } | null;
   medico: { nombre_completo: string } | null;
   servicio: { nombre: string } | null;
 }
 
 export const SELECT_CITA =
-  "id, inicio, fin, estado, motivo, notas, llegada_en, paciente_id, medico_id, servicio_id, sede_id, paciente:pacientes!citas_sistema_id_paciente_id_fkey(id, nombres, apellidos, expediente), medico:perfiles!citas_medico_perfil_fk(nombre_completo), servicio:servicios!citas_sistema_id_servicio_id_fkey(nombre)";
+  "id, inicio, fin, estado, motivo, notas, llegada_en, paciente_id, medico_id, servicio_id, sede_id, especialidad, turno, turno_en, prioridad, motivo_prioridad, llamado_en, llamado_veces, motivo_exoneracion, por_identificar, cedula_llegada, " +
+  "paciente:pacientes!citas_sistema_id_paciente_id_fkey(id, nombres, apellidos, expediente, documento, aseguradora_id), medico:perfiles!citas_medico_perfil_fk(nombre_completo), servicio:servicios!citas_sistema_id_servicio_id_fkey(nombre)";
+
+/** Nombre para mostrar de una cita; los turnos del quiosco sin registrar salen "Por identificar". */
+export function nombrePaciente(c: Pick<CitaConRelaciones, "paciente" | "cedula_llegada">) {
+  if (c.paciente) return `${c.paciente.nombres} ${c.paciente.apellidos}`.trim();
+  const d = (c.cedula_llegada ?? "").replace(/\D/g, "");
+  const ced = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 10)}-${d.slice(10)}` : d;
+  return ced ? `Por identificar · ${ced}` : "Por identificar";
+}
+
+/** Motivos de atención preferencial (Ley 352-98 de envejecientes, Ley 5-13 de discapacidad, embarazo). */
+export const MOTIVOS_PRIORIDAD = ["Envejeciente", "Embarazada", "Persona con discapacidad", "Niño de brazos", "Urgencia"];
+
+/** Turnos de hoy que siguen activos (para Recepción, Mi consulta, Caja y la pantalla de la sala). */
+export function useTurnosHoy(sistemaId: string) {
+  return useQuery({
+    queryKey: [...claves.citas(sistemaId), "turnos-hoy"],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return datos(
+        await supabase
+          .from("citas")
+          .select(SELECT_CITA)
+          .eq("sistema_id", sistemaId)
+          .gte("llegada_en", d.toISOString())
+          .order("turno_en", { ascending: true, nullsFirst: false }),
+      ) as unknown as CitaConRelaciones[];
+    },
+  });
+}
 
 /** Citas de un rango [desde, hasta) — ISO. */
 export function useCitas(sistemaId: string, desde: string, hasta: string, medicoId?: string) {

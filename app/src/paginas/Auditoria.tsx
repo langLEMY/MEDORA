@@ -69,6 +69,8 @@ export default function Auditoria() {
     queryFn: async () => datos(await supabase.from("perfiles").select("id, nombre_completo, email")),
   });
   const nombres = useMemo(() => new Map(perfiles.data?.map((p) => [p.id, p.nombre_completo || p.email])), [perfiles.data]);
+  // Sin usuario = proceso del sistema. Usuario que el hospital no puede ver = soporte de la plataforma.
+  const persona = (id: string | null) => (id ? (nombres.get(id) ?? "Soporte MEDORA") : "Sistema");
 
   const q = useQuery({
     queryKey: ["auditoria", sistemaId, desde, hasta, accion, tabla, usuario, pagina],
@@ -98,7 +100,7 @@ export default function Auditoria() {
     const csv = [
       ["fecha", "usuario", "accion", "tabla", "registro", "cambios"].join(","),
       ...filas.map((r) =>
-        [r.creado_en, nombres.get(r.usuario_id ?? "") ?? "", r.accion, r.tabla ?? "", r.registro_id ?? "", JSON.stringify(r.cambios ?? {})]
+        [r.creado_en, persona(r.usuario_id), r.accion, r.tabla ?? "", r.registro_id ?? "", JSON.stringify(r.cambios ?? {})]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(","),
       ),
@@ -171,8 +173,8 @@ export default function Auditoria() {
                     onClick={() => setAbierto(expandido ? null : r.id)}
                     className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm transition-colors enabled:hover:bg-superficie-2/60"
                   >
-                    <Avatar nombre={nombres.get(r.usuario_id ?? "") ?? "Sistema"} tamano={28} />
-                    <span className="w-44 truncate font-medium">{nombres.get(r.usuario_id ?? "") ?? "Sistema"}</span>
+                    <Avatar nombre={persona(r.usuario_id)} tamano={28} />
+                    <span className="w-44 truncate font-medium">{persona(r.usuario_id)}</span>
                     <Insignia tono={a.tono}>{a.etiqueta}</Insignia>
                     <span className="min-w-0 flex-1 truncate text-texto-2">{r.tabla ? (TABLAS[r.tabla] ?? r.tabla) : ""}</span>
                     <span className="text-xs text-texto-3 tabular">{fechaHora(r.creado_en)}</span>
@@ -229,7 +231,7 @@ function Detalle({ registro }: { registro: Registro }) {
   const ocultas = new Set(["id", "sistema_id", "creado_en", "creado_por", "actualizado_en", "actualizado_por"]);
   const filas = Object.entries(c).filter(([k]) => !ocultas.has(k));
   return (
-    <div className="mx-5 mb-4 overflow-hidden rounded-xl border border-borde bg-superficie-2/50 text-[13px]">
+    <div className="mx-5 mb-4 overflow-hidden rounded-xl border border-borde bg-superficie-2/50 text-[0.8125rem]">
       <table className="w-full">
         <thead>
           <tr className="border-b border-borde text-left text-xs text-texto-3">

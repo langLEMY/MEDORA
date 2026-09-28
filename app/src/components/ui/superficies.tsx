@@ -19,7 +19,7 @@ export function EncabezadoPagina({
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-texto">{titulo}</h1>
+        <h1 className="text-[1.375rem] font-semibold tracking-[-0.02em] text-texto">{titulo}</h1>
         {descripcion && <p className="mt-1 text-sm text-texto-2">{descripcion}</p>}
       </div>
       {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
@@ -105,7 +105,7 @@ export function Vacio({
       <div className="mb-4 grid size-12 place-items-center rounded-2xl border border-borde bg-superficie-2 text-texto-2 shadow-sm [&>svg]:size-5">
         {icono}
       </div>
-      <p className="text-[15px] font-semibold text-texto">{titulo}</p>
+      <p className="text-[0.9375rem] font-semibold text-texto">{titulo}</p>
       {descripcion && <p className="mt-1 max-w-sm text-sm text-texto-2">{descripcion}</p>}
       {accion && <div className="mt-5">{accion}</div>}
     </motion.div>
@@ -114,7 +114,29 @@ export function Vacio({
 
 const PALETA_AVATAR = ["#0e9384", "#1570ef", "#6938ef", "#c11574", "#dc6803", "#079455", "#0086c9", "#e04f16"];
 
-export function Avatar({ nombre, tamano = 32, className }: { nombre?: string | null; tamano?: number; className?: string }) {
+export function Avatar({
+  nombre,
+  foto,
+  tamano = 32,
+  className,
+}: {
+  nombre?: string | null;
+  /** Foto de perfil (perfiles.foto); sin ella, iniciales sobre un color estable. */
+  foto?: string | null;
+  tamano?: number;
+  className?: string;
+}) {
+  if (foto)
+    return (
+      <img
+        src={foto}
+        alt=""
+        aria-hidden
+        draggable={false}
+        className={cn("inline-block shrink-0 rounded-full object-cover", className)}
+        style={{ width: tamano, height: tamano }}
+      />
+    );
   const n = nombre ?? "";
   let h = 0;
   for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -165,7 +187,7 @@ export function FilaAnimada({ children, className, onClick }: { children: ReactN
 
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-borde bg-superficie-2 px-1 font-sans text-[11px] font-medium text-texto-3">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-borde bg-superficie-2 px-1 font-sans text-[0.6875rem] font-medium text-texto-3">
       {children}
     </kbd>
   );

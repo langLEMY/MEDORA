@@ -3,14 +3,15 @@
 // mismas reglas que el RLS: superadmin, o admin del sistema afectado.
 //
 // Acciones:
-//   { accion: "crear", sistema_id, email, nombre_completo, roles[], especialidad?, exequatur?, sede_id? }
+//   { accion: "crear", sistema_id, nombre_usuario, email?, nombre_completo, roles[], especialidad?, exequatur?, sede_id? }
 //   { accion: "restablecer_password", sistema_id, usuario_id }
-//   { accion: "importar", sistema_id, filas: [{ _fila, nombre_completo, email, roles[], especialidad?, exequatur? }] }
-import { clienteServicio, cors, EMAIL_RE, error, json, passwordTemporal } from "../_shared/comun.ts";
+//   { accion: "importar", sistema_id, filas: [{ _fila, nombre_completo, nombre_usuario, email?, roles[], especialidad?, exequatur? }] }
+// Se inicia sesión con el nombre de usuario; el correo es opcional (contacto).
+import { clienteServicio, cors, credencialesNuevas, error, json, passwordTemporal } from "../_shared/comun.ts";
 
 const ROLES = new Set([
   "admin", "gerencia", "contabilidad", "medico", "enfermeria", "psicologia", "nutricion", "terapia",
-  "recepcion", "caja", "farmacia", "auditor",
+  "recepcion", "caja", "farmacia", "auditor", "quiosco",
 ]);
 
 Deno.serve(async (req) => {
@@ -46,57 +47,78 @@ Deno.serve(async (req) => {
   ]);
   const esAdmin = membresia?.activo && (membresia.roles as string[]).includes("admin");
   if (!perfil?.es_superadmin && !esAdmin) return error("No tienes permiso para gestionar personal en este sistema.", 403);
+  // Los superadmins (soporte de la plataforma) no existen para el personal del hospital.
+  const soySuperadmin = !!perfil?.es_superadmin;
 
   switch (cuerpo.accion) {
     case "crear": {
-      const r = await crear(admin, llamanteId, sistemaId, cuerpo);
+      const r = await crear(admin, llamanteId, sistemaId, cuerpo, soySuperadmin);
       return "error" in r ? error(r.error) : json({ ok: true, ...r });
     }
     case "importar": {
       const filas = Array.isArray(cuerpo.filas) ? (cuerpo.filas as Record<string, unknown>[]).slice(0, 200) : [];
       const resultados = [];
       for (const f of filas) {
-        const r = await crear(admin, llamanteId, sistemaId, f);
-        resultados.push({ fila: f._fila, email: f.email, nombre: f.nombre_completo, ...r });
+        const r = await crear(admin, llamanteId, sistemaId, f, soySuperadmin);
+        resultados.push({ fila: f._fila, usuario: f.nombre_usuario, nombre: f.nombre_completo, ...r });
       }
       return json({ resultados });
     }
     case "restablecer_password":
-      return await restablecer(admin, sistemaId, String(cuerpo.usuario_id ?? ""));
+      return await restablecer(admin, sistemaId, String(cuerpo.usuario_id ?? ""), soySuperadmin);
     default:
       return error("Acción desconocida.");
   }
 });
 
-type ResultadoCrear = { usuario_id: string; password_temporal: string | null; ya_existia: boolean } | { error: string };
+type ResultadoCrear = { usuario_id: string; nombre_usuario: string; password_temporal: string | null; ya_existia: boolean } | { error: string };
 
 async function crear(
   admin: ReturnType<typeof clienteServicio>,
   llamanteId: string,
   sistemaId: string,
   cuerpo: Record<string, unknown>,
+  soySuperadmin: boolean,
 ): Promise<ResultadoCrear> {
-  const email = String(cuerpo.email ?? "").trim().toLowerCase();
+  const cred = credencialesNuevas(cuerpo);
+  if ("error" in cred) return cred;
   const nombre = String(cuerpo.nombre_completo ?? "").trim();
   const roles = Array.isArray(cuerpo.roles) ? (cuerpo.roles as string[]).filter((r) => ROLES.has(r)) : [];
-  if (!EMAIL_RE.test(email)) return { error: "Correo electrónico inválido." };
   if (nombre.length < 3) return { error: "Escribe el nombre completo." };
   if (roles.length === 0) return { error: "Asigna al menos un rol." };
 
   // ¿Ya existe la persona en MEDORA (p. ej. trabaja en otro sistema)? Entonces
-  // solo se le agrega la membresía, sin tocar su contraseña.
-  const { data: existente } = await admin.from("perfiles").select("id").eq("email", email).maybeSingle();
+  // solo se le agrega la membresía, sin tocar su contraseña. Se reconoce por su
+  // usuario, o por el correo si se escribió uno.
+  const { data: porUsuario } = await admin.from("perfiles").select("id, email, es_superadmin").eq("nombre_usuario", cred.usuario).maybeSingle();
+  const { data: porCorreo } = cuerpo.email
+    ? await admin.from("perfiles").select("id, nombre_usuario, es_superadmin").eq("email", cred.email).maybeSingle()
+    : { data: null };
+  if (!soySuperadmin && (porUsuario?.es_superadmin || porCorreo?.es_superadmin)) {
+    return { error: `El usuario "${cred.usuario}" ya existe.` };
+  }
+  if (porUsuario && porCorreo && porUsuario.id !== porCorreo.id) {
+    return { error: `El usuario "${cred.usuario}" ya existe con otro correo.` };
+  }
+  if (porCorreo && porCorreo.nombre_usuario && porCorreo.nombre_usuario !== cred.usuario) {
+    return { error: `Ese correo ya pertenece al usuario "${porCorreo.nombre_usuario}".` };
+  }
+  const existente = porUsuario ?? porCorreo;
 
   let usuarioId = existente?.id as string | undefined;
   let password: string | null = null;
 
+  if (existente && !porUsuario) {
+    await admin.from("perfiles").update({ nombre_usuario: cred.usuario }).eq("id", existente.id);
+  }
+
   if (!usuarioId) {
     password = passwordTemporal();
     const { data: creado, error: errCrear } = await admin.auth.admin.createUser({
-      email,
+      email: cred.email,
       password,
       email_confirm: true,
-      user_metadata: { nombre_completo: nombre, debe_cambiar_password: true },
+      user_metadata: { nombre_completo: nombre, nombre_usuario: cred.usuario, debe_cambiar_password: true },
     });
     if (errCrear || !creado.user) return { error: errCrear?.message ?? "No se pudo crear la cuenta." };
     usuarioId = creado.user.id;
@@ -121,11 +143,15 @@ async function crear(
   );
   if (errMembresia) return { error: "No se pudo asignar la membresía: " + errMembresia.message };
 
-  return { usuario_id: usuarioId!, password_temporal: password, ya_existia: !!existente };
+  return { usuario_id: usuarioId!, nombre_usuario: cred.usuario, password_temporal: password, ya_existia: !!existente };
 }
 
-async function restablecer(admin: ReturnType<typeof clienteServicio>, sistemaId: string, usuarioId: string) {
+async function restablecer(admin: ReturnType<typeof clienteServicio>, sistemaId: string, usuarioId: string, soySuperadmin: boolean) {
   if (!usuarioId) return error("Falta el usuario.");
+  if (!soySuperadmin) {
+    const { data: destino } = await admin.from("perfiles").select("es_superadmin").eq("id", usuarioId).maybeSingle();
+    if (destino?.es_superadmin) return error("Esa persona no pertenece a este sistema.", 404);
+  }
   const { data: m } = await admin
     .from("membresias")
     .select("id")
@@ -137,7 +163,7 @@ async function restablecer(admin: ReturnType<typeof clienteServicio>, sistemaId:
   const password = passwordTemporal();
   const { error: errPwd } = await admin.auth.admin.updateUserById(usuarioId, { password });
   if (errPwd) return error(errPwd.message);
-  await admin.from("perfiles").update({ debe_cambiar_password: true }).eq("id", usuarioId);
+  const { data: p } = await admin.from("perfiles").update({ debe_cambiar_password: true }).eq("id", usuarioId).select("nombre_usuario, email").single();
 
-  return json({ ok: true, password_temporal: password });
+  return json({ ok: true, password_temporal: password, nombre_usuario: p?.nombre_usuario ?? p?.email ?? null });
 }

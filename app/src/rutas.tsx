@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { createHashRouter } from "react-router-dom";
+import { createHashRouter, Navigate } from "react-router-dom";
 import { Network } from "lucide-react";
 import { ErrorRuta } from "./components/ErrorRuta";
 import { AppShell } from "./components/layout/AppShell";
@@ -12,6 +12,7 @@ import { useSesion } from "./sesion/SesionProvider";
 // servidor que reescriba rutas profundas a index.html.
 const Dashboard = lazy(() => import("./paginas/Dashboard"));
 const Recepcion = lazy(() => import("./paginas/Recepcion"));
+const Medicos = lazy(() => import("./paginas/Medicos"));
 const Agenda = lazy(() => import("./paginas/Agenda"));
 const Pacientes = lazy(() => import("./paginas/pacientes/Pacientes"));
 const PacienteDetalle = lazy(() => import("./paginas/pacientes/PacienteDetalle"));
@@ -23,11 +24,22 @@ const Contabilidad = lazy(() => import("./paginas/Contabilidad"));
 const Reportes = lazy(() => import("./paginas/Reportes"));
 const Inventario = lazy(() => import("./paginas/Inventario"));
 const Personal = lazy(() => import("./paginas/Personal"));
-const Catalogos = lazy(() => import("./paginas/Catalogos"));
+const Servicios = lazy(() => import("./paginas/Catalogos"));
+const Aseguradoras = lazy(() => import("./paginas/Catalogos").then((m) => ({ default: m.PaginaAseguradoras })));
 const Auditoria = lazy(() => import("./paginas/Auditoria"));
+const Integraciones = lazy(() => import("./paginas/Integraciones"));
 const Configuracion = lazy(() => import("./paginas/Configuracion"));
 const Plataforma = lazy(() => import("./paginas/Plataforma"));
 const Perfil = lazy(() => import("./paginas/Perfil"));
+const Quiosco = lazy(() => import("./paginas/Quiosco"));
+const Pantalla = lazy(() => import("./paginas/Pantalla"));
+
+/** Pantallas completas sin menú (quiosco táctil y TV de la sala). */
+function PantallaCompleta({ children }: { children: ReactNode }) {
+  const { sistema } = useSesion();
+  if (!sistema) return <Navigate to="/" replace />;
+  return <Suspense fallback={<div className="h-dvh bg-fondo" />}>{children}</Suspense>;
+}
 
 function Cargando() {
   return (
@@ -65,12 +77,15 @@ export const enrutador = createHashRouter([
     element: <Puerta />,
     errorElement: <ErrorRuta />,
     children: [
+      { path: "quiosco", element: <PantallaCompleta><Quiosco /></PantallaCompleta> },
+      { path: "pantalla", element: <PantallaCompleta><Pantalla /></PantallaCompleta> },
       {
         element: <AppShell />,
         errorElement: <ErrorRuta />,
         children: [
           { index: true, element: s(<Dashboard />) },
           { path: "recepcion", element: s(<Recepcion />) },
+          { path: "medicos", element: s(<Medicos />) },
           { path: "agenda", element: s(<Agenda />) },
           { path: "pacientes", element: s(<Pacientes />) },
           { path: "pacientes/:id", element: s(<PacienteDetalle />) },
@@ -82,8 +97,11 @@ export const enrutador = createHashRouter([
           { path: "reportes", element: s(<Reportes />) },
           { path: "inventario", element: s(<Inventario />) },
           { path: "personal", element: s(<Personal />) },
-          { path: "catalogos", element: s(<Catalogos />) },
+          { path: "servicios", element: s(<Servicios />) },
+          { path: "aseguradoras", element: s(<Aseguradoras />) },
+          { path: "catalogos", element: <Navigate to="/servicios" replace /> },
           { path: "auditoria", element: s(<Auditoria />) },
+          { path: "integraciones", element: s(<Integraciones />) },
           { path: "configuracion", element: s(<Configuracion />) },
           {
             path: "plataforma",

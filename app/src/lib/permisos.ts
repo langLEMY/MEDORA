@@ -19,7 +19,9 @@ export type Modulo =
   | "inventario"
   | "personal"
   | "catalogos"
+  | "aseguradoras"
   | "auditoria"
+  | "integraciones"
   | "configuracion";
 
 const CLINICOS: Rol[] = ["medico", "enfermeria", "psicologia", "nutricion", "terapia"];
@@ -38,18 +40,66 @@ const MATRIZ: Record<Modulo, Rol[]> = {
   inventario: ["admin", "farmacia", "enfermeria", "medico", "gerencia"],
   personal: ["admin"],
   catalogos: ["admin"],
+  aseguradoras: ["admin"],
   auditoria: ["admin", "auditor", "gerencia"],
-  configuracion: ["admin"],
+  // Conectores (WhatsApp, Azul, correo, SMS): la administración de cada hospital.
+  integraciones: ["admin"],
+  // Identidad del hospital y sedes: solo superadministración (ver migración accesos_superadmin).
+  configuracion: [],
 };
 
 // El superadmin de la plataforma administra personal y configuración de
 // cualquier sistema, pero no ve datos clínicos/financieros sin membresía.
-const SUPERADMIN: Modulo[] = ["dashboard", "personal", "catalogos", "auditoria", "configuracion"];
+const SUPERADMIN: Modulo[] = ["dashboard", "personal", "catalogos", "aseguradoras", "auditoria", "integraciones", "configuracion"];
 
-export function puede(roles: Rol[], modulo: Modulo, esSuperadmin = false) {
+/** Módulo de la UI → clave de membresias.permisos (privado.modulos_ajustables). */
+const CLAVE_PERMISO: Partial<Record<Modulo, ModuloAjustable>> = {
+  pacientes: "pacientes",
+  agenda: "agenda",
+  caja: "caja",
+  inventario: "inventario",
+  compras: "compras",
+  comisiones: "comisiones",
+  nomina: "nomina",
+  contabilidad: "contabilidad",
+  catalogos: "catalogos",
+  aseguradoras: "catalogos",
+  auditoria: "auditoria",
+};
+
+export type Permisos = Partial<Record<ModuloAjustable, boolean>>;
+
+/**
+ * ¿Ve el módulo? Un permiso explícito de la persona (true/false) gana sobre lo
+ * que da su rol, igual que privado.mis_sistemas_con_rol en Postgres.
+ */
+export function puede(roles: Rol[], modulo: Modulo, esSuperadmin = false, permisos?: Permisos | null) {
   if (esSuperadmin && SUPERADMIN.includes(modulo)) return true;
+  const clave = CLAVE_PERMISO[modulo];
+  const explicito = clave ? permisos?.[clave] : undefined;
+  if (typeof explicito === "boolean") return explicito;
   return MATRIZ[modulo].some((r) => roles.includes(r));
 }
+
+export const MODULOS_AJUSTABLES = [
+  "pacientes", "historial", "agenda", "caja", "inventario", "compras",
+  "comisiones", "nomina", "contabilidad", "catalogos", "auditoria",
+] as const;
+export type ModuloAjustable = (typeof MODULOS_AJUSTABLES)[number];
+
+export const ETIQUETA_MODULO: Record<ModuloAjustable, string> = {
+  pacientes: "Pacientes",
+  historial: "Historial clínico",
+  agenda: "Agenda",
+  caja: "Caja y cobros",
+  inventario: "Inventario",
+  compras: "Compras",
+  comisiones: "Comisiones",
+  nomina: "Nómina",
+  contabilidad: "Contabilidad y finanzas",
+  catalogos: "Servicios y aseguradoras",
+  auditoria: "Auditoría",
+};
 
 const alguno = (permitidos: Rol[]) => (r: Rol[]) => r.some((x) => permitidos.includes(x));
 
@@ -83,12 +133,16 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
   caja: "Caja",
   farmacia: "Farmacia",
   auditor: "Auditoría",
+  quiosco: "Quiosco de turnos",
 };
 
 export const ROLES: Rol[] = [
   "admin", "gerencia", "contabilidad", "medico", "enfermeria", "psicologia", "nutricion", "terapia",
-  "recepcion", "caja", "farmacia", "auditor",
+  "recepcion", "caja", "farmacia", "auditor", "quiosco",
 ];
+
+/** Cuenta de la pantalla táctil de turnos: solo ve el quiosco (y la pantalla de la sala). */
+export const esQuiosco = (roles: Rol[]) => roles.length > 0 && roles.every((r) => r === "quiosco");
 
 /** Roles que normalmente tienen agenda propia. */
 export const ROLES_PROFESIONALES: Rol[] = ["medico", "psicologia", "nutricion", "terapia"];

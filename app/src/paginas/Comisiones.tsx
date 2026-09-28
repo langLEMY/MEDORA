@@ -15,6 +15,7 @@ import { datos, mensajeError, supabase, type Fila, type Rol } from "@/lib/supaba
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos } from "@/components/AccionesDatos";
+import { IMPORTACIONES } from "@/lib/importaciones";
 
 export default function Comisiones() {
   const [vista, setVista] = useState<"reporte" | "reglas">("reporte");
@@ -47,14 +48,20 @@ export default function Comisiones() {
 interface FilaReporte {
   beneficiario_id: string;
   nombre: string;
+  especialidad: string | null;
   generado: number;
+  /** Retención de ISR (10 % en FUNBIDE) sobre lo generado en el período. */
+  retencion: number;
   liquidado: number;
   pendiente: number;
+  /** Lo que se le entrega al médico: pendiente menos su retención. */
+  a_pagar: number;
   operaciones: number;
+  pacientes: number;
 }
 
 function Reporte() {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const qc = useQueryClient();
   const hoy = new Date();
   const [desde, setDesde] = useState(isoDia(new Date(hoy.getFullYear(), hoy.getMonth(), 1)));
@@ -69,9 +76,16 @@ function Reporte() {
 
   const liquidar = useMutation({
     mutationFn: async (f: FilaReporte) =>
-      datos(await supabase.rpc("liquidar_comisiones", { p_sistema: sistemaId, p_beneficiario: f.beneficiario_id, p_hasta: hasta })) as { numero: string; total: number },
+      datos(await supabase.rpc("liquidar_comisiones", { p_sistema: sistemaId, p_beneficiario: f.beneficiario_id, p_hasta: hasta })) as {
+        numero: string;
+        total: number;
+        retencion: number;
+        neto: number;
+      },
     onSuccess: (r) => {
-      toast.success(`Liquidación ${r.numero} por ${moneda(r.total, sistema.moneda)}. Asiento contable generado.`);
+      toast.success(
+        `Liquidación ${r.numero}: pagar ${moneda(r.neto)}${Number(r.retencion) > 0 ? ` (retención ${moneda(r.retencion)})` : ""}. Asiento contable generado.`,
+      );
       void qc.invalidateQueries({ queryKey: ["reporte-comisiones", sistemaId] });
     },
     onError: (e) => toast.error(mensajeError(e)),
@@ -82,18 +96,19 @@ function Reporte() {
 
   return (
     <>
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
+      <div className="mb-4 grid gap-4 sm:grid-cols-4">
         {(
           [
             ["Generado en el período", tot("generado")],
+            ["Retención ISR", tot("retencion")],
             ["Liquidado", tot("liquidado")],
-            ["Pendiente de liquidar", tot("pendiente")],
+            ["Pendiente de pagar (neto)", tot("a_pagar")],
           ] as const
         ).map(([k, v]) => (
           <Tarjeta key={k} className="p-5">
-            <p className="text-[13px] text-texto-2">{k}</p>
+            <p className="text-[0.8125rem] text-texto-2">{k}</p>
             <p className="mt-2 text-2xl font-semibold tracking-[-0.02em]">
-              <NumeroAnimado valor={v} formato={(n) => moneda(n, sistema.moneda)} />
+              <NumeroAnimado valor={v} formato={(n) => moneda(n)} />
             </p>
           </Tarjeta>
         ))}
@@ -107,10 +122,14 @@ function Reporte() {
               titulo={`Comisiones ${desde} a ${hasta}`}
               columnas={[
                 { titulo: "Beneficiario", valor: (f: FilaReporte) => f.nombre },
-                { titulo: "Operaciones", valor: (f) => f.operaciones, tipo: "numero" },
+                { titulo: "Especialidad", valor: (f) => f.especialidad },
+                { titulo: "Pacientes", valor: (f) => f.pacientes, tipo: "numero" },
+                { titulo: "Servicios", valor: (f) => f.operaciones, tipo: "numero" },
                 { titulo: "Generado", valor: (f) => f.generado, tipo: "moneda" },
+                { titulo: "Retención ISR", valor: (f) => f.retencion, tipo: "moneda" },
                 { titulo: "Liquidado", valor: (f) => f.liquidado, tipo: "moneda" },
-                { titulo: "Pendiente", valor: (f) => f.pendiente, tipo: "moneda" },
+                { titulo: "Pendiente bruto", valor: (f) => f.pendiente, tipo: "moneda", soloExcel: true },
+                { titulo: "A pagar (neto)", valor: (f) => f.a_pagar, tipo: "moneda" },
               ]}
               obtener={async () => filas}
             />
@@ -130,15 +149,17 @@ function Reporte() {
                 <Avatar nombre={f.nombre} />
                 <button onClick={() => setDetalle(f)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate font-medium hover:underline">{f.nombre}</span>
-                  <span className="block text-xs text-texto-3">{f.operaciones} operaciones en el período</span>
+                  <span className="block text-xs text-texto-3">
+                    {[f.especialidad, `${f.pacientes} paciente${Number(f.pacientes) === 1 ? "" : "s"}`, `${f.operaciones} servicios`].filter(Boolean).join(" · ")}
+                  </span>
                 </button>
                 <span className="w-32 text-right tabular">
-                  <span className="block text-[11px] text-texto-3">Generado</span>
-                  {moneda(f.generado, sistema.moneda)}
+                  <span className="block text-[0.6875rem] text-texto-3">Generado</span>
+                  {moneda(f.generado)}
                 </span>
                 <span className="w-32 text-right tabular">
-                  <span className="block text-[11px] text-texto-3">Pendiente</span>
-                  <span className={cn("font-semibold", Number(f.pendiente) > 0 && "text-aviso")}>{moneda(f.pendiente, sistema.moneda)}</span>
+                  <span className="block text-[0.6875rem] text-texto-3">A pagar (neto)</span>
+                  <span className={cn("font-semibold", Number(f.a_pagar) > 0 && "text-aviso")}>{moneda(f.a_pagar)}</span>
                 </span>
                 {puedeEscribir.comisiones(roles) && (
                   <Boton
@@ -161,9 +182,9 @@ function Reporte() {
       <Documento abierto={pdf} onCerrar={() => setPdf(false)} titulo="Reporte de comisiones" nombreArchivo={`Comisiones ${desde} a ${hasta}`}>
         <EncabezadoDocumento titulo="Reporte de comisiones" subtitulo={`${fecha(desde + "T00:00:00")} – ${fecha(hasta + "T00:00:00")}`} />
         <TablaDocumento
-          encabezados={["Beneficiario", "Operaciones", "Generado", "Liquidado", "Pendiente"]}
-          filas={filas.map((f) => [f.nombre, String(f.operaciones), moneda(f.generado, sistema.moneda), moneda(f.liquidado, sistema.moneda), moneda(f.pendiente, sistema.moneda)])}
-          pie={["Total", String(filas.reduce((s, f) => s + Number(f.operaciones), 0)), moneda(tot("generado"), sistema.moneda), moneda(tot("liquidado"), sistema.moneda), moneda(tot("pendiente"), sistema.moneda)]}
+          encabezados={["Médico", "Pacientes", "Generado", "Retención", "Liquidado", "A pagar (neto)"]}
+          filas={filas.map((f) => [f.nombre, String(f.pacientes), moneda(f.generado), moneda(f.retencion), moneda(f.liquidado), moneda(f.a_pagar)])}
+          pie={["Total", String(tot("pacientes")), moneda(tot("generado")), moneda(tot("retencion")), moneda(tot("liquidado")), moneda(tot("a_pagar"))]}
         />
       </Documento>
       <DetalleBeneficiario fila={detalle} desde={desde} hasta={hasta} onCerrar={() => setDetalle(null)} />
@@ -172,7 +193,7 @@ function Reporte() {
 }
 
 function DetalleBeneficiario({ fila, desde, hasta, onCerrar }: { fila: FilaReporte | null; desde: string; hasta: string; onCerrar: () => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const q = useQuery({
     queryKey: ["comisiones-detalle", sistemaId, fila?.beneficiario_id, desde, hasta],
     enabled: !!fila,
@@ -180,7 +201,7 @@ function DetalleBeneficiario({ fila, desde, hasta, onCerrar }: { fila: FilaRepor
       datos(
         await supabase
           .from("comisiones")
-          .select("id, concepto, base_monto, monto, creado_en, liquidacion:liquidacion_items(liquidacion_id)")
+          .select("id, concepto, base_monto, monto, retencion, creado_en, liquidacion:liquidacion_items(liquidacion_id)")
           .eq("sistema_id", sistemaId)
           .eq("beneficiario_id", fila!.beneficiario_id)
           .gte("creado_en", desde)
@@ -192,22 +213,32 @@ function DetalleBeneficiario({ fila, desde, hasta, onCerrar }: { fila: FilaRepor
     <Documento abierto={!!fila} onCerrar={onCerrar} titulo={`Comisiones · ${fila?.nombre ?? ""}`} nombreArchivo={`Comisiones ${fila?.nombre ?? ""} ${desde} a ${hasta}`}>
       <EncabezadoDocumento titulo="Detalle de comisiones" subtitulo={<>{fila?.nombre} · {fecha(desde + "T00:00:00")} – {fecha(hasta + "T00:00:00")}</>} />
       <TablaDocumento
-        encabezados={["Fecha", "Concepto", "Base", "Comisión", "Estado"]}
+        encabezados={["Fecha", "Concepto", "Facturado", "Comisión", "Retención", "Neto", "Estado"]}
         filas={(q.data ?? []).map((c) => [
           fecha(c.creado_en),
           c.concepto,
-          moneda(c.base_monto, sistema.moneda),
-          moneda(c.monto, sistema.moneda),
+          moneda(c.base_monto),
+          moneda(c.monto),
+          moneda(c.retencion),
+          moneda(Number(c.monto) - Number(c.retencion)),
           (c.liquidacion as unknown[] | null)?.length ? "Liquidada" : "Pendiente",
         ])}
-        pie={["", "Total", "", moneda((q.data ?? []).reduce((s, c) => s + Number(c.monto), 0), sistema.moneda), ""]}
+        pie={[
+          "",
+          "Total",
+          moneda((q.data ?? []).reduce((s, c) => s + Number(c.base_monto), 0)),
+          moneda((q.data ?? []).reduce((s, c) => s + Number(c.monto), 0)),
+          moneda((q.data ?? []).reduce((s, c) => s + Number(c.retencion), 0)),
+          moneda((q.data ?? []).reduce((s, c) => s + Number(c.monto) - Number(c.retencion), 0)),
+          "",
+        ]}
       />
     </Documento>
   );
 }
 
 function Reglas() {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const personal = usePersonal(sistemaId);
   const servicios = useServicios(sistemaId);
   const qc = useQueryClient();
@@ -223,13 +254,37 @@ function Reglas() {
 
   return (
     <Tarjeta className="overflow-hidden">
-      {escribir && (
-        <div className="flex justify-end border-b border-borde p-3">
+      <div className="flex items-center justify-end gap-2 border-b border-borde p-3">
+        <p className="mr-auto text-xs text-texto-3">
+          Para pagar por paciente atendido usa «Monto fijo por paciente»: se multiplica por cada servicio cobrado con ese profesional.
+        </p>
+        <AccionesDatos
+          titulo="Reglas de comisión"
+          columnas={[
+            { titulo: "Nombre de la regla", valor: (r: Fila<"reglas_comision">) => r.nombre },
+            { titulo: "Persona", valor: (r) => nombrePersona(r.beneficiario_id) ?? "" },
+            { titulo: "Rol", valor: (r) => (r.beneficiario_id || !r.rol ? "" : ETIQUETA_ROL[r.rol]) },
+            { titulo: "Especialidad", valor: (r) => r.especialidad ?? "" },
+            { titulo: "Servicio", valor: (r) => servicios.data?.find((s) => s.id === r.servicio_id)?.nombre ?? "" },
+            { titulo: "Categoría", valor: (r) => (r.categoria ? CATEGORIAS_SERVICIO[r.categoria] : "") },
+            { titulo: "Tipo", valor: (r) => (r.tipo === "fijo" ? "Por paciente" : "Porcentaje") },
+            { titulo: "Valor", valor: (r) => Number(r.valor), tipo: "numero" },
+            { titulo: "Base", valor: (r) => (r.base === "neto" ? "Neto" : "Bruto") },
+            { titulo: "Retención %", valor: (r) => Number(r.retencion), tipo: "numero" },
+            { titulo: "Se paga al", valor: (r) => (r.aplica_a === "vendedor" ? "Vendedor" : "Profesional") },
+            { titulo: "Vigente desde", valor: (r) => r.vigente_desde, tipo: "fecha", soloExcel: true },
+            { titulo: "Vigente hasta", valor: (r) => r.vigente_hasta, tipo: "fecha", soloExcel: true },
+          ]}
+          obtener={async () => q.data ?? []}
+          importaciones={escribir ? [IMPORTACIONES.reglasComision] : []}
+          onImportado={() => void qc.invalidateQueries({ queryKey: ["reglas-comision", sistemaId] })}
+        />
+        {escribir && (
           <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nueva")}>
             Nueva regla
           </Boton>
-        </div>
-      )}
+        )}
+      </div>
       {q.isLoading ? (
         <FilasEsqueleto />
       ) : (q.data?.length ?? 0) === 0 ? (
@@ -244,13 +299,20 @@ function Reglas() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{r.nombre}</span>
                 <span className="block text-xs text-texto-3">
-                  {r.tipo === "fijo" ? `${moneda(r.valor, sistema.moneda)} por unidad` : `${Number(r.valor)}% del ${r.base === "neto" ? "neto cobrado" : "precio bruto"}`}
+                  {r.tipo === "fijo" ? `${moneda(r.valor)} por paciente` : `${Number(r.valor)}% de lo ${r.base === "neto" ? "cobrado al paciente" : "facturado"}`}
+                  {Number(r.retencion) > 0 ? ` · menos ${Number(r.retencion)}% de retención` : ""}
                   {r.vigente_hasta ? ` · hasta ${fecha(r.vigente_hasta + "T00:00:00")}` : ""}
                 </span>
               </span>
               <span className="flex flex-wrap justify-end gap-1.5">
                 <Insignia tono={r.aplica_a === "vendedor" ? "violeta" : "info"}>{r.aplica_a === "vendedor" ? "Vendedor" : "Profesional"}</Insignia>
-                {r.beneficiario_id ? <Insignia tono="marca">{nombrePersona(r.beneficiario_id) ?? "Persona"}</Insignia> : r.rol && <Insignia>{ETIQUETA_ROL[r.rol]}</Insignia>}
+                {r.beneficiario_id ? (
+                  <Insignia tono="marca">{nombrePersona(r.beneficiario_id) ?? "Persona"}</Insignia>
+                ) : r.especialidad ? (
+                  <Insignia tono="marca">{r.especialidad}</Insignia>
+                ) : (
+                  r.rol && <Insignia>{ETIQUETA_ROL[r.rol]}</Insignia>
+                )}
                 {r.servicio_id ? (
                   <Insignia>{servicios.data?.find((s) => s.id === r.servicio_id)?.nombre}</Insignia>
                 ) : r.categoria ? (
@@ -281,19 +343,24 @@ function FormRegla({ regla, onCerrar, onListo }: { regla: Fila<"reglas_comision"
   const [f, setF] = useState({
     nombre: "",
     aplica_a: "profesional",
-    quien: "rol" as "rol" | "persona",
+    quien: "rol" as "rol" | "persona" | "especialidad",
     rol: "medico" as Rol,
     beneficiario_id: "",
+    especialidad: "",
     alcance: "todo" as "todo" | "categoria" | "servicio",
     categoria: "consulta",
     servicio_id: "",
     tipo: "porcentaje",
     valor: "",
     base: "bruto",
+    retencion: "0",
     vigente_desde: "",
     vigente_hasta: "",
     activo: true,
   });
+  const especialidades = [...new Set((personal.data ?? []).map((p) => p.especialidad?.trim()).filter((x): x is string => !!x))].sort((a, b) =>
+    a.localeCompare(b, "es"),
+  );
 
   useEffect(() => {
     if (!regla) return;
@@ -302,9 +369,11 @@ function FormRegla({ regla, onCerrar, onListo }: { regla: Fila<"reglas_comision"
         ? {
             nombre: e.nombre,
             aplica_a: e.aplica_a,
-            quien: e.beneficiario_id ? "persona" : "rol",
+            quien: e.beneficiario_id ? "persona" : e.especialidad ? "especialidad" : "rol",
             rol: (e.rol ?? "medico") as Rol,
             beneficiario_id: e.beneficiario_id ?? "",
+            especialidad: e.especialidad ?? "",
+            retencion: String(e.retencion ?? 0),
             alcance: e.servicio_id ? "servicio" : e.categoria ? "categoria" : "todo",
             categoria: e.categoria ?? "consulta",
             servicio_id: e.servicio_id ?? "",
@@ -321,6 +390,8 @@ function FormRegla({ regla, onCerrar, onListo }: { regla: Fila<"reglas_comision"
             quien: "rol",
             rol: "medico",
             beneficiario_id: "",
+            especialidad: "",
+            retencion: "0",
             alcance: "todo",
             categoria: "consulta",
             servicio_id: "",
@@ -341,6 +412,8 @@ function FormRegla({ regla, onCerrar, onListo }: { regla: Fila<"reglas_comision"
         aplica_a: f.aplica_a,
         rol: f.quien === "rol" ? f.rol : null,
         beneficiario_id: f.quien === "persona" ? f.beneficiario_id : null,
+        especialidad: f.quien === "especialidad" ? f.especialidad : null,
+        retencion: Math.min(100, Math.max(0, Number(f.retencion) || 0)),
         categoria: f.alcance === "categoria" ? f.categoria : null,
         servicio_id: f.alcance === "servicio" ? f.servicio_id : null,
         tipo: f.tipo,
@@ -365,7 +438,7 @@ function FormRegla({ regla, onCerrar, onListo }: { regla: Fila<"reglas_comision"
     f.nombre.trim().length >= 2 &&
     Number(f.valor) > 0 &&
     (f.tipo === "fijo" || Number(f.valor) <= 100) &&
-    (f.quien === "rol" || !!f.beneficiario_id) &&
+    (f.quien === "rol" || (f.quien === "persona" ? !!f.beneficiario_id : !!f.especialidad)) &&
     (f.alcance !== "servicio" || !!f.servicio_id);
 
   return (
@@ -393,18 +466,26 @@ function FormRegla({ regla, onCerrar, onListo }: { regla: Fila<"reglas_comision"
             <option value="vendedor">Vendedor / comisionista</option>
           </Selector>
           <div>
-            <p className="mb-1.5 text-[13px] font-medium text-texto-2">¿A quién?</p>
+            <p className="mb-1.5 text-[0.8125rem] font-medium text-texto-2">¿A quién?</p>
             <Segmentado
               id="quien"
               valor={f.quien}
               onChange={(quien) => setF({ ...f, quien })}
               opciones={[
                 { valor: "rol", etiqueta: "Por rol" },
-                { valor: "persona", etiqueta: "Persona específica" },
+                { valor: "especialidad", etiqueta: "Especialidad" },
+                { valor: "persona", etiqueta: "Persona" },
               ]}
             />
           </div>
-          {f.quien === "rol" ? (
+          {f.quien === "especialidad" ? (
+            <Selector etiqueta="Especialidad" value={f.especialidad} onChange={(x) => setF({ ...f, especialidad: x.target.value })}>
+              <option value="">Seleccionar…</option>
+              {especialidades.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </Selector>
+          ) : f.quien === "rol" ? (
             <Selector etiqueta="Rol" value={f.rol} onChange={(x) => setF({ ...f, rol: x.target.value as Rol })}>
               {ROLES.map((r) => (
                 <option key={r} value={r}>
@@ -452,13 +533,23 @@ function FormRegla({ regla, onCerrar, onListo }: { regla: Fila<"reglas_comision"
         <div className="grid grid-cols-3 gap-4">
           <Selector etiqueta="Tipo" value={f.tipo} onChange={(x) => setF({ ...f, tipo: x.target.value })}>
             <option value="porcentaje">Porcentaje</option>
-            <option value="fijo">Monto fijo por unidad</option>
+            <option value="fijo">Monto fijo por paciente / servicio</option>
           </Selector>
           <Entrada etiqueta={f.tipo === "porcentaje" ? "Porcentaje (%)" : "Monto"} type="number" min={0} step="0.01" value={f.valor} onChange={(x) => setF({ ...f, valor: x.target.value })} />
-          <Selector etiqueta="Base" value={f.base} onChange={(x) => setF({ ...f, base: x.target.value })} disabled={f.tipo === "fijo"}>
-            <option value="bruto">Precio bruto</option>
-            <option value="neto">Neto (sin cobertura ARS)</option>
+          <Selector etiqueta="Sobre" value={f.base} onChange={(x) => setF({ ...f, base: x.target.value })} disabled={f.tipo === "fijo"}>
+            <option value="bruto">Todo lo facturado (paciente + ARS)</option>
+            <option value="neto">Solo lo que pagó el paciente</option>
           </Selector>
+          <Entrada
+            etiqueta="Retención (%)"
+            type="number"
+            min={0}
+            max={100}
+            step="0.01"
+            value={f.retencion}
+            onChange={(x) => setF({ ...f, retencion: x.target.value })}
+            ayuda="Se descuenta de la comisión (ej. 10% de ISR)."
+          />
           <Entrada etiqueta="Vigente desde" type="date" value={f.vigente_desde} onChange={(x) => setF({ ...f, vigente_desde: x.target.value })} />
           <Entrada etiqueta="Vigente hasta" type="date" value={f.vigente_hasta} onChange={(x) => setF({ ...f, vigente_hasta: x.target.value })} />
           <div className="flex items-end pb-2">{e && <Interruptor activo={f.activo} onChange={(activo) => setF({ ...f, activo })} etiqueta="Activa" />}</div>

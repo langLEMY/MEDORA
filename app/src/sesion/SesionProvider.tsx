@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { datos, supabase, type Fila, type Rol } from "@/lib/supabase";
+import type { Permisos } from "@/lib/permisos";
+import { sincronizarDesdePerfil } from "@/lib/preferencias";
 import { aplicarColorMarca } from "@/lib/tema";
 
 export interface SistemaAcceso {
@@ -9,11 +11,16 @@ export interface SistemaAcceso {
   nombre: string;
   slug: string;
   color_marca: string;
+  /** Logo de la marca (menú, quiosco, pantalla de la sala). */
   logo_url: string | null;
+  /** Logo de impresión (facturas, recibos, tickets). */
+  logo_factura: string | null;
   moneda: string;
   zona_horaria: string;
   activo: boolean;
   roles: Rol[];
+  /** Permisos por módulo de mi membresía (anulan lo que da el rol). */
+  permisos: Permisos;
 }
 
 interface ContextoSesion {
@@ -23,6 +30,7 @@ interface ContextoSesion {
   sistemas: SistemaAcceso[];
   sistema: SistemaAcceso | null;
   roles: Rol[];
+  permisos: Permisos;
   esSuperadmin: boolean;
   cambiarSistema: (id: string) => void;
   cerrarSesion: () => Promise<void>;
@@ -84,6 +92,11 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     aplicarColorMarca(sistema?.color_marca);
   }, [sistema?.color_marca]);
 
+  // Las preferencias guardadas en el perfil siguen al usuario a cualquier computadora.
+  useEffect(() => {
+    sincronizarDesdePerfil(perfilQ.data?.preferencias);
+  }, [perfilQ.data?.preferencias]);
+
   const cambiarSistema = useCallback(
     (id: string) => {
       setSistemaId(id);
@@ -116,6 +129,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     sistemas,
     sistema,
     roles: sistema?.roles ?? [],
+    permisos: sistema?.permisos ?? {},
     esSuperadmin: !!perfilQ.data?.es_superadmin,
     cambiarSistema,
     cerrarSesion,
@@ -131,9 +145,17 @@ export function useSesion() {
   return c;
 }
 
+const ROLES_CONSULTA: Rol[] = ["medico", "psicologia", "nutricion", "terapia"];
+
+/**
+ * Solo tiene roles de consulta: ve únicamente sus citas y sus pacientes.
+ * Espejo de privado.sistemas_vista_completa() (la restricción real está en RLS).
+ */
+export const soloLoPropio = (roles: Rol[]) => roles.length > 0 && roles.every((r) => ROLES_CONSULTA.includes(r));
+
 /** Para páginas que solo se renderizan con un sistema activo. */
 export function useSistema() {
-  const { sistema, roles, esSuperadmin } = useSesion();
+  const { sistema, roles, permisos, esSuperadmin } = useSesion();
   if (!sistema) throw new Error("Sin sistema activo");
-  return { sistema, sistemaId: sistema.id, roles, esSuperadmin };
+  return { sistema, sistemaId: sistema.id, roles, permisos, esSuperadmin, soloPropio: soloLoPropio(roles) };
 }

@@ -151,7 +151,7 @@ export function CodigosInvitacion() {
 function GenerarCodigo({ abierto, onCerrar, onGenerado }: { abierto: boolean; onCerrar: () => void; onGenerado: (c: string) => void }) {
   const [tipo, setTipo] = useState<"sistema" | "superadmin">("sistema");
   const [sistema, setSistema] = useState("");
-  const [roles, setRoles] = useState<Rol[]>([]);
+  const [roles, setRoles] = useState<Rol[]>(["admin"]);
   const [usos, setUsos] = useState("1");
   const [dias, setDias] = useState("7");
   const [descripcion, setDescripcion] = useState("");
@@ -165,7 +165,7 @@ function GenerarCodigo({ abierto, onCerrar, onGenerado }: { abierto: boolean; on
   useEffect(() => {
     if (!abierto) return;
     setTipo("sistema");
-    setRoles([]);
+    setRoles(["admin"]);
     setUsos("1");
     setDias("7");
     setDescripcion("");
@@ -232,7 +232,11 @@ function GenerarCodigo({ abierto, onCerrar, onGenerado }: { abierto: boolean; on
                   </option>
                 ))}
               </Selector>
-              <SelectorRoles valor={roles} onChange={setRoles} />
+              {/* Solo administradores reciben código; el resto del personal lo crea el admin desde Personal. */}
+              <SelectorRoles valor={roles} onChange={(r) => setRoles(r.includes("admin") ? r : ["admin", ...r])} />
+              <p className="text-xs text-texto-3">
+                Los códigos son solo para administradores. El resto del personal lo crea el administrador desde Personal, con su nombre de usuario.
+              </p>
             </motion.div>
           ) : (
             <motion.p
@@ -264,7 +268,7 @@ function GenerarCodigo({ abierto, onCerrar, onGenerado }: { abierto: boolean; on
             ))}
           </Selector>
         </div>
-        <AreaTexto etiqueta="Descripción (para identificarlo)" className="min-h-16" placeholder="Ej. Médicos nuevos del Hospital Central" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+        <AreaTexto etiqueta="Descripción (para identificarlo)" className="min-h-16" placeholder="Ej. Administración del Hospital Central" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
       </div>
     </Modal>
   );

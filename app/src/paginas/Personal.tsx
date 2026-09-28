@@ -1,25 +1,26 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Copy, KeyRound, MoreHorizontal, Pencil, UserPlus, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, Copy, KeyRound, LockKeyhole, MoreHorizontal, Pencil, Search, UserPlus, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
-import { Campo, Entrada, Interruptor, Selector } from "@/components/ui/campos";
+import { Campo, Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/campos";
 import { ItemMenu, Menu } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { Avatar, EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { claves, usePersonal, useSedes, type Miembro } from "@/lib/consultas";
-import { ETIQUETA_ROL, ROLES, ROLES_PROFESIONALES } from "@/lib/permisos";
-import { invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { ETIQUETA_MODULO, ETIQUETA_ROL, MODULOS_AJUSTABLES, ROLES, ROLES_PROFESIONALES, type Permisos } from "@/lib/permisos";
+import { datos, invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
+import { cn, correoVisible, sugerirUsuario, USUARIO_RE } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 import { IMPORTACIONES } from "@/lib/importaciones";
 
 const COLUMNAS_PERSONAL: ColumnaDatos<Miembro>[] = [
   { titulo: "Nombre", valor: (m) => m.perfil?.nombre_completo },
-  { titulo: "Correo", valor: (m) => m.perfil?.email },
+  { titulo: "Usuario", valor: (m) => m.perfil?.nombre_usuario },
+  { titulo: "Correo", valor: (m) => correoVisible(m.perfil?.email) },
   { titulo: "Roles", valor: (m) => m.roles.map((r) => ETIQUETA_ROL[r]).join(", ") },
   { titulo: "Especialidad", valor: (m) => m.especialidad },
   { titulo: "Exequátur", valor: (m) => m.exequatur },
@@ -33,23 +34,42 @@ export default function Personal() {
   const personal = usePersonal(sistemaId);
   const [nuevo, setNuevo] = useState(false);
   const [editar, setEditar] = useState<Miembro | null>(null);
-  const [credenciales, setCredenciales] = useState<{ email: string; password: string } | null>(null);
+  const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
+  const [asignar, setAsignar] = useState<Miembro | null>(null);
   const [verInactivos, setVerInactivos] = useState(false);
+  const { esSuperadmin } = useSesion();
 
   const restablecer = useMutation({
     mutationFn: async (m: Miembro) => {
-      const r = await invocar<{ password_temporal: string }>("gestion-usuarios", {
+      const r = await invocar<{ password_temporal: string; nombre_usuario: string | null }>("gestion-usuarios", {
         accion: "restablecer_password",
         sistema_id: sistemaId,
         usuario_id: m.usuario_id,
       });
-      return { email: m.perfil?.email ?? "", password: r.password_temporal };
+      return { usuario: r.nombre_usuario ?? m.perfil?.email ?? "", password: r.password_temporal };
     },
     onSuccess: setCredenciales,
     onError: (e) => toast.error((e as Error).message),
   });
 
-  const lista = (personal.data ?? []).filter((m) => verInactivos || m.activo);
+  const [texto, setTexto] = useState("");
+  const [rol, setRol] = useState<Rol | null>(null);
+
+  const visibles = useMemo(() => (personal.data ?? []).filter((m) => verInactivos || m.activo), [personal.data, verInactivos]);
+
+  // Solo los roles que existen en este hospital, con cuántas personas los tienen.
+  const rolesPresentes = useMemo(
+    () => ROLES.map((r) => [r, visibles.filter((m) => m.roles.includes(r)).length] as const).filter(([, n]) => n > 0),
+    [visibles],
+  );
+
+  const lista = useMemo(() => {
+    const t = norm(texto.trim());
+    return visibles
+      .filter((m) => !rol || m.roles.includes(rol))
+      .filter((m) => !t || norm([m.perfil?.nombre_completo, m.perfil?.nombre_usuario, correoVisible(m.perfil?.email), m.especialidad].filter(Boolean).join(" ")).includes(t))
+      .sort((a, b) => (a.perfil?.nombre_completo ?? "").localeCompare(b.perfil?.nombre_completo ?? "", "es", { sensitivity: "base" }));
+  }, [visibles, rol, texto]);
 
   return (
     <>
@@ -74,21 +94,40 @@ export default function Personal() {
       />
 
       <Tarjeta className="overflow-hidden">
+        <div className="space-y-3 border-b border-borde p-3">
+          <Entrada icono={<Search />} placeholder="Buscar por nombre, usuario, correo o especialidad…" value={texto} onChange={(e) => setTexto(e.target.value)} contenedor="max-w-md" />
+          <div className="flex flex-wrap gap-1.5">
+            <ChipRol activo={!rol} onClick={() => setRol(null)}>
+              Todos <span className="text-texto-3">{visibles.length}</span>
+            </ChipRol>
+            {rolesPresentes.map(([r, n]) => (
+              <ChipRol key={r} activo={rol === r} onClick={() => setRol(rol === r ? null : r)}>
+                {ETIQUETA_ROL[r]} <span className="text-texto-3">{n}</span>
+              </ChipRol>
+            ))}
+          </div>
+        </div>
         {personal.isLoading ? (
           <FilasEsqueleto />
         ) : lista.length === 0 ? (
-          <Vacio icono={<Users />} titulo="Sin personal" descripcion="Agrega a médicos, enfermería, recepción y caja." />
+          visibles.length === 0 ? (
+            <Vacio icono={<Users />} titulo="Sin personal" descripcion="Agrega a médicos, enfermería, recepción y caja." />
+          ) : (
+            <Vacio icono={<Search />} titulo="Nadie coincide" descripcion="Prueba con otro nombre o quita el filtro de rol." />
+          )
         ) : (
-          <motion.ul variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
+          <motion.ul key={`${rol}-${texto}`} variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
             {lista.map((m) => (
               <motion.li key={m.id} variants={itemEscalonado} className={cn("flex items-center gap-4 px-5 py-3.5", !m.activo && "opacity-50")}>
-                <Avatar nombre={m.perfil?.nombre_completo} tamano={36} />
+                <Avatar nombre={m.perfil?.nombre_completo} foto={m.perfil?.foto} tamano={36} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {m.perfil?.nombre_completo}
                     {m.especialidad && <span className="font-normal text-texto-3"> · {m.especialidad}</span>}
                   </p>
-                  <p className="truncate text-xs text-texto-3">{m.perfil?.email}</p>
+                  <p className="truncate text-xs text-texto-3">
+                    {[m.perfil?.nombre_usuario && `@${m.perfil.nombre_usuario}`, correoVisible(m.perfil?.email)].filter(Boolean).join(" · ") || "Sin usuario asignado"}
+                  </p>
                 </div>
                 <div className="flex flex-wrap justify-end gap-1.5">
                   {m.roles.map((r) => (
@@ -115,6 +154,11 @@ export default function Personal() {
                       <ItemMenu icono={<KeyRound />} onClick={() => (restablecer.mutate(m), cerrar())}>
                         Restablecer contraseña
                       </ItemMenu>
+                      {esSuperadmin && (
+                        <ItemMenu icono={<LockKeyhole />} onClick={() => (setAsignar(m), cerrar())}>
+                          Asignar contraseña…
+                        </ItemMenu>
+                      )}
                     </>
                   )}
                 </Menu>
@@ -127,7 +171,34 @@ export default function Personal() {
       <NuevoMiembro abierto={nuevo} onCerrar={() => setNuevo(false)} onCreado={setCredenciales} />
       <EditarMiembro miembro={editar} onCerrar={() => setEditar(null)} />
       <MostrarCredenciales datos={credenciales} onCerrar={() => setCredenciales(null)} />
+      <AsignarPassword
+        usuario={
+          asignar && {
+            id: asignar.usuario_id,
+            nombre: asignar.perfil?.nombre_completo ?? "",
+            acceso: asignar.perfil?.nombre_usuario ?? asignar.perfil?.email ?? "",
+          }
+        }
+        onCerrar={() => setAsignar(null)}
+      />
     </>
+  );
+}
+
+const norm = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+function ChipRol({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition-colors duration-150",
+        activo ? "border-marca bg-marca-suave text-marca-texto" : "border-borde text-texto-2 hover:border-borde-fuerte hover:text-texto",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -145,7 +216,7 @@ export function SelectorRoles({ valor, onChange }: { valor: Rol[]; onChange: (r:
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onChange(activo ? valor.filter((x) => x !== r) : [...valor, r])}
                 className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150",
+                  "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[0.8125rem] font-medium transition-colors duration-150",
                   activo ? "border-marca bg-marca-suave text-marca-texto" : "border-borde text-texto-2 hover:border-borde-fuerte",
                 )}
               >
@@ -173,12 +244,14 @@ function NuevoMiembro({
 }: {
   abierto: boolean;
   onCerrar: () => void;
-  onCreado: (c: { email: string; password: string }) => void;
+  onCreado: (c: Credenciales) => void;
 }) {
   const { sistemaId } = useSistema();
   const sedes = useSedes(sistemaId);
   const qc = useQueryClient();
   const [nombre, setNombre] = useState("");
+  const [usuario, setUsuario] = useState("");
+  const [usuarioEditado, setUsuarioEditado] = useState(false);
   const [email, setEmail] = useState("");
   const [roles, setRoles] = useState<Rol[]>([]);
   const [especialidad, setEspecialidad] = useState("");
@@ -193,6 +266,8 @@ function NuevoMiembro({
   useEffect(() => {
     if (abierto) {
       setNombre("");
+      setUsuario("");
+      setUsuarioEditado(false);
       setEmail("");
       setRoles([]);
       setEspecialidad("");
@@ -203,10 +278,11 @@ function NuevoMiembro({
 
   const m = useMutation({
     mutationFn: () =>
-      invocar<{ password_temporal: string | null; ya_existia: boolean }>("gestion-usuarios", {
+      invocar<{ password_temporal: string | null; ya_existia: boolean; nombre_usuario: string }>("gestion-usuarios", {
         accion: "crear",
         sistema_id: sistemaId,
-        email,
+        nombre_usuario: usuario,
+        email: email.trim() || undefined,
         nombre_completo: nombre,
         roles,
         especialidad: especialidad || null,
@@ -217,7 +293,7 @@ function NuevoMiembro({
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: claves.personal(sistemaId) });
       onCerrar();
-      if (r.password_temporal) onCreado({ email, password: r.password_temporal });
+      if (r.password_temporal) onCreado({ usuario: r.nombre_usuario, password: r.password_temporal });
       else toast.success("La persona ya tenía cuenta en MEDORA: se le dio acceso a este sistema.");
     },
     onError: (e) => toast.error((e as Error).message),
@@ -234,16 +310,35 @@ function NuevoMiembro({
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton cargando={m.isPending} disabled={nombre.trim().length < 3 || !email.includes("@") || roles.length === 0} onClick={() => m.mutate()}>
+          <Boton cargando={m.isPending} disabled={nombre.trim().length < 3 || !USUARIO_RE.test(usuario) || roles.length === 0} onClick={() => m.mutate()}>
             Crear acceso
           </Boton>
         </>
       }
     >
       <div className="space-y-4">
+        <Entrada
+          etiqueta="Nombre completo"
+          value={nombre}
+          onChange={(e) => {
+            setNombre(e.target.value);
+            if (!usuarioEditado) setUsuario(sugerirUsuario(e.target.value));
+          }}
+        />
         <div className="grid grid-cols-2 gap-4">
-          <Entrada etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-          <Entrada etiqueta="Correo" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Entrada
+            etiqueta="Usuario"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={usuario}
+            onChange={(e) => {
+              setUsuarioEditado(true);
+              setUsuario(e.target.value.toLowerCase().replace(/\s/g, ""));
+            }}
+            error={usuario && !USUARIO_RE.test(usuario) ? "Solo minúsculas, números, punto o guion" : undefined}
+            ayuda="Con él inicia sesión."
+          />
+          <Entrada etiqueta="Correo (opcional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <SelectorRoles valor={roles} onChange={setRoles} />
         <AnimatePresence initial={false}>
@@ -272,9 +367,47 @@ function NuevoMiembro({
   );
 }
 
+/** Acceso por módulo de una persona: según su rol, o permitido/bloqueado a mano. Solo superadmin. */
+function EditorPermisos({ valor, onChange }: { valor: Permisos; onChange: (p: Permisos) => void }) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-[0.8125rem] font-medium text-texto-2">Acceso por módulo</p>
+        <p className="text-xs text-texto-3">"Según rol" usa lo que dan sus roles. Permitir o bloquear lo fija para esta persona.</p>
+      </div>
+      <div className="divide-y divide-borde rounded-xl border border-borde">
+        {MODULOS_AJUSTABLES.map((m) => {
+          const actual = valor[m] === true ? "si" : valor[m] === false ? "no" : "rol";
+          return (
+            <div key={m} className="flex items-center justify-between gap-3 px-3 py-2">
+              <span className="text-sm">{ETIQUETA_MODULO[m]}</span>
+              <Segmentado
+                id={`permiso-${m}`}
+                valor={actual}
+                onChange={(v) => {
+                  const siguiente = { ...valor };
+                  if (v === "rol") delete siguiente[m];
+                  else siguiente[m] = v === "si";
+                  onChange(siguiente);
+                }}
+                opciones={[
+                  { valor: "rol", etiqueta: "Según rol" },
+                  { valor: "si", etiqueta: "Permitir" },
+                  { valor: "no", etiqueta: "Bloquear" },
+                ]}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerrar: () => void }) {
   const { sistemaId } = useSistema();
-  const { sesion } = useSesion();
+  const { sesion, esSuperadmin } = useSesion();
+  const [permisos, setPermisos] = useState<Permisos>({});
   const sedes = useSedes(sistemaId);
   const qc = useQueryClient();
   const [roles, setRoles] = useState<Rol[]>([]);
@@ -283,24 +416,42 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
   const [sede, setSede] = useState("");
   const [activo, setActivo] = useState(true);
   const [agenda, setAgenda] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [consultorio, setConsultorio] = useState("");
 
   useEffect(() => {
     if (!miembro) return;
+    setNombre(miembro.perfil?.nombre_completo ?? "");
+    setConsultorio(miembro.consultorio ?? "");
     setAgenda(miembro.atiende_agenda);
     setRoles(miembro.roles);
     setEspecialidad(miembro.especialidad ?? "");
     setExequatur(miembro.exequatur ?? "");
     setSede(miembro.sede_id ?? "");
     setActivo(miembro.activo);
+    setPermisos(miembro.permisos ?? {});
   }, [miembro]);
 
   const soyYo = miembro?.usuario_id === sesion?.user.id;
 
   const m = useMutation({
     mutationFn: async () => {
+      if (nombre.trim() !== (miembro!.perfil?.nombre_completo ?? "")) {
+        datos(await supabase.rpc("renombrar_miembro", { p_sistema: sistemaId, p_usuario: miembro!.usuario_id, p_nombre: nombre }));
+      }
       const { error } = await supabase
         .from("membresias")
-        .update({ roles, especialidad: especialidad || null, exequatur: exequatur || null, sede_id: sede || null, activo, atiende_agenda: agenda })
+        .update({
+          roles,
+          especialidad: especialidad || null,
+          exequatur: exequatur || null,
+          sede_id: sede || null,
+          activo,
+          atiende_agenda: agenda,
+          consultorio: consultorio.trim() || null,
+          // Solo la superadministración cambia permisos (lo exige un trigger en Postgres).
+          ...(esSuperadmin ? { permisos } : {}),
+        })
         .eq("id", miembro!.id);
       if (error) throw error;
     },
@@ -317,19 +468,20 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
       abierto={!!miembro}
       onCerrar={onCerrar}
       titulo={miembro?.perfil?.nombre_completo ?? ""}
-      descripcion={miembro?.perfil?.email}
+      descripcion={[miembro?.perfil?.nombre_usuario && `@${miembro.perfil.nombre_usuario}`, correoVisible(miembro?.perfil?.email)].filter(Boolean).join(" · ")}
       pie={
         <>
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton cargando={m.isPending} disabled={roles.length === 0} onClick={() => m.mutate()}>
+          <Boton cargando={m.isPending} disabled={roles.length === 0 || nombre.trim().length < 2} onClick={() => m.mutate()}>
             Guardar
           </Boton>
         </>
       }
     >
       <div className="space-y-4">
+        <Entrada etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
         <SelectorRoles valor={roles} onChange={setRoles} />
         {soyYo && !roles.includes("admin") && (
           <p className="text-xs text-aviso">Atención: te estás quitando el rol de administración en este sistema.</p>
@@ -349,16 +501,88 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
           </Selector>
         )}
         <Interruptor activo={agenda} onChange={setAgenda} etiqueta="Atiende citas (aparece como columna en la agenda)" />
+        {agenda && (
+          <Entrada
+            etiqueta="Consultorio"
+            placeholder="Ej. 3"
+            value={consultorio}
+            onChange={(e) => setConsultorio(e.target.value)}
+            ayuda="Se anuncia al llamar su turno: «Turno MG-012, consultorio 3»."
+          />
+        )}
         <Interruptor activo={activo} onChange={setActivo} etiqueta={activo ? "Acceso activo" : "Acceso desactivado"} />
+        {esSuperadmin && <EditorPermisos valor={permisos} onChange={setPermisos} />}
       </div>
     </Modal>
   );
 }
 
-export function MostrarCredenciales({ datos, onCerrar }: { datos: { email: string; password: string } | null; onCerrar: () => void }) {
+/** El superadmin escribe la contraseña que quiera (y decide si debe cambiarla al entrar). */
+export function AsignarPassword({ usuario, onCerrar }: { usuario: { id: string; nombre: string; acceso: string } | null; onCerrar: () => void }) {
+  const [password, setPassword] = useState("");
+  const [ver, setVer] = useState(false);
+  const [debeCambiar, setDebeCambiar] = useState(false);
+
+  useEffect(() => {
+    if (usuario) {
+      setPassword("");
+      setVer(false);
+      setDebeCambiar(false);
+    }
+  }, [usuario]);
+
+  const m = useMutation({
+    mutationFn: () => invocar("plataforma-usuarios", { accion: "establecer_password", usuario_id: usuario!.id, password, debe_cambiar: debeCambiar }),
+    onSuccess: () => {
+      toast.success(`Contraseña de ${usuario!.acceso} actualizada.`);
+      onCerrar();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  return (
+    <Modal
+      abierto={!!usuario}
+      onCerrar={onCerrar}
+      ancho="sm"
+      titulo="Asignar contraseña"
+      descripcion={usuario ? `${usuario.nombre} · ${usuario.acceso}` : undefined}
+      pie={
+        <>
+          <Boton variante="secundario" onClick={onCerrar}>
+            Cancelar
+          </Boton>
+          <Boton cargando={m.isPending} disabled={password.length < 8} onClick={() => m.mutate()}>
+            Guardar contraseña
+          </Boton>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Entrada
+          etiqueta="Nueva contraseña"
+          type={ver ? "text" : "password"}
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          ayuda="Mínimo 8 caracteres."
+        />
+        <Interruptor activo={ver} onChange={setVer} etiqueta="Mostrar contraseña" />
+        <Interruptor activo={debeCambiar} onChange={setDebeCambiar} etiqueta="Pedir que la cambie al entrar" />
+      </div>
+    </Modal>
+  );
+}
+
+export interface Credenciales {
+  usuario: string;
+  password: string;
+}
+
+export function MostrarCredenciales({ datos, onCerrar }: { datos: Credenciales | null; onCerrar: () => void }) {
   const [copiado, setCopiado] = useState(false);
   const copiar = async () => {
-    await navigator.clipboard.writeText(`MEDORA\nUsuario: ${datos?.email}\nContraseña temporal: ${datos?.password}`);
+    await navigator.clipboard.writeText(`MEDORA\nUsuario: ${datos?.usuario}\nContraseña temporal: ${datos?.password}`);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1600);
   };
@@ -374,7 +598,7 @@ export function MostrarCredenciales({ datos, onCerrar }: { datos: { email: strin
       <div className="space-y-3 rounded-xl bg-superficie-2 p-4">
         <div>
           <p className="text-xs text-texto-3">Usuario</p>
-          <p className="text-sm font-medium">{datos?.email}</p>
+          <p className="text-sm font-medium">{datos?.usuario}</p>
         </div>
         <div>
           <p className="text-xs text-texto-3">Contraseña temporal</p>

@@ -31,8 +31,8 @@ export function Documento({
     <div
       className={
         formato === "ticket"
-          ? "mx-auto max-w-[320px] bg-white font-mono text-[12px] leading-relaxed text-black"
-          : "mx-auto max-w-[780px] bg-white text-[12.5px] leading-relaxed text-[#101828] [&_table]:w-full [&_td]:py-1.5 [&_th]:py-1.5"
+          ? "mx-auto max-w-[320px] bg-white font-mono text-[0.75rem] leading-relaxed text-black"
+          : "mx-auto max-w-[780px] bg-white text-[0.78125rem] leading-relaxed text-[#101828] [&_table]:w-full [&_td]:py-1.5 [&_th]:py-1.5"
       }
     >
       {children}
@@ -73,12 +73,12 @@ export function EncabezadoDocumento({ titulo, subtitulo }: { titulo: string; sub
   return (
     <div className="mb-5 flex items-start justify-between gap-6 border-b-2 border-[#101828] pb-3">
       <div>
-        <p className="text-[16px] font-bold">{sistema.nombre}</p>
-        <p className="text-[11px] text-[#475467]">Generado el {fechaHora(new Date())}</p>
+        <p className="text-[1rem] font-bold">{sistema.nombre}</p>
+        <p className="text-[0.6875rem] text-[#475467]">Generado el {fechaHora(new Date())}</p>
       </div>
       <div className="text-right">
-        <p className="text-[15px] font-semibold uppercase tracking-wide">{titulo}</p>
-        {subtitulo && <div className="text-[11px] text-[#475467]">{subtitulo}</div>}
+        <p className="text-[0.9375rem] font-semibold uppercase tracking-wide">{titulo}</p>
+        {subtitulo && <div className="text-[0.6875rem] text-[#475467]">{subtitulo}</div>}
       </div>
     </div>
   );
@@ -88,7 +88,7 @@ export function TablaDocumento({ encabezados, filas, pie }: { encabezados: React
   return (
     <table className="border-collapse">
       <thead>
-        <tr className="border-b border-[#98a2b3] text-left text-[11px] uppercase tracking-wide text-[#475467]">
+        <tr className="border-b border-[#98a2b3] text-left text-[0.6875rem] uppercase tracking-wide text-[#475467]">
           {encabezados.map((e, i) => (
             <th key={i} className={i > 0 && typeof e === "string" && /monto|total|debe|haber|saldo|cargo|abono|neto|bruto|afp|sfs|isr|pend|gener|liquid/i.test(e) ? "text-right" : ""}>
               {e}

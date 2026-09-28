@@ -12,11 +12,12 @@ import {
   UserRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { puede } from "@/lib/permisos";
-import { cambiarTemaAnimado, temaGuardado, type Tema } from "@/lib/tema";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { esQuiosco, puede } from "@/lib/permisos";
+import { cambiarPreferencias, usePreferencias } from "@/lib/preferencias";
+import type { Tema } from "@/lib/tema";
 import { cn } from "@/lib/utils";
-import { useSesion } from "@/sesion/SesionProvider";
+import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
 import { ItemMenu, Menu, SeparadorMenu } from "../ui/menu";
 import { pagina } from "../ui/movimiento";
 import { Avatar, Kbd } from "../ui/superficies";
@@ -28,7 +29,7 @@ import { PaletaComandos } from "./PaletaComandos";
 const CLAVE_COLAPSADO = "medora.nav-colapsada";
 
 export function AppShell() {
-  const { roles, esSuperadmin } = useSesion();
+  const { roles, permisos, esSuperadmin } = useSesion();
   const location = useLocation();
   const [colapsada, setColapsada] = useState(() => {
     try {
@@ -58,11 +59,29 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const propio = soloLoPropio(roles);
   const visibles = NAVEGACION.filter((i) =>
-    i.soloSuperadmin ? esSuperadmin : i.modulo ? puede(roles, i.modulo, esSuperadmin) : true,
-  );
+    i.soloSuperadmin ? esSuperadmin : i.ocultoPropio && propio ? false : i.modulo ? puede(roles, i.modulo, esSuperadmin, permisos) : true,
+  ).map((i) => (propio && i.etiquetaPropia ? { ...i, etiqueta: i.etiquetaPropia } : i));
   const grupos = [...new Set(visibles.map((i) => i.grupo))];
   const seccion = "/" + (location.pathname.split("/")[1] ?? "");
+
+  // Página de inicio preferida: solo al abrir la app (una vez por sesión) y si aún tiene acceso.
+  const { inicio } = usePreferencias();
+  const navigate = useNavigate();
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("medora.inicio-aplicado")) return;
+      sessionStorage.setItem("medora.inicio-aplicado", "1");
+    } catch {
+      return;
+    }
+    if (location.pathname === "/" && inicio !== "/" && visibles.some((i) => i.ruta === inicio)) navigate(inicio, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar
+  }, []);
+
+  // La cuenta del quiosco no tiene menú: siempre va a la pantalla táctil.
+  if (esQuiosco(roles)) return <Navigate to="/quiosco" replace />;
 
   return (
     <div className="flex h-full">
@@ -79,7 +98,7 @@ export function AppShell() {
                 initial={{ opacity: 0, x: -4 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, transition: { duration: 0.08 } }}
-                className="text-[15px] font-semibold tracking-[0.08em]"
+                className="text-[0.9375rem] font-semibold tracking-[0.08em]"
               >
                 MEDORA
               </motion.span>
@@ -94,7 +113,7 @@ export function AppShell() {
             <div key={g} className="mt-4 first:mt-2">
               <div
                 className={cn(
-                  "mb-1 h-5 px-2.5 text-[11px] font-medium tracking-wide text-texto-3 uppercase transition-opacity",
+                  "mb-1 h-5 px-2.5 text-[0.6875rem] font-medium tracking-wide text-texto-3 uppercase transition-opacity",
                   colapsada && "opacity-0",
                 )}
               >
@@ -167,6 +186,28 @@ export function AppShell() {
   );
 }
 
+/** Logo de la marca del hospital; sin él, sus iniciales sobre su color. */
+function LogoSistema({ s, tamano }: { s: { nombre: string; color_marca: string; logo_url: string | null }; tamano: number }) {
+  if (s.logo_url)
+    return (
+      <img
+        src={s.logo_url}
+        alt=""
+        draggable={false}
+        className="shrink-0 rounded-lg object-contain"
+        style={{ width: tamano, height: tamano }}
+      />
+    );
+  return (
+    <span
+      className="grid shrink-0 place-items-center rounded-lg font-bold text-white"
+      style={{ width: tamano, height: tamano, fontSize: tamano * 0.36, background: s.color_marca }}
+    >
+      {s.nombre.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
 function SelectorSistema({ colapsada }: { colapsada: boolean }) {
   const { sistemas, sistema, cambiarSistema } = useSesion();
   const navigate = useNavigate();
@@ -183,17 +224,12 @@ function SelectorSistema({ colapsada }: { colapsada: boolean }) {
               abierto && "border-borde-fuerte",
             )}
           >
-            <span
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white"
-              style={{ background: sistema.color_marca }}
-            >
-              {sistema.nombre.slice(0, 2).toUpperCase()}
-            </span>
+            <LogoSistema s={sistema} tamano={32} />
             {!colapsada && (
               <>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-semibold leading-tight">{sistema.nombre}</span>
-                  <span className="block truncate text-[11px] text-texto-3">
+                  <span className="block truncate text-[0.8125rem] font-semibold leading-tight">{sistema.nombre}</span>
+                  <span className="block truncate text-[0.6875rem] text-texto-3">
                     {sistemas.length > 1 ? `${sistemas.length} sistemas` : "Sistema hospitalario"}
                   </span>
                 </span>
@@ -205,7 +241,7 @@ function SelectorSistema({ colapsada }: { colapsada: boolean }) {
       >
         {(cerrar) => (
           <>
-            <div className="px-2.5 pt-1.5 pb-1 text-[11px] font-medium tracking-wide text-texto-3 uppercase">
+            <div className="px-2.5 pt-1.5 pb-1 text-[0.6875rem] font-medium tracking-wide text-texto-3 uppercase">
               Sistemas hospitalarios
             </div>
             <div className="max-h-72 overflow-y-auto">
@@ -218,7 +254,7 @@ function SelectorSistema({ colapsada }: { colapsada: boolean }) {
                     cerrar();
                     navigate("/");
                   }}
-                  icono={<span className="size-2.5 rounded-full" style={{ background: s.color_marca }} />}
+                  icono={<LogoSistema s={s} tamano={22} />}
                   derecha={s.id === sistema.id ? <Check className="size-4 text-marca" /> : null}
                 >
                   {s.nombre}
@@ -235,12 +271,10 @@ function SelectorSistema({ colapsada }: { colapsada: boolean }) {
 function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
   const { perfil, cerrarSesion } = useSesion();
   const navigate = useNavigate();
-  const [tema, setTema] = useState<Tema>(temaGuardado);
+  const { tema } = usePreferencias();
 
   const cambiarTema = (t: Tema) => {
-    if (t === tema) return;
-    setTema(t);
-    cambiarTemaAnimado(t);
+    if (t !== tema) cambiarPreferencias({ tema: t }, perfil?.id);
   };
 
   return (
@@ -263,7 +297,7 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
         ancho={248}
         disparador={() => (
           <button className="flex items-center gap-2.5 rounded-full p-0.5 pr-3 transition-colors hover:bg-superficie-2">
-            <Avatar nombre={perfil?.nombre_completo || perfil?.email} tamano={30} />
+            <Avatar nombre={perfil?.nombre_completo || perfil?.email} foto={perfil?.foto} tamano={30} />
             <span className="hidden max-w-40 truncate text-sm font-medium md:block">
               {perfil?.nombre_completo || perfil?.email}
             </span>
@@ -274,7 +308,7 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
           <>
             <div className="px-2.5 py-2">
               <p className="truncate text-sm font-semibold">{perfil?.nombre_completo}</p>
-              <p className="truncate text-xs text-texto-3">{perfil?.email}</p>
+              <p className="truncate text-xs text-texto-3">{perfil?.nombre_usuario ? `@${perfil.nombre_usuario}` : perfil?.email}</p>
             </div>
             <SeparadorMenu />
             <ItemMenu

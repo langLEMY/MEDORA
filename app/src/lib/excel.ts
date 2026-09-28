@@ -102,7 +102,7 @@ function fechaIso(v: unknown): string | null {
 function numero(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v === "number") return v;
-  const s = String(v).replace(/RD\$|US\$|\$|\s/g, "");
+  const s = String(v).replace(/RD\$|US\$|\$|%|\s/g, "");
   // "1.234,56" (coma decimal) vs "1,234.56" (punto decimal)
   const n = /,\d{1,2}$/.test(s) && s.includes(".") ? s.replace(/\./g, "").replace(",", ".") : /^\d+,\d{1,2}$/.test(s) ? s.replace(",", ".") : s.replace(/,/g, "");
   const r = Number(n);
@@ -112,7 +112,8 @@ function numero(v: unknown): number | null {
 const mapa = (opciones: Record<string, string[]>) => (v: unknown) => {
   const k = normalizarClave(String(v ?? ""));
   if (!k) return null;
-  for (const [valor, sinonimos] of Object.entries(opciones)) if (sinonimos.some((s) => normalizarClave(s) === k || k.startsWith(normalizarClave(s)))) return valor;
+  for (const [valor, sinonimos] of Object.entries(opciones))
+    if (sinonimos.some((s) => normalizarClave(s) && (normalizarClave(s) === k || k.startsWith(normalizarClave(s))))) return valor;
   return undefined; // no reconocido
 };
 
@@ -152,6 +153,17 @@ export const CONVERSORES = {
     })(v) ?? (v ? "otro" : null),
   tipoMovimiento: mapa({ entrada: ["entrada", "ingreso", "compra", "e"], salida: ["salida", "egreso", "consumo", "despacho", "s"], ajuste: ["ajuste", "conteo", "a"] }),
   frecuencia: mapa({ mensual: ["mensual", "mes"], quincenal: ["quincenal", "quincena"] }),
+  tipoCuenta: mapa({
+    activo: ["activo", "activos"],
+    pasivo: ["pasivo", "pasivos"],
+    patrimonio: ["patrimonio", "capital"],
+    ingreso: ["ingreso", "ingresos"],
+    costo: ["costo", "costos"],
+    gasto: ["gasto", "gastos"],
+  }),
+  tipoComision: mapa({ porcentaje: ["porcentaje", "por ciento"], fijo: ["fijo", "monto", "por paciente", "por unidad", "por servicio", "rd$"] }),
+  baseComision: mapa({ bruto: ["bruto", "precio", "total"], neto: ["neto", "cobrado"] }),
+  aplicaComision: mapa({ profesional: ["profesional", "medico", "doctor", "quien atendio"], vendedor: ["vendedor", "comisionista", "cajero", "quien cobra"] }),
 };
 
 export type Conversor = keyof typeof CONVERSORES;

@@ -27,16 +27,41 @@ public sealed class FormPrincipal : Form
     private readonly System.Windows.Forms.Timer _temporizador = new() { Interval = (int)IntervaloChequeo.TotalMilliseconds };
     private readonly Version _version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
     private readonly string? _urlDesarrollo = Environment.GetEnvironmentVariable("MEDORA_URL");
+    private readonly Modo _modo;
     private InfoActualizacion? _pendiente;
     private bool _instalando;
+    private bool _salidaPermitida;
+    private bool _primerChequeo = true;
+    private FormPantalla? _pantallaSala;
 
-    public FormPrincipal()
+    public FormPrincipal(Modo modo = Modo.Normal)
     {
-        Text = "MEDORA";
+        _modo = modo;
+        Text = modo switch { Modo.Quiosco => "MEDORA · Turnos", Modo.Pantalla => "MEDORA · Sala de espera", _ => "MEDORA" };
         Width = 1440;
         Height = 900;
-        MinimumSize = new Size(1100, 700);
+        MinimumSize = modo == Modo.Normal ? new Size(1100, 700) : Size.Empty;
         StartPosition = FormStartPosition.CenterScreen;
+
+        if (modo != Modo.Normal)
+        {
+            // Pantalla completa sin bordes (cubre también la barra de tareas).
+            FormBorderStyle = FormBorderStyle.None;
+            StartPosition = FormStartPosition.Manual;
+            Bounds = Screen.PrimaryScreen?.Bounds ?? Bounds;
+            TopMost = modo == Modo.Quiosco;
+        }
+
+        // El quiosco solo se cierra desde la app, con la contraseña de su cuenta
+        // (mensaje "salir-quiosco"): Alt+F4 y compañía no hacen nada.
+        FormClosing += (_, e) =>
+        {
+            if (_modo == Modo.Quiosco && !_salidaPermitida && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+            }
+        };
+        FormClosed += (_, _) => _pantallaSala?.Close();
         BackColor = TemaOscuro() ? Color.FromArgb(11, 13, 18) : Color.FromArgb(246, 247, 249);
 
         var icono = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
@@ -47,12 +72,21 @@ public sealed class FormPrincipal : Form
 
         // Maximizar en Shown (no al nacer): WebView2 a veces crea su controller con bounds de
         // un frame intermedio y queda pintando negro si la ventana ya nace maximizada.
-        Shown += (_, _) => WindowState = FormWindowState.Maximized;
+        if (modo == Modo.Normal)
+        {
+            Shown += (_, _) => WindowState = FormWindowState.Maximized;
+        }
         HandleCreated += (_, _) => AplicarBarraTitulo();
         SystemEvents.UserPreferenceChanged += (_, _) => AplicarBarraTitulo();
 
         Controls.Add(_webView);
         Load += async (_, _) => await IniciarAsync();
+
+        // En quiosco/TV se revisa cada hora para caer en la ventana nocturna de instalación.
+        if (modo != Modo.Normal)
+        {
+            _temporizador.Interval = (int)TimeSpan.FromHours(1).TotalMilliseconds;
+        }
 
         _temporizador.Tick += async (_, _) => await BuscarActualizacionAsync(manual: false);
     }
@@ -63,16 +97,17 @@ public sealed class FormPrincipal : Form
         {
             var opciones = new CoreWebView2EnvironmentOptions
             {
-                // Sin esto, en VMs/escritorios remotos con GPU floja WebView2 pinta negro en
-                // vez de caer a renderizado por software (hallazgo de FUNBIDE).
-                AdditionalBrowserArguments = "--disable-gpu",
+                // --disable-gpu: en VMs/escritorios remotos con GPU floja WebView2 pinta negro
+                // en vez de caer a software (hallazgo de FUNBIDE). Autoplay: la TV de la sala
+                // anuncia los turnos con sonido y voz sin que nadie toque la pantalla.
+                AdditionalBrowserArguments = "--disable-gpu --autoplay-policy=no-user-gesture-required",
             };
             var entorno = await CoreWebView2Environment.CreateAsync(null, Path.Combine(Program.CarpetaDatos, "WebView2"), opciones);
             _webView.DefaultBackgroundColor = BackColor;
             await _webView.EnsureCoreWebView2Async(entorno);
 
             var core = _webView.CoreWebView2;
-            var devtools = Environment.GetEnvironmentVariable("MEDORA_DEVTOOLS") == "1";
+            var devtools = _modo == Modo.Normal && Environment.GetEnvironmentVariable("MEDORA_DEVTOOLS") == "1";
             core.Settings.AreDevToolsEnabled = devtools;
             core.Settings.AreBrowserAcceleratorKeysEnabled = devtools;
             core.Settings.IsStatusBarEnabled = false;
@@ -84,7 +119,8 @@ public sealed class FormPrincipal : Form
             // Menú contextual mínimo: solo edición de texto (sin "Inspeccionar", "Atrás", etc.).
             core.ContextMenuRequested += (_, e) =>
             {
-                var permitidos = new HashSet<string> { "cut", "copy", "paste", "selectAll" };
+                // En el quiosco y la TV, ninguno (ni con toque largo).
+                var permitidos = _modo == Modo.Normal ? new HashSet<string> { "cut", "copy", "paste", "selectAll" } : [];
                 foreach (var item in e.MenuItems.ToList())
                 {
                     if (!permitidos.Contains(item.Name))
@@ -124,23 +160,23 @@ public sealed class FormPrincipal : Form
                 }
             };
 
-            if (_urlDesarrollo is not null)
+            var ruta = _modo switch { Modo.Quiosco => "#/quiosco", Modo.Pantalla => "#/pantalla", _ => "" };
+            if (_urlDesarrollo is null && !PrepararCarpetaApp(core))
             {
-                core.Navigate(_urlDesarrollo);
+                MessageBox.Show("La instalación de MEDORA está incompleta (falta la carpeta app). Reinstala MEDORA.", "MEDORA",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _salidaPermitida = true;
+                Close();
+                return;
             }
-            else
-            {
-                var carpetaApp = Path.Combine(AppContext.BaseDirectory, "app");
-                if (!File.Exists(Path.Combine(carpetaApp, "index.html")))
-                {
-                    MessageBox.Show("La instalación de MEDORA está incompleta (falta la carpeta app). Reinstala MEDORA.", "MEDORA",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    Close();
-                    return;
-                }
 
-                core.SetVirtualHostNameToFolderMapping(Host, carpetaApp, CoreWebView2HostResourceAccessKind.Deny);
-                core.Navigate($"https://{Host}/index.html");
+            core.Navigate(UrlApp(ruta));
+
+            // Quiosco con un segundo monitor (TV por HDMI): la pantalla de llamados va ahí.
+            if (_modo == Modo.Quiosco && Screen.AllScreens.FirstOrDefault(s => !s.Primary) is { } tv)
+            {
+                _pantallaSala = new FormPantalla(entorno, tv, this);
+                _pantallaSala.Show();
             }
 
             // El chequeo de actualizaciones nunca demora el arranque: corre en segundo plano.
@@ -160,6 +196,21 @@ public sealed class FormPrincipal : Form
             MessageBox.Show("MEDORA no pudo iniciar la vista:\n\n" + ex.Message, "MEDORA", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
+
+    /// <summary>Sirve .\app en https://app.medora.local (también lo usa la ventana de la TV).</summary>
+    internal static bool PrepararCarpetaApp(CoreWebView2 core)
+    {
+        var carpetaApp = Path.Combine(AppContext.BaseDirectory, "app");
+        if (!File.Exists(Path.Combine(carpetaApp, "index.html")))
+        {
+            return false;
+        }
+
+        core.SetVirtualHostNameToFolderMapping(Host, carpetaApp, CoreWebView2HostResourceAccessKind.Deny);
+        return true;
+    }
+
+    internal string UrlApp(string ruta) => (_urlDesarrollo ?? $"https://{Host}/index.html") + ruta;
 
     private bool EsPropia(string uri) =>
         Uri.TryCreate(uri, UriKind.Absolute, out var u) &&
@@ -206,6 +257,13 @@ public sealed class FormPrincipal : Form
             case "imprimir":
                 await ImprimirAsync();
                 break;
+            case "imprimir-directo":
+                await ImprimirDirectoAsync();
+                break;
+            case "salir-quiosco":
+                _salidaPermitida = true;
+                Close();
+                break;
             case "pdf":
                 await ExportarPdfAsync(nombre);
                 break;
@@ -225,11 +283,21 @@ public sealed class FormPrincipal : Form
         {
             _pendiente = info;
             EnviarActualizacion(info);
+
+            // El quiosco y la TV no tienen quién apriete "Actualizar": se instalan solos al
+            // arrancar el equipo o de noche, cuando nadie está tomando turno.
+            var hora = DateTime.Now.Hour;
+            if (_modo != Modo.Normal && (_primerChequeo || hora >= 21 || hora < 6))
+            {
+                await InstalarAsync();
+            }
         }
         else if (manual)
         {
             Enviar(new { tipo = "sin-actualizacion" });
         }
+
+        _primerChequeo = false;
     }
 
     private void EnviarActualizacion(InfoActualizacion info) =>
@@ -256,7 +324,8 @@ public sealed class FormPrincipal : Form
             Process.Start(new ProcessStartInfo
             {
                 FileName = ruta,
-                Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
+                Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS"
+                    + (_modo == Modo.Normal ? "" : $" /MODO=--{_modo.ToString().ToLowerInvariant()}"),
                 UseShellExecute = true,
             });
             Application.Exit();
@@ -295,6 +364,45 @@ public sealed class FormPrincipal : Form
         catch (Exception ex)
         {
             MessageBox.Show($"No se pudo imprimir: {ex.Message}", "MEDORA", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Ticket del quiosco: a la impresora predeterminada de Windows (la térmica), sin
+    /// ningún diálogo. Si falla no se muestra nada al paciente: queda en el log.
+    /// </summary>
+    private async Task ImprimirDirectoAsync()
+    {
+        try
+        {
+            var config = _webView.CoreWebView2.Environment.CreatePrintSettings();
+            config.ShouldPrintBackgrounds = true;
+            config.ShouldPrintHeaderAndFooter = false;
+            config.PrinterName = new System.Drawing.Printing.PrinterSettings().PrinterName;
+            config.MarginTop = config.MarginBottom = config.MarginLeft = config.MarginRight = 0.08;
+            var resultado = await _webView.CoreWebView2.PrintAsync(config);
+            if (resultado != CoreWebView2PrintStatus.Succeeded)
+            {
+                Registrar($"Impresión del ticket: {resultado} (impresora «{config.PrinterName}»).");
+            }
+        }
+        catch (Exception ex)
+        {
+            Registrar("Impresión del ticket: " + ex.Message);
+        }
+    }
+
+    private static void Registrar(string mensaje)
+    {
+        try
+        {
+            var logs = Path.Combine(Program.CarpetaDatos, "logs");
+            Directory.CreateDirectory(logs);
+            File.AppendAllText(Path.Combine(logs, "quiosco.log"), $"{DateTimeOffset.Now:O} {mensaje}\n");
+        }
+        catch
+        {
+            // Sin log posible: el quiosco sigue funcionando.
         }
     }
 

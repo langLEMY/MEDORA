@@ -16,7 +16,7 @@ interface Resultado {
   actualizados: number;
   omitidos: number;
   errores: string[];
-  credenciales?: { nombre: string; email: string; password: string | null; estado: string }[];
+  credenciales?: { nombre: string; usuario: string; password: string | null; estado: string }[];
 }
 
 type Paso = "archivo" | "revision" | "importando" | "resultado";
@@ -109,20 +109,20 @@ export function ImportarExcel({
       for (let i = 0; i < validas.length; i += lote) {
         const parte = validas.slice(i, i + lote).map((f) => ({ _fila: f._fila, ...f.datos }));
         if (def.destino.startsWith("edge:")) {
-          const r = await invocar<{ resultados: { fila: number; email: string; nombre: string; error?: string; password_temporal?: string | null; ya_existia?: boolean }[] }>(
+          const r = await invocar<{ resultados: { fila: number; usuario: string; nombre_usuario?: string; nombre: string; error?: string; password_temporal?: string | null; ya_existia?: boolean }[] }>(
             def.destino.slice(5),
             { accion: "importar", sistema_id: sistemaId, filas: parte },
           );
           r.resultados.forEach((x) => {
             if (x.error) {
               total.omitidos++;
-              total.errores.push(`Fila ${x.fila} (${x.email}): ${x.error}`);
+              total.errores.push(`Fila ${x.fila} (${x.usuario}): ${x.error}`);
             } else {
               if (x.ya_existia) total.actualizados++;
               else total.creados++;
               total.credenciales!.push({
                 nombre: x.nombre,
-                email: x.email,
+                usuario: x.nombre_usuario ?? x.usuario,
                 password: x.password_temporal ?? null,
                 estado: x.ya_existia ? "Ya tenía cuenta: se le dio acceso" : "Cuenta creada",
               });
@@ -159,7 +159,7 @@ export function ImportarExcel({
         nombre: "Credenciales",
         columnas: [
           { titulo: "Nombre", valor: (x: NonNullable<Resultado["credenciales"]>[number]) => x.nombre },
-          { titulo: "Usuario (correo)", valor: (x) => x.email },
+          { titulo: "Usuario", valor: (x) => x.usuario },
           { titulo: "Contraseña temporal", valor: (x) => x.password ?? "(usa su contraseña actual)" },
           { titulo: "Estado", valor: (x) => x.estado },
         ],

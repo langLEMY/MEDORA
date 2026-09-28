@@ -59,7 +59,7 @@ const CATEGORIAS = [
 ] as const;
 
 export default function Inventario() {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const [filtro, setFiltro] = useState<"todos" | "bajo">("todos");
   const [categoria, setCategoria] = useState("");
   const [texto, setTexto] = useState("");
@@ -128,7 +128,7 @@ export default function Inventario() {
                   valor: "bajo",
                   etiqueta: (
                     <span className="inline-flex items-center gap-1.5">
-                      Bajo mínimo {bajos > 0 && <span className="rounded-full bg-aviso px-1.5 text-[11px] text-white">{bajos}</span>}
+                      Bajo mínimo {bajos > 0 && <span className="rounded-full bg-aviso px-1.5 text-[0.6875rem] text-white">{bajos}</span>}
                     </span>
                   ),
                 },
@@ -157,7 +157,7 @@ export default function Inventario() {
                       {!i.activo && <Insignia>Inactivo</Insignia>}
                     </div>
                     <p className="text-xs text-texto-3">
-                      {[i.codigo, CATEGORIAS.find((c) => c[0] === i.categoria)?.[1], i.precio_venta ? moneda(i.precio_venta, sistema.moneda) : null]
+                      {[i.codigo, CATEGORIAS.find((c) => c[0] === i.categoria)?.[1], i.precio_venta ? moneda(i.precio_venta) : null]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>

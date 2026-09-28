@@ -46,6 +46,8 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear un acceso directo en el Escritorio"; GroupDescription: "Accesos directos:"; Flags: checkedonce
+; Equipo dedicado a los turnos: abre el quiosco (y la TV si hay otro monitor) al encender.
+Name: "quiosco"; Description: "Este equipo es el quiosco de turnos: abrir MEDORA Quiosco al iniciar Windows"; GroupDescription: "Quiosco de turnos:"; Flags: unchecked
 
 [InstallDelete]
 ; La SPA cambia de nombres de archivo en cada build (hash): se limpia la versión anterior.
@@ -58,11 +60,15 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Name: "{group}\MEDORA"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\Desinstalar MEDORA"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\MEDORA"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{group}\MEDORA Quiosco de turnos"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--quiosco"
+Name: "{group}\MEDORA Pantalla de sala"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--pantalla"
+Name: "{userstartup}\MEDORA Quiosco de turnos"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--quiosco"; Tasks: quiosco
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Abrir MEDORA"; Flags: nowait postinstall skipifsilent
-; Actualización automática (/SILENT): vuelve a abrir MEDORA al terminar.
-Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent
+; Actualización automática (/SILENT): vuelve a abrir MEDORA al terminar, en el mismo modo
+; en que estaba (el launcher pasa /MODO=--quiosco o /MODO=--pantalla).
+Filename: "{app}\{#MyAppExeName}"; Parameters: "{param:MODO|}"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\MEDORA"

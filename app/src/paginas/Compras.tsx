@@ -15,6 +15,7 @@ import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { useAccionUrl } from "@/lib/accionUrl";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 import { IMPORTACIONES } from "@/lib/importaciones";
 
@@ -58,11 +59,12 @@ export default function Compras() {
   const { roles } = useSistema();
   const [vista, setVista] = useState<"compras" | "proveedores">("compras");
   const [nueva, setNueva] = useState(false);
+  useAccionUrl({ nueva: () => puedeEscribir.compras(roles) && setNueva(true) });
   return (
     <>
       <EncabezadoPagina
         titulo="Compras"
-        descripcion="Compras a proveedores con entrada automática a inventario y su asiento contable."
+        descripcion="Gastos y servicios a proveedores, con su asiento contable."
         acciones={
           puedeEscribir.compras(roles) &&
           vista === "compras" && (
@@ -94,7 +96,7 @@ export default function Compras() {
 }
 
 function ListaCompras() {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const qc = useQueryClient();
   const [ver, setVer] = useState<CompraFila | null>(null);
   const [anular, setAnular] = useState<CompraFila | null>(null);
@@ -151,7 +153,7 @@ function ListaCompras() {
                 </span>
                 <Insignia tono={c.forma_pago === "credito" ? "aviso" : "neutro"}>{FORMAS[c.forma_pago]}</Insignia>
                 {anulada && <Insignia tono="peligro">Anulada</Insignia>}
-                <span className="w-32 text-right font-semibold tabular">{moneda(c.total, sistema.moneda)}</span>
+                <span className="w-32 text-right font-semibold tabular">{moneda(c.total)}</span>
                 <div className="flex w-20 justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button onClick={() => setVer(c)} className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto" title="Ver">
                     <Eye className="size-4" />
@@ -188,11 +190,11 @@ function ListaCompras() {
               filas={ver.items.map((i) => [
                 i.descripcion + (i.cuenta_codigo ? ` (${i.cuenta_codigo})` : ""),
                 String(Number(i.cantidad)),
-                moneda(i.costo_unitario, sistema.moneda),
-                moneda(i.itbis, sistema.moneda),
-                moneda(i.total, sistema.moneda),
+                moneda(i.costo_unitario),
+                moneda(i.itbis),
+                moneda(i.total),
               ])}
-              pie={["Total", "", moneda(ver.subtotal, sistema.moneda), moneda(ver.itbis, sistema.moneda), moneda(ver.total, sistema.moneda)]}
+              pie={["Total", "", moneda(ver.subtotal), moneda(ver.itbis), moneda(ver.total)]}
             />
             {ver.notas && <p className="mt-4 text-[#475467]">Notas: {ver.notas}</p>}
           </>
@@ -222,40 +224,36 @@ function ListaCompras() {
   );
 }
 
+/** Compra = gasto o servicio (la entrada a inventario se hace desde Inventario). */
 interface LineaCompra {
   clave: number;
-  tipo: "inventario" | "gasto";
-  item_id: string;
+  /** Cuenta de gasto; vacía = "Gasto general" (Contabilidad → Cuentas por concepto). */
   cuenta: string;
   descripcion: string;
   cantidad: string;
   costo: string;
   conItbis: boolean;
-  lote: string;
-  vence: string;
 }
 
 const lineaVacia = (): LineaCompra => ({
   clave: Date.now() + Math.random(),
-  tipo: "inventario",
-  item_id: "",
   cuenta: "",
   descripcion: "",
   cantidad: "1",
   costo: "",
   conItbis: false,
-  lote: "",
-  vence: "",
 });
 
 function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
-  const { sistema, sistemaId } = useSistema();
+  const { sistemaId } = useSistema();
   const qc = useQueryClient();
   const proveedores = useProveedores(sistemaId);
-  const inventario = useQuery({
-    queryKey: claves.inventario(sistemaId),
+  const gastoGeneral = useQuery({
+    queryKey: ["cuentas-predeterminadas", sistemaId, "gasto_general"],
     enabled: abierto,
-    queryFn: async () => datos(await supabase.from("inventario_items").select("*").eq("sistema_id", sistemaId).order("nombre")),
+    queryFn: async () =>
+      datos(await supabase.from("cuentas_predeterminadas").select("cuenta_codigo").eq("sistema_id", sistemaId).eq("clave", "gasto_general").maybeSingle())
+        ?.cuenta_codigo ?? null,
   });
   const [proveedor, setProveedor] = useState("");
   const [forma, setForma] = useState("efectivo");
@@ -280,7 +278,9 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
   const subtotal = lineas.reduce((s, l) => s + base(l), 0);
   const totalItbis = lineas.reduce((s, l) => s + itbis(l), 0);
   const proveedorObligatorio = forma !== "efectivo";
-  const lineasValidas = lineas.every((l) => Number(l.cantidad) > 0 && Number(l.costo) >= 0 && l.costo !== "" && (l.tipo === "inventario" ? !!l.item_id : !!l.cuenta && !!l.descripcion.trim()));
+  const lineasValidas = lineas.every(
+    (l) => Number(l.cantidad) > 0 && Number(l.costo) >= 0 && l.costo !== "" && !!l.descripcion.trim() && !!(l.cuenta || gastoGeneral.data),
+  );
 
   const m = useMutation({
     mutationFn: async () =>
@@ -293,14 +293,12 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
           p_forma_pago: forma,
           p_notas: notas || undefined,
           p_items: lineas.map((l) => ({
-            item_id: l.tipo === "inventario" ? l.item_id : null,
-            cuenta: l.tipo === "gasto" ? l.cuenta : null,
-            descripcion: l.tipo === "inventario" ? (inventario.data?.find((i) => i.id === l.item_id)?.nombre ?? "") : l.descripcion,
+            item_id: null,
+            cuenta: l.cuenta || gastoGeneral.data,
+            descripcion: l.descripcion.trim(),
             cantidad: Number(l.cantidad),
             costo_unitario: Number(l.costo),
             itbis: itbis(l),
-            lote: l.lote || null,
-            vence_en: l.vence || null,
           })),
         }),
       ) as { numero: string },
@@ -319,12 +317,12 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
       abierto={abierto}
       onCerrar={onCerrar}
       titulo="Nueva compra"
-      descripcion="Los artículos de inventario entran al stock automáticamente."
+      descripcion="Gastos y servicios: luz, agua, suministros, mantenimiento, honorarios…"
       pie={
         <>
           <div className="mr-auto text-sm">
             <span className="text-texto-2">Total </span>
-            <span className="text-lg font-semibold tabular">{moneda(subtotal + totalItbis, sistema.moneda)}</span>
+            <span className="text-lg font-semibold tabular">{moneda(subtotal + totalItbis)}</span>
           </div>
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
@@ -365,7 +363,7 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
 
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] font-medium text-texto-2">Líneas</span>
+            <span className="text-[0.8125rem] font-medium text-texto-2">Líneas</span>
             <Boton variante="secundario" tamano="sm" icono={<Plus className="size-3.5" />} onClick={() => setLineas((l) => [...l, lineaVacia()])}>
               Agregar línea
             </Boton>
@@ -382,54 +380,32 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
                 >
                   <div className="space-y-3 rounded-xl border border-borde p-3">
                     <div className="flex items-center gap-2">
-                      <Segmentado
-                        id={`tipo-${l.clave}`}
-                        valor={l.tipo}
-                        onChange={(tipo) => set(l.clave, { tipo })}
-                        opciones={[
-                          { valor: "inventario", etiqueta: "Inventario" },
-                          { valor: "gasto", etiqueta: "Gasto / servicio" },
-                        ]}
+                      <Entrada
+                        placeholder="¿Qué se pagó? Ej. Factura de luz de septiembre"
+                        value={l.descripcion}
+                        onChange={(e) => set(l.clave, { descripcion: e.target.value })}
+                        contenedor="flex-1"
                       />
-                      <span className="ml-auto text-sm font-semibold tabular">{moneda(base(l) + itbis(l), sistema.moneda)}</span>
+                      <span className="w-28 text-right text-sm font-semibold tabular">{moneda(base(l) + itbis(l))}</span>
                       <button
                         onClick={() => setLineas((x) => (x.length > 1 ? x.filter((y) => y.clave !== l.clave) : x))}
                         className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-peligro"
+                        title="Quitar línea"
                       >
                         <Trash2 className="size-4" />
                       </button>
                     </div>
-                    {l.tipo === "inventario" ? (
-                      <Selector value={l.item_id} onChange={(e) => set(l.clave, { item_id: e.target.value })}>
-                        <option value="">Artículo de inventario…</option>
-                        {inventario.data
-                          ?.filter((i) => i.activo)
-                          .map((i) => (
-                            <option key={i.id} value={i.id}>
-                              {i.nombre}
-                              {i.codigo ? ` · ${i.codigo}` : ""}
-                            </option>
-                          ))}
-                      </Selector>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3">
-                        <Entrada placeholder="Descripción" value={l.descripcion} onChange={(e) => set(l.clave, { descripcion: e.target.value })} />
-                        <SelectorCuenta valor={l.cuenta || null} onChange={(cuenta) => set(l.clave, { cuenta })} tipos={["gasto", "costo", "activo"]} />
-                      </div>
-                    )}
-                    <div className="grid grid-cols-4 items-end gap-3">
+                    <div className="grid grid-cols-[5.5rem_1fr_1.4fr] items-end gap-3">
                       <Entrada etiqueta="Cantidad" type="number" min={0} step="any" value={l.cantidad} onChange={(e) => set(l.clave, { cantidad: e.target.value })} />
                       <Entrada etiqueta="Costo unitario" type="number" min={0} step="0.01" value={l.costo} onChange={(e) => set(l.clave, { costo: e.target.value })} />
-                      {l.tipo === "inventario" ? (
-                        <>
-                          <Entrada etiqueta="Lote" value={l.lote} onChange={(e) => set(l.clave, { lote: e.target.value })} />
-                          <Entrada etiqueta="Vence" type="date" value={l.vence} onChange={(e) => set(l.clave, { vence: e.target.value })} />
-                        </>
-                      ) : (
-                        <div className="col-span-2" />
-                      )}
+                      <SelectorCuenta
+                        etiqueta="Tipo de gasto (opcional)"
+                        valor={l.cuenta || null}
+                        onChange={(cuenta) => set(l.clave, { cuenta })}
+                        tipos={["gasto", "costo", "activo"]}
+                      />
                     </div>
-                    <Interruptor activo={l.conItbis} onChange={(conItbis) => set(l.clave, { conItbis })} etiqueta={`ITBIS 18% (${moneda(itbis(l), sistema.moneda)})`} />
+                    <Interruptor activo={l.conItbis} onChange={(conItbis) => set(l.clave, { conItbis })} etiqueta={`ITBIS 18% (${moneda(itbis(l))})`} />
                   </div>
                 </motion.div>
               ))}
@@ -440,15 +416,15 @@ function NuevaCompra({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
         <dl className="space-y-1.5 rounded-xl bg-superficie-2 px-4 py-3 text-sm">
           <div className="flex justify-between">
             <dt className="text-texto-2">Subtotal</dt>
-            <dd className="tabular">{moneda(subtotal, sistema.moneda)}</dd>
+            <dd className="tabular">{moneda(subtotal)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-texto-2">ITBIS</dt>
-            <dd className="tabular">{moneda(totalItbis, sistema.moneda)}</dd>
+            <dd className="tabular">{moneda(totalItbis)}</dd>
           </div>
           <div className="flex justify-between border-t border-borde pt-1.5 font-semibold">
             <dt>Total</dt>
-            <dd className="tabular">{moneda(subtotal + totalItbis, sistema.moneda)}</dd>
+            <dd className="tabular">{moneda(subtotal + totalItbis)}</dd>
           </div>
         </dl>
         <AreaTexto etiqueta="Notas" className="min-h-16" value={notas} onChange={(e) => setNotas(e.target.value)} />

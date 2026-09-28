@@ -32,3 +32,25 @@ export function passwordTemporal(longitud = 14): string {
 }
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Nombre de usuario: identificador de acceso (ver migración usuarios_por_nombre).
+export const USUARIO_RE = /^[a-z0-9][a-z0-9._-]{1,39}$/;
+
+export const normalizarUsuario = (v: unknown) => String(v ?? "").trim().toLowerCase();
+
+/** Correo de Auth para quien no tiene correo propio: nunca recibe mensajes. */
+export const correoInterno = (usuario: string) => `${usuario}@usuarios.medora.invalid`;
+
+/**
+ * Valida usuario y correo opcional. El correo, si viene, es la identidad en Auth
+ * (y el contacto para usos futuros); si no, se usa el interno.
+ */
+export function credencialesNuevas(cuerpo: Record<string, unknown>): { usuario: string; email: string } | { error: string } {
+  const usuario = normalizarUsuario(cuerpo.nombre_usuario);
+  if (!USUARIO_RE.test(usuario)) {
+    return { error: "Nombre de usuario inválido: 2 a 40 caracteres, minúsculas, números, punto, guion o guion bajo." };
+  }
+  const correo = String(cuerpo.email ?? "").trim().toLowerCase();
+  if (correo && !EMAIL_RE.test(correo)) return { error: "Correo electrónico inválido." };
+  return { usuario, email: correo || correoInterno(usuario) };
+}

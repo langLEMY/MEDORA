@@ -67,8 +67,19 @@ interface Linea {
   empleado: { nombres: string; apellidos: string; cedula: string | null; cargo: string | null; banco: string | null; cuenta_bancaria: string | null } | null;
 }
 
+const COLUMNAS_NOVEDADES: ColumnaDatos<Linea>[] = [
+  { titulo: "Cédula", valor: (l) => l.empleado?.cedula },
+  { titulo: "Empleado", valor: (l) => `${l.empleado?.nombres ?? ""} ${l.empleado?.apellidos ?? ""}`.trim() },
+  { titulo: "Salario", valor: (l) => l.salario, tipo: "moneda" },
+  { titulo: "Horas extra (RD$)", valor: (l) => l.horas_extra, tipo: "moneda" },
+  { titulo: "Bonos", valor: (l) => l.bonos, tipo: "moneda" },
+  { titulo: "Otros ingresos", valor: (l) => l.otros_ingresos, tipo: "moneda" },
+  { titulo: "Otras deducciones", valor: (l) => l.otras_deducciones, tipo: "moneda" },
+  { titulo: "Neto", valor: (l) => l.neto, tipo: "moneda" },
+];
+
 function Nominas() {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const [generar, setGenerar] = useState(false);
   const [abierta, setAbierta] = useState<string | null>(null);
   const q = useQuery({
@@ -113,8 +124,8 @@ function Nominas() {
                     {n.estado === "aprobada" ? "Aprobada" : "Borrador"}
                   </Insignia>
                   <span className="w-36 text-right tabular">
-                    <span className="block text-[11px] text-texto-3">Neto a pagar</span>
-                    <span className="font-semibold">{moneda(n.lineas.reduce((s, l) => s + Number(l.neto), 0), sistema.moneda)}</span>
+                    <span className="block text-[0.6875rem] text-texto-3">Neto a pagar</span>
+                    <span className="font-semibold">{moneda(n.lineas.reduce((s, l) => s + Number(l.neto), 0))}</span>
                   </span>
                 </button>
               </motion.li>
@@ -194,7 +205,7 @@ function GenerarNomina({ abierto, onCerrar, onCreada }: { abierto: boolean; onCe
 }
 
 function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => void }) {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const qc = useQueryClient();
   const [preview, setPreview] = useState(false);
   const [volantes, setVolantes] = useState(false);
@@ -266,7 +277,7 @@ function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => vo
   const lineas = q.data?.lineas ?? [];
   const borrador = n?.estado === "borrador" && puedeEscribir.nomina(roles);
   const suma = (k: keyof Linea) => lineas.reduce((s, l) => s + Number(l[k] ?? 0), 0);
-  const $ = (v: number) => moneda(v, sistema.moneda);
+  const $ = (v: number) => moneda(v);
 
   return (
     <>
@@ -282,6 +293,17 @@ function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => vo
               <Boton variante="fantasma" className="mr-auto text-peligro" icono={<Trash2 className="size-4" />} cargando={eliminar.isPending} onClick={() => eliminar.mutate()}>
                 Eliminar borrador
               </Boton>
+            )}
+            {borrador && lineas.length > 0 && (
+              // Exportar da la plantilla ya llena con los empleados; se completa y se importa.
+              <AccionesDatos
+                titulo={`Novedades ${n?.numero ?? ""}`}
+                columnas={COLUMNAS_NOVEDADES}
+                obtener={async () => lineas}
+                importaciones={[IMPORTACIONES.novedadesNomina]}
+                extraImportacion={{ p_nomina: id }}
+                onImportado={refrescar}
+              />
             )}
             <Boton variante="secundario" icono={<FileDown className="size-4" />} onClick={() => setResumen(true)} disabled={!lineas.length}>
               Resumen PDF
@@ -303,7 +325,7 @@ function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => vo
           <div className="-mx-6 overflow-x-auto">
             <table className="w-full min-w-[1000px] text-sm">
               <thead>
-                <tr className="border-b border-borde text-left text-[11px] tracking-wide text-texto-3 uppercase">
+                <tr className="border-b border-borde text-left text-[0.6875rem] tracking-wide text-texto-3 uppercase">
                   <th className="px-4 py-2 font-medium">Empleado</th>
                   {["Salario", "Horas extra", "Bonos", "Otros ing.", "AFP", "SFS", "ISR", "Otras ded.", "Neto"].map((h) => (
                     <th key={h} className="px-2 py-2 text-right font-medium">
@@ -314,7 +336,7 @@ function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => vo
               </thead>
               <tbody>
                 {lineas.map((l) => (
-                  <FilaNomina key={l.id} l={l} editable={!!borrador} onGuardar={(x) => actualizar.mutate(x)} moneda_={sistema.moneda} />
+                  <FilaNomina key={l.id} l={l} editable={!!borrador} onGuardar={(x) => actualizar.mutate(x)} />
                 ))}
               </tbody>
               <tfoot>
@@ -359,7 +381,7 @@ function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => vo
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-borde text-left text-[11px] tracking-wide text-texto-3 uppercase">
+              <tr className="border-b border-borde text-left text-[0.6875rem] tracking-wide text-texto-3 uppercase">
                 <th className="py-2 font-medium">Cuenta</th>
                 <th className="py-2 text-right font-medium">Debe</th>
                 <th className="py-2 text-right font-medium">Haber</th>
@@ -444,7 +466,7 @@ function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => vo
                 pie={["Neto a pagar", $(l.neto)]}
               />
             </div>
-            <p className="mt-8 w-56 border-t border-[#101828] pt-1 text-center text-[11px]">Recibí conforme</p>
+            <p className="mt-8 w-56 border-t border-[#101828] pt-1 text-center text-[0.6875rem]">Recibí conforme</p>
           </div>
         ))}
       </Documento>
@@ -452,7 +474,7 @@ function DetalleNomina({ id, onCerrar }: { id: string | null; onCerrar: () => vo
   );
 }
 
-function FilaNomina({ l, editable, onGuardar, moneda_ }: { l: Linea; editable: boolean; onGuardar: (l: Linea) => void; moneda_: string }) {
+function FilaNomina({ l, editable, onGuardar }: { l: Linea; editable: boolean; onGuardar: (l: Linea) => void }) {
   const [v, setV] = useState(l);
   useEffect(() => setV(l), [l]);
   const celda = (k: "horas_extra" | "bonos" | "otros_ingresos" | "otras_deducciones") =>
@@ -468,7 +490,7 @@ function FilaNomina({ l, editable, onGuardar, moneda_ }: { l: Linea; editable: b
         className="h-8 w-24 rounded-lg border border-borde bg-superficie px-2 text-right tabular outline-none focus:border-marca"
       />
     ) : (
-      moneda(l[k], moneda_)
+      moneda(l[k])
     );
   return (
     <tr className="border-b border-borde/60">
@@ -483,15 +505,15 @@ function FilaNomina({ l, editable, onGuardar, moneda_ }: { l: Linea; editable: b
           </span>
         </span>
       </td>
-      <td className="px-2 py-2 text-right tabular">{moneda(l.salario, moneda_)}</td>
+      <td className="px-2 py-2 text-right tabular">{moneda(l.salario)}</td>
       <td className="px-2 py-2 text-right">{celda("horas_extra")}</td>
       <td className="px-2 py-2 text-right">{celda("bonos")}</td>
       <td className="px-2 py-2 text-right">{celda("otros_ingresos")}</td>
-      <td className="px-2 py-2 text-right text-texto-2 tabular">{moneda(l.afp, moneda_)}</td>
-      <td className="px-2 py-2 text-right text-texto-2 tabular">{moneda(l.sfs, moneda_)}</td>
-      <td className="px-2 py-2 text-right text-texto-2 tabular">{moneda(l.isr, moneda_)}</td>
+      <td className="px-2 py-2 text-right text-texto-2 tabular">{moneda(l.afp)}</td>
+      <td className="px-2 py-2 text-right text-texto-2 tabular">{moneda(l.sfs)}</td>
+      <td className="px-2 py-2 text-right text-texto-2 tabular">{moneda(l.isr)}</td>
       <td className="px-2 py-2 text-right">{celda("otras_deducciones")}</td>
-      <td className="px-2 py-2 text-right font-semibold tabular">{moneda(l.neto, moneda_)}</td>
+      <td className="px-2 py-2 text-right font-semibold tabular">{moneda(l.neto)}</td>
     </tr>
   );
 }
@@ -512,7 +534,7 @@ const COLUMNAS_EMPLEADOS: ColumnaDatos<Fila<"empleados">>[] = [
 ];
 
 function Empleados() {
-  const { sistema, sistemaId, roles } = useSistema();
+  const { sistemaId, roles } = useSistema();
   const qc = useQueryClient();
   const personal = usePersonal(sistemaId);
   const [editar, setEditar] = useState<Fila<"empleados"> | "nuevo" | null>(null);
@@ -632,7 +654,7 @@ function Empleados() {
               </span>
               <Insignia>{x.frecuencia === "quincenal" ? "Quincenal" : "Mensual"}</Insignia>
               {!x.activo && <Insignia tono="peligro">Inactivo</Insignia>}
-              <span className="w-32 text-right font-semibold tabular">{moneda(x.salario_mensual, sistema.moneda)}</span>
+              <span className="w-32 text-right font-semibold tabular">{moneda(x.salario_mensual)}</span>
               {escribir && (
                 <button onClick={() => setEditar(x)} className="grid size-8 place-items-center rounded-lg text-texto-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-superficie-2">
                   <Pencil className="size-4" />
@@ -747,17 +769,40 @@ function Parametros() {
   });
 
   if (q.isLoading) return <Esqueleto className="h-80 rounded-2xl" />;
-  const editable = puedeEscribir.contabilidad(roles);
+  const editable = puedeEscribir.nomina(roles);
   const campo = (k: string, etiqueta: string, ayuda?: string) => (
     <Entrada key={k} etiqueta={etiqueta} ayuda={ayuda} type="number" step="0.01" disabled={!editable} value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
   );
+  // Mismos nombres que reconoce importar_parametros_nomina: exportar → editar → importar.
+  const conceptos = [
+    ["AFP empleado", "afp_empleado"],
+    ["SFS empleado", "sfs_empleado"],
+    ["AFP empleador", "afp_empleador"],
+    ["SFS empleador", "sfs_empleador"],
+    ["SRL empleador", "srl_empleador"],
+    ["INFOTEP", "infotep"],
+    ["Tope AFP mensual", "tope_afp_mensual"],
+    ["Tope SFS mensual", "tope_sfs_mensual"],
+  ] as const;
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <Tarjeta className="space-y-5 p-6">
-        <div>
-          <h2 className="text-[15px] font-semibold">Seguridad social (TSS)</h2>
-          <p className="text-xs text-texto-3">Porcentajes vigentes; actualízalos cuando la TSS los cambie.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[0.9375rem] font-semibold">Seguridad social (TSS)</h2>
+            <p className="text-xs text-texto-3">Porcentajes vigentes; actualízalos cuando la TSS los cambie.</p>
+          </div>
+          <AccionesDatos
+            titulo="Parámetros TSS"
+            columnas={[
+              { titulo: "Concepto", valor: (x: { concepto: string; valor: string }) => x.concepto },
+              { titulo: "Valor", valor: (x) => (x.valor === "" ? "" : Number(x.valor)) },
+            ]}
+            obtener={async () => conceptos.map(([concepto, k]) => ({ concepto, valor: f[k] ?? "" }))}
+            importaciones={editable ? [IMPORTACIONES.parametrosNomina, IMPORTACIONES.escalaIsr] : []}
+            onImportado={() => void qc.invalidateQueries({ queryKey: ["parametros-nomina", sistemaId] })}
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           {campo("afp_empleado", "AFP empleado (%)")}
@@ -772,12 +817,12 @@ function Parametros() {
       </Tarjeta>
       <Tarjeta className="space-y-5 p-6">
         <div>
-          <h2 className="text-[15px] font-semibold">Escala anual de ISR (DGII)</h2>
+          <h2 className="text-[0.9375rem] font-semibold">Escala anual de ISR (DGII)</h2>
           <p className="text-xs text-texto-3">ISR = fijo + tasa × (ingreso anual gravable − excedente). Se prorratea por período.</p>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[11px] tracking-wide text-texto-3 uppercase">
+            <tr className="text-left text-[0.6875rem] tracking-wide text-texto-3 uppercase">
               <th className="pb-2 font-medium">Desde (excedente de)</th>
               <th className="pb-2 font-medium">Hasta</th>
               <th className="pb-2 font-medium">Tasa %</th>

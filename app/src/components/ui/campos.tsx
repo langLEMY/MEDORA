@@ -18,7 +18,7 @@ export function Campo({ etiqueta, ayuda, error, className, children }: CampoProp
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {etiqueta && (
-        <label htmlFor={id} className="text-[13px] font-medium text-texto-2">
+        <label htmlFor={id} className="text-[0.8125rem] font-medium text-texto-2">
           {etiqueta}
         </label>
       )}
@@ -161,7 +161,7 @@ export function Segmentado<T extends string>({
           type="button"
           onClick={() => onChange(o.valor)}
           className={cn(
-            "relative h-7 rounded-lg px-3 text-[13px] font-medium transition-colors duration-150",
+            "relative h-7 rounded-lg px-3 text-[0.8125rem] font-medium transition-colors duration-150",
             valor === o.valor ? "text-texto" : "text-texto-2 hover:text-texto",
           )}
         >
@@ -183,18 +183,21 @@ export function Interruptor({
   activo,
   onChange,
   etiqueta,
+  disabled,
 }: {
   activo: boolean;
   onChange: (v: boolean) => void;
   etiqueta?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={activo}
+      disabled={disabled}
       onClick={() => onChange(!activo)}
-      className="inline-flex items-center gap-2.5 text-sm text-texto-2"
+      className="inline-flex items-center gap-2.5 text-sm text-texto-2 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span
         className={cn(

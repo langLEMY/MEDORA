@@ -7,12 +7,14 @@ import { Boton } from "@/components/ui/boton";
 import { Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { claves, ESTADO_CITA, useCitas, useMedicos, type CitaConRelaciones } from "@/lib/consultas";
+import { claves, ESTADO_CITA, nombrePaciente, SIN_ESPECIALIDAD, useCitas, useMedicos, type CitaConRelaciones } from "@/lib/consultas";
+import { OpcionesMedicos } from "@/components/OpcionesMedicos";
 import { puedeEscribir } from "@/lib/permisos";
 import type { EstadoCita } from "@/lib/supabase";
 import { useTiempoReal } from "@/lib/tiempoReal";
 import { cn, hora, isoDia } from "@/lib/utils";
-import { useSistema } from "@/sesion/SesionProvider";
+import { useSesion, useSistema } from "@/sesion/SesionProvider";
+import { useAccionUrl } from "@/lib/accionUrl";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 
 const HORA_INICIO = 7;
@@ -22,7 +24,7 @@ const ALTO_HORA = 68;
 const COLUMNAS_AGENDA: ColumnaDatos<CitaConRelaciones>[] = [
   { titulo: "Hora", valor: (c) => `${hora(c.inicio)} – ${hora(c.fin)}` },
   { titulo: "Profesional", valor: (c) => c.medico?.nombre_completo },
-  { titulo: "Paciente", valor: (c) => `${c.paciente?.nombres ?? ""} ${c.paciente?.apellidos ?? ""}` },
+  { titulo: "Paciente", valor: (c) => nombrePaciente(c) },
   { titulo: "Expediente", valor: (c) => c.paciente?.expediente },
   { titulo: "Servicio / motivo", valor: (c) => c.servicio?.nombre ?? c.motivo },
   { titulo: "Estado", valor: (c) => ESTADO_CITA[c.estado].etiqueta },
@@ -31,7 +33,9 @@ const COLUMNAS_AGENDA: ColumnaDatos<CitaConRelaciones>[] = [
 const COLOR_ESTADO: Record<EstadoCita, string> = {
   programada: "border-l-[var(--borde-fuerte)]",
   confirmada: "border-l-[#2e90fa]",
+  por_cobrar: "border-l-[var(--aviso)]",
   en_espera: "border-l-[var(--aviso)]",
+  llamado: "border-l-[#2e90fa]",
   en_consulta: "border-l-[#7a5af8]",
   completada: "border-l-[var(--exito)]",
   cancelada: "border-l-[var(--peligro)] opacity-50",
@@ -39,14 +43,17 @@ const COLOR_ESTADO: Record<EstadoCita, string> = {
 };
 
 export default function Agenda() {
-  const { sistemaId, roles } = useSistema();
+  const { sistemaId, roles, soloPropio } = useSistema();
+  const yo = useSesion().sesion!.user.id;
   const [params, setParams] = useSearchParams();
   const [dia, setDia] = useState(isoDia());
   const [direccion, setDireccion] = useState(0);
-  const [medico, setMedico] = useState("");
+  // El médico solo tiene su propia columna.
+  const [medico, setMedico] = useState(soloPropio ? yo : "");
   const [nueva, setNueva] = useState<{ medico?: string; hora?: string } | null>(params.get("nueva") ? {} : null);
   const [detalle, setDetalle] = useState<CitaConRelaciones | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
+  useAccionUrl({ nueva: () => setNueva(soloPropio ? { medico: yo } : {}) });
 
   const medicos = useMedicos(sistemaId);
   const [desde, hasta] = useMemo(() => {
@@ -58,7 +65,12 @@ export default function Agenda() {
   const citas = useCitas(sistemaId, desde, hasta);
   useTiempoReal("citas", sistemaId, [[...claves.citas(sistemaId)]]);
 
-  const columnas = (medicos.data ?? []).filter((m) => !medico || m.usuario_id === medico);
+  // "" = todos; "esp:<nombre>" = toda una especialidad; si no, un médico.
+  const esp = medico.startsWith("esp:") ? medico.slice(4) : null;
+  const columnas = (medicos.data ?? []).filter((m) =>
+    !medico ? true : esp ? (m.especialidad?.trim() || SIN_ESPECIALIDAD) === esp : m.usuario_id === medico,
+  );
+  const idsVisibles = new Set(columnas.map((m) => m.usuario_id));
   const escribir = puedeEscribir.citas(roles);
   const esHoy = dia === isoDia();
 
@@ -82,24 +94,22 @@ export default function Agenda() {
   return (
     <>
       <EncabezadoPagina
-        titulo="Agenda"
+        titulo={soloPropio ? "Mi agenda" : "Agenda"}
         acciones={
           <>
-            <Selector value={medico} onChange={(e) => setMedico(e.target.value)} contenedor="w-56">
-              <option value="">Todos los profesionales</option>
-              {medicos.data?.map((m) => (
-                <option key={m.usuario_id} value={m.usuario_id}>
-                  {m.perfil?.nombre_completo}
-                </option>
-              ))}
-            </Selector>
+            {!soloPropio && (
+              <Selector value={medico} onChange={(e) => setMedico(e.target.value)} contenedor="w-64">
+                <option value="">Todos los médicos</option>
+                <OpcionesMedicos medicos={medicos.data ?? []} especialidades />
+              </Selector>
+            )}
             <AccionesDatos
               titulo={`Agenda del ${new Intl.DateTimeFormat("es-DO", { weekday: "long", day: "numeric", month: "long" }).format(new Date(dia + "T00:00:00"))}`}
               columnas={COLUMNAS_AGENDA}
-              obtener={async () => (citas.data ?? []).filter((c) => !medico || c.medico_id === medico)}
+              obtener={async () => (citas.data ?? []).filter((c) => !medico || (!!c.medico_id && idsVisibles.has(c.medico_id)))}
             />
             {escribir && (
-              <Boton icono={<CalendarPlus className="size-4" />} onClick={() => setNueva({})}>
+              <Boton icono={<CalendarPlus className="size-4" />} onClick={() => setNueva(soloPropio ? { medico: yo } : {})}>
                 Programar cita
               </Boton>
             )}
@@ -124,7 +134,7 @@ export default function Agenda() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: direccion * -16 }}
                 transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                className="absolute text-[15px] font-semibold first-letter:uppercase"
+                className="absolute text-[0.9375rem] font-semibold first-letter:uppercase"
               >
                 {titulo}
               </motion.h2>
@@ -158,7 +168,7 @@ export default function Agenda() {
               <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-borde bg-superficie">
                 <div className="sticky top-0 z-10 h-12 border-b border-borde bg-superficie" />
                 {Array.from({ length: HORA_FIN - HORA_INICIO }, (_, i) => (
-                  <div key={i} className="relative text-right text-[11px] text-texto-3 tabular" style={{ height: ALTO_HORA }}>
+                  <div key={i} className="relative text-right text-[0.6875rem] text-texto-3 tabular" style={{ height: ALTO_HORA }}>
                     {i > 0 && <span className="absolute -top-2 right-2">{`${HORA_INICIO + i}:00`}</span>}
                   </div>
                 ))}
@@ -169,10 +179,10 @@ export default function Agenda() {
                 return (
                   <div key={m.usuario_id} className="min-w-[220px] flex-1 border-r border-borde last:border-r-0">
                     <div className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-borde bg-superficie/95 px-3 backdrop-blur">
-                      <Avatar nombre={m.perfil?.nombre_completo} tamano={24} />
+                      <Avatar nombre={m.perfil?.nombre_completo} foto={m.perfil?.foto} tamano={24} />
                       <div className="min-w-0">
-                        <p className="truncate text-[13px] font-semibold">{m.perfil?.nombre_completo}</p>
-                        {m.especialidad && <p className="truncate text-[11px] text-texto-3">{m.especialidad}</p>}
+                        <p className="truncate text-[0.8125rem] font-semibold">{m.perfil?.nombre_completo}</p>
+                        {m.especialidad && <p className="truncate text-[0.6875rem] text-texto-3">{m.especialidad}</p>}
                       </div>
                       <span className="ml-auto text-xs text-texto-3 tabular">{suyas.filter((c) => c.estado !== "cancelada").length}</span>
                     </div>
@@ -223,10 +233,10 @@ export default function Agenda() {
                               style={{ top: top + 1, height: alto }}
                             >
                               <p className="truncate text-xs font-semibold">
-                                {c.paciente?.nombres} {c.paciente?.apellidos}
+                                {nombrePaciente(c)}
                               </p>
                               {alto > 40 && (
-                                <p className="truncate text-[11px] text-texto-3">
+                                <p className="truncate text-[0.6875rem] text-texto-3">
                                   {hora(c.inicio)} · {c.servicio?.nombre ?? c.motivo ?? "Consulta"}
                                 </p>
                               )}
@@ -278,7 +288,7 @@ function DetalleCita({ cita, onCerrar, escribir }: { cita: CitaConRelaciones | n
       abierto={!!cita}
       onCerrar={onCerrar}
       ancho="sm"
-      titulo={`${c.paciente?.nombres} ${c.paciente?.apellidos}`}
+      titulo={nombrePaciente(c)}
       descripcion={`${hora(c.inicio)} – ${hora(c.fin)} · ${c.medico?.nombre_completo}`}
       pie={
         escribir && activa ? (
@@ -317,9 +327,13 @@ function DetalleCita({ cita, onCerrar, escribir }: { cita: CitaConRelaciones | n
             <dd className="mt-1">{c.motivo}</dd>
           </div>
         )}
-        <Link to={`/pacientes/${c.paciente_id}`} className="inline-block pt-1 font-medium text-marca-texto hover:underline">
-          Abrir ficha del paciente →
-        </Link>
+        {c.paciente_id ? (
+          <Link to={`/pacientes/${c.paciente_id}`} className="inline-block pt-1 font-medium text-marca-texto hover:underline">
+            Abrir ficha del paciente →
+          </Link>
+        ) : (
+          <p className="pt-1 text-texto-3">Paciente por identificar en caja o recepción.</p>
+        )}
       </dl>
     </Modal>
   );
