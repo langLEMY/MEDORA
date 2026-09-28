@@ -23,7 +23,7 @@ import { pagina } from "../ui/movimiento";
 import { Avatar, Kbd } from "../ui/superficies";
 import { AvisoActualizacion } from "./AvisoActualizacion";
 import { Isotipo } from "./Logo";
-import { NAVEGACION } from "./navegacion";
+import { NAVEGACION, inicioPorRol } from "./navegacion";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
 
@@ -77,7 +77,8 @@ export function AppShell() {
     } catch {
       return;
     }
-    if (location.pathname === "/" && inicio !== "/" && visibles.some((i) => i.ruta === inicio)) navigate(inicio, { replace: true });
+    const destino = inicio === "auto" ? inicioPorRol(roles, esSuperadmin) : inicio;
+    if (location.pathname === "/" && destino !== "/" && visibles.some((i) => i.ruta === destino)) navigate(destino, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar
   }, []);
 

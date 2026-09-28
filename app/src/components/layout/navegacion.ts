@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Modulo } from "@/lib/permisos";
+import type { Rol } from "@/lib/supabase";
 
 export interface ItemNav {
   ruta: string;
@@ -56,3 +57,18 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/configuracion", etiqueta: "Sistema y sedes", icono: Building2, modulo: "configuracion", soloSuperadmin: true, grupo: "Plataforma" },
   { ruta: "/plataforma", etiqueta: "Plataforma", icono: Network, soloSuperadmin: true, grupo: "Plataforma" },
 ];
+
+/**
+ * Pantalla con la que abre MEDORA cuando la persona no eligió otra
+ * (Personalización → "Al entrar, abrir" = "Según mi rol"): cada quien aterriza
+ * donde trabaja. Dirección y finanzas ven el panel de Inicio.
+ */
+export function inicioPorRol(roles: Rol[], esSuperadmin: boolean): string {
+  const tiene = (...r: Rol[]) => r.some((x) => roles.includes(x));
+  if (esSuperadmin || tiene("admin", "gerencia", "contabilidad", "auditor")) return "/";
+  if (tiene("recepcion")) return "/recepcion";
+  if (tiene("caja")) return "/caja";
+  if (tiene("medico", "psicologia", "nutricion", "terapia", "enfermeria")) return "/recepcion";
+  if (tiene("farmacia")) return "/inventario";
+  return "/";
+}

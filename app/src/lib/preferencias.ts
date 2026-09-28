@@ -15,7 +15,7 @@ export interface Preferencias {
   densidad: "comoda" | "compacta";
   contraste: "normal" | "alto";
   movimiento: "completo" | "reducido";
-  /** Ruta que se abre al entrar ("/" = Inicio). */
+  /** Ruta que se abre al entrar: "auto" = según el rol (navegacion.ts#inicioPorRol), "/" = Inicio. */
   inicio: string;
 }
 
@@ -25,7 +25,7 @@ export const PREFERENCIAS_DEFECTO: Preferencias = {
   densidad: "comoda",
   contraste: "normal",
   movimiento: "completo",
-  inicio: "/",
+  inicio: "auto",
 };
 
 const CLAVE = "medora.preferencias";
@@ -51,7 +51,7 @@ function normalizar(p: Partial<Preferencias>): Preferencias {
     densidad: de("densidad", ["comoda", "compacta"]),
     contraste: de("contraste", ["normal", "alto"]),
     movimiento: de("movimiento", ["completo", "reducido"]),
-    inicio: typeof p.inicio === "string" && p.inicio.startsWith("/") ? p.inicio : "/",
+    inicio: typeof p.inicio === "string" && (p.inicio === "auto" || p.inicio.startsWith("/")) ? p.inicio : "auto",
   };
 }
 

@@ -99,6 +99,7 @@ export function Personalizacion() {
           "Al entrar, abrir",
           "La primera pantalla al iniciar MEDORA.",
           <Selector value={p.inicio} onChange={(e) => cambiar({ inicio: e.target.value })} contenedor="w-52">
+            <option value="auto">Según mi rol (recomendado)</option>
             {paginas.map((i) => (
               <option key={i.ruta} value={i.ruta}>
                 {propio && i.etiquetaPropia ? i.etiquetaPropia : i.etiqueta}

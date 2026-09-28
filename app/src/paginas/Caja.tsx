@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDownLeft,
+  ArrowLeft,
   ArrowUpRight,
   Ban,
+  MoreHorizontal,
   Clock,
   FileText,
   HandCoins,
@@ -13,6 +15,7 @@ import {
   Receipt,
   Trash2,
   Unlock,
+  UserCheck,
   Wallet,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -23,6 +26,7 @@ import { SelectorPaciente, type PacienteBreve } from "@/components/SelectorPacie
 import { SelectorServicio } from "@/components/SelectorServicio";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Campo, Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/campos";
+import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
@@ -45,7 +49,7 @@ import { useAccionUrl } from "@/lib/accionUrl";
 import { OpcionesMedicos } from "@/components/OpcionesMedicos";
 import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila, type MetodoPago } from "@/lib/supabase";
-import { cn, fecha, fechaHora, hora, isoDia, moneda, relativo } from "@/lib/utils";
+import { cn, fecha, fechaHora, hora, isoDia, moneda } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 
@@ -83,7 +87,15 @@ const SELECT_COBRO =
   "profesional:perfiles!cobros_profesional_perfil_fk(nombre_completo), aseguradora:aseguradoras!cobros_sistema_id_aseguradora_id_fkey(nombre), " +
   "anulacion:anulaciones_cobro(motivo), cita:citas!cobros_sistema_id_cita_id_fkey(turno, especialidad, medico_id, medico:perfiles!citas_medico_perfil_fk(nombre_completo)), pagos:cobro_pagos(metodo, monto, referencia, recibido), detalles:cobro_detalles(descripcion, categoria, cantidad, precio_unitario, cobertura, total)";
 
-type Vista = "cobros" | "anticipos" | "cxc" | "movimientos" | "turnos";
+type Vista = "cobrar" | "anticipos" | "cxc" | "movimientos" | "turnos";
+
+/** Vistas secundarias (menú «Más»), con nombres del día a día. */
+const OTRAS_VISTAS: Record<Exclude<Vista, "cobrar">, { titulo: string; detalle: string }> = {
+  anticipos: { titulo: "Dinero adelantado", detalle: "Anticipos de pacientes y su saldo disponible." },
+  cxc: { titulo: "Lo que deben", detalle: "Saldos a crédito de pacientes y coberturas pendientes de las ARS (cuentas por cobrar)." },
+  movimientos: { titulo: "Movimientos de hoy", detalle: "Entradas y salidas de dinero de la caja." },
+  turnos: { titulo: "Turnos de caja", detalle: "Aperturas, cierres y arqueos." },
+};
 
 const COLUMNAS_COBROS: ColumnaDatos<CobroFila>[] = [
   { titulo: "Recibo", valor: (c) => c.numero },
@@ -107,7 +119,7 @@ export default function Caja() {
   const qc = useQueryClient();
   const yo = sesion!.user.id;
   const operar = puedeEscribir.caja(roles);
-  const [vista, setVista] = useState<Vista>("cobros");
+  const [vista, setVista] = useState<Vista>("cobrar");
   const [cerrar, setCerrar] = useState(false);
   const [cobrar, setCobrar] = useState(false);
   // Paciente que llegó a recepción y espera cobro para recibir su turno.
@@ -180,118 +192,135 @@ export default function Caja() {
     <>
       <EncabezadoPagina
         titulo="Caja y facturación"
-        descripcion="Cobros con NCF, anticipos, cuentas por cobrar y cierres de turno."
+        descripcion="Cobra a quien espera y lleva el control de la caja."
         acciones={
-          operar && (
-            <>
-              {t && (
-                <Boton variante="secundario" icono={<ArrowUpRight className="size-4" />} onClick={() => setMovimiento(true)}>
-                  Movimiento
+          <>
+            <Menu
+              alinear="derecha"
+              ancho={250}
+              disparador={() => (
+                <Boton variante="secundario" icono={<MoreHorizontal className="size-4" />}>
+                  Más
                 </Boton>
               )}
-              <Boton variante="secundario" icono={<HandCoins className="size-4" />} onClick={() => setAnticipo(true)}>
-                Anticipo
-              </Boton>
+            >
+              {(cerrarMenu) => (
+                <>
+                  {operar && (
+                    <>
+                      <ItemMenu icono={<HandCoins />} onClick={() => (setAnticipo(true), cerrarMenu())}>
+                        Registrar dinero adelantado
+                      </ItemMenu>
+                      <ItemMenu
+                        icono={<ArrowUpRight />}
+                        onClick={() => {
+                          cerrarMenu();
+                          if (t) setMovimiento(true);
+                          else toast.info("Primero registra un cobro: el turno de caja se abre solo.");
+                        }}
+                      >
+                        Entrada o salida de caja
+                      </ItemMenu>
+                      <SeparadorMenu />
+                    </>
+                  )}
+                  {(Object.keys(OTRAS_VISTAS) as Exclude<Vista, "cobrar">[]).map((v) => (
+                    <ItemMenu key={v} activo={vista === v} onClick={() => (setVista(v), cerrarMenu())}>
+                      {OTRAS_VISTAS[v].titulo}
+                    </ItemMenu>
+                  ))}
+                </>
+              )}
+            </Menu>
+            {operar && (
               <Boton icono={<Plus className="size-4" />} onClick={() => setCobrar(true)}>
-                Nuevo cobro
+                Cobro sin turno
               </Boton>
-            </>
-          )
+            )}
+          </>
         }
       />
 
       {operar && (
         <Tarjeta className="mb-4 overflow-hidden">
           {turno.isLoading ? (
-            <Esqueleto className="m-5 h-16" />
+            <Esqueleto className="m-3 h-8" />
           ) : t ? (
-            <div className="flex flex-wrap items-center gap-6 p-5">
-              <div className="flex items-center gap-3">
-                <span className="relative grid size-10 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--exito)_12%,var(--superficie))] text-exito">
-                  <Unlock className="size-[18px]" />
-                  <span className="absolute -top-0.5 -right-0.5 size-2.5 animate-pulse rounded-full bg-exito ring-2 ring-superficie" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-3">
+              <span className="relative grid size-8 place-items-center rounded-lg bg-[color-mix(in_oklab,var(--exito)_12%,var(--superficie))] text-exito">
+                <Unlock className="size-4" />
+                <span className="absolute -top-0.5 -right-0.5 size-2 animate-pulse rounded-full bg-exito ring-2 ring-superficie" />
+              </span>
+              <p className="text-sm">
+                <span className="font-semibold">Caja abierta</span>
+                <span className="text-texto-3"> desde las {hora(t.abierto_en)}</span>
+              </p>
+              <p
+                className="text-sm text-texto-2"
+                title={`Fondo ${moneda(Number(t.monto_apertura))} + entradas ${moneda(efectivo("ingreso"))} − salidas ${moneda(efectivo("egreso"))}`}
+              >
+                Efectivo en caja:{" "}
+                <span className="font-semibold text-texto tabular">
+                  <NumeroAnimado valor={esperado} formato={(n) => moneda(n)} />
                 </span>
-                <div>
-                  <p className="text-sm font-semibold">Turno abierto</p>
-                  <p className="text-xs text-texto-3">
-                    Desde las {hora(t.abierto_en)} · {relativo(t.abierto_en)}
-                  </p>
-                </div>
-              </div>
-              {[
-                ["Apertura", Number(t.monto_apertura)],
-                ["Ingresos en efectivo", efectivo("ingreso")],
-                ["Egresos en efectivo", efectivo("egreso")],
-                ["Efectivo esperado", esperado],
-              ].map(([k, v]) => (
-                <div key={k as string}>
-                  <p className="text-xs text-texto-3">{k}</p>
-                  <p className="text-[1.0625rem] font-semibold tracking-[-0.01em]">
-                    <NumeroAnimado valor={v as number} formato={(n) => moneda(n)} />
-                  </p>
-                </div>
-              ))}
-              <Boton variante="secundario" className="ml-auto" icono={<Lock className="size-4" />} onClick={() => setCerrar(true)}>
+              </p>
+              <Boton variante="fantasma" tamano="sm" className="ml-auto" icono={<Lock className="size-3.5" />} onClick={() => setCerrar(true)}>
                 Cerrar turno
               </Boton>
             </div>
           ) : (
-            <div className="flex items-center gap-4 p-5">
-              <span className="grid size-10 place-items-center rounded-xl bg-superficie-2 text-texto-3">
-                <Lock className="size-[18px]" />
+            <div className="flex items-center gap-3 px-5 py-3">
+              <span className="grid size-8 place-items-center rounded-lg bg-superficie-2 text-texto-3">
+                <Lock className="size-4" />
               </span>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">Caja cerrada</p>
-                <p className="text-xs text-texto-3">
-                  Tu turno se abre solo con el primer cobro, con {moneda(fondo.data ?? 0)} de fondo en caja.
-                </p>
-              </div>
+              <p className="text-sm">
+                <span className="font-semibold">Caja cerrada</span>
+                <span className="text-texto-3"> · se abre sola con el primer cobro, con {moneda(fondo.data ?? 0)} de fondo.</span>
+              </p>
             </div>
           )}
         </Tarjeta>
       )}
 
-      {operar && (
-        <PendientesCobro
-          onCobrar={(c) => {
-            setCitaCobro(c);
-            setCobrar(true);
-          }}
-          onExonerar={setExonerar}
-        />
-      )}
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Segmentado
-          id="caja"
-          valor={vista}
-          onChange={setVista}
-          opciones={[
-            { valor: "cobros", etiqueta: "Cobros de hoy" },
-            { valor: "anticipos", etiqueta: "Anticipos" },
-            { valor: "cxc", etiqueta: "Cuentas por cobrar" },
-            { valor: "movimientos", etiqueta: "Movimientos" },
-            { valor: "turnos", etiqueta: "Turnos" },
-          ]}
-        />
-        {vista === "cobros" && (
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-texto-2">
-              Facturado hoy: <span className="font-semibold text-texto tabular">{moneda(totalHoy)}</span>
-            </p>
-            <AccionesDatos titulo="Cobros del día" columnas={COLUMNAS_COBROS} obtener={async () => cobros.data ?? []} />
+      {vista !== "cobrar" && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Boton variante="secundario" tamano="sm" icono={<ArrowLeft className="size-3.5" />} onClick={() => setVista("cobrar")}>
+            Cobrar
+          </Boton>
+          <div>
+            <p className="text-[0.9375rem] font-semibold">{OTRAS_VISTAS[vista].titulo}</p>
+            <p className="text-xs text-texto-3">{OTRAS_VISTAS[vista].detalle}</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div key={vista} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
-          {vista === "cobros" && (
+          {vista === "cobrar" && (
+            <>
+            {operar && (
+              <PendientesCobro
+                onCobrar={(c) => {
+                  setCitaCobro(c);
+                  setCobrar(true);
+                }}
+                onExonerar={setExonerar}
+              />
+            )}
+            <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[0.9375rem] font-semibold">Cobrados hoy</p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-texto-2">
+                  Facturado hoy: <span className="font-semibold text-texto tabular">{moneda(totalHoy)}</span>
+                </p>
+                <AccionesDatos titulo="Cobros del día" columnas={COLUMNAS_COBROS} obtener={async () => cobros.data ?? []} />
+              </div>
+            </div>
             <Tarjeta className="overflow-hidden">
               {cobros.isLoading ? (
                 <Esqueleto className="m-5 h-40" />
               ) : (cobros.data?.length ?? 0) === 0 ? (
-                <Vacio icono={<Receipt />} titulo="Sin cobros hoy" />
+                <Vacio icono={<Receipt />} titulo="Aún no hay cobros hoy" />
               ) : (
                 <motion.ul variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
                   {cobros.data!.map((c) => {
@@ -331,6 +360,7 @@ export default function Caja() {
                 </motion.ul>
               )}
             </Tarjeta>
+            </>
           )}
 
           {vista === "anticipos" && <Anticipos onComprobante={setComprobante} />}
@@ -424,19 +454,31 @@ function PendientesCobro({ onCobrar, onExonerar }: { onCobrar: (c: CitaConRelaci
   useTiempoReal("citas", sistemaId, [[...claves.citas(sistemaId)]]);
   const pendientes = (turnos.data ?? []).filter((c) => c.estado === "por_cobrar").sort((a, b) => (a.llegada_en ?? "").localeCompare(b.llegada_en ?? ""));
   const admin = roles.includes("admin");
-  if (!pendientes.length) return null;
+
+  if (!turnos.isLoading && !pendientes.length)
+    return (
+      <Tarjeta className="flex items-center gap-4 px-5 py-4">
+        <span className="grid size-10 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--exito)_12%,var(--superficie))] text-exito">
+          <UserCheck className="size-5" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold">Nadie esperando cobro</p>
+          <p className="text-xs text-texto-3">Cuando recepción registre una llegada, el paciente aparece aquí al instante, listo para cobrar.</p>
+        </div>
+      </Tarjeta>
+    );
 
   return (
-    <Tarjeta className="mb-4 overflow-hidden border-aviso/40">
-      <div className="flex items-center gap-2 border-b border-borde px-5 py-2.5">
+    <Tarjeta className="overflow-hidden border-aviso/40">
+      <div className="flex items-center gap-2 border-b border-borde px-5 py-3">
         <Clock className="size-4 text-aviso" />
-        <span className="text-sm font-semibold">Pendientes de cobro</span>
+        <span className="text-[0.9375rem] font-semibold">Esperando cobro</span>
         <Insignia tono="aviso">{pendientes.length}</Insignia>
-        <span className="ml-auto text-xs text-texto-3">Al cobrar se les asigna el turno</span>
+        <span className="ml-auto text-xs text-texto-3">Al cobrar reciben su turno</span>
       </div>
       <ul className="divide-y divide-borde">
         {pendientes.map((c) => (
-          <li key={c.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+          <li key={c.id} className="flex items-center gap-3 px-5 py-3 text-sm">
             <span className="min-w-0 flex-1">
               <span className={cn("block truncate font-medium", !c.paciente && "text-aviso")}>
                 {c.turno && <span className="mr-1.5 font-mono font-bold text-marca-texto">{c.turno}</span>}
