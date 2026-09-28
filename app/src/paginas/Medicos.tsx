@@ -246,6 +246,9 @@ function Icono({ icono, texto }: { icono: React.ReactNode; texto: string }) {
   );
 }
 
+/** La calificación solo la ve el admin (espejo de directorio_medicos, que la devuelve null al resto). */
+export const useVerCalificacion = () => useSistema().roles.includes("admin");
+
 /** Estrellas en medias (★★★★½) con los puntos al pasar el mouse. */
 export function Estrellas({ m, tamano = "sm" }: { m: Pick<Medico, "estrellas" | "puntos" | "atendidos_30d" | "espera_promedio" | "cierre_pct">; tamano?: "sm" | "md" }) {
   if (m.estrellas === null) return <span className="text-xs text-texto-3">Sin calificación todavía</span>;
@@ -277,6 +280,7 @@ export function Estrellas({ m, tamano = "sm" }: { m: Pick<Medico, "estrellas" | 
 
 function TarjetaMedico({ m, escribir, onTurno, onCita }: { m: Medico; escribir: boolean; onTurno: () => void; onCita: () => void }) {
   const e = ESTADO[m.estado];
+  const verCalificacion = useVerCalificacion();
   const iniciales = m.nombre
     .split(/\s+/)
     .slice(0, 2)
@@ -306,9 +310,11 @@ function TarjetaMedico({ m, escribir, onTurno, onCita }: { m: Medico; escribir: 
             {m.exequatur ? `Exeq. ${m.exequatur}` : "Exequátur no registrado"}
             {m.consultorio ? ` · Consultorio ${m.consultorio}` : ""}
           </p>
-          <div className="mt-2">
-            <Estrellas m={m} />
-          </div>
+          {verCalificacion && (
+            <div className="mt-2">
+              <Estrellas m={m} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -363,6 +369,7 @@ function TablaMedicos({
   onTurno: (id: string) => void;
   onCita: (id: string) => void;
 }) {
+  const verCalificacion = useVerCalificacion();
   return (
     <Tarjeta className="overflow-x-auto">
       <table className="w-full min-w-[860px] text-sm">
@@ -373,7 +380,7 @@ function TablaMedicos({
             <th className="px-3 py-2.5 text-right font-medium">En cola</th>
             <th className="px-3 py-2.5 text-right font-medium">Atendidos hoy</th>
             <th className="px-3 py-2.5 text-right font-medium">Por llegar</th>
-            <th className="px-3 py-2.5 font-medium">Calificación</th>
+            {verCalificacion && <th className="px-3 py-2.5 font-medium">Calificación</th>}
             <th className="px-5 py-2.5" />
           </tr>
         </thead>
@@ -395,9 +402,11 @@ function TablaMedicos({
                 <td className={cn("px-3 py-3 text-right font-semibold tabular", cola > 0 && "text-aviso")}>{cola}</td>
                 <td className="px-3 py-3 text-right tabular">{m.atendidos_hoy}</td>
                 <td className="px-3 py-3 text-right tabular">{m.pendientes_hoy}</td>
-                <td className="px-3 py-3">
-                  <Estrellas m={m} />
-                </td>
+                {verCalificacion && (
+                  <td className="px-3 py-3">
+                    <Estrellas m={m} />
+                  </td>
+                )}
                 <td className="px-5 py-3">
                   {escribir && (
                     <div className="flex justify-end gap-2">
