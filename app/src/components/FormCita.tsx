@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Forward } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { claves, useMedicos, useSedes, useServicios } from "@/lib/consultas";
 import { OpcionesMedicos } from "./OpcionesMedicos";
 import { mensajeError, supabase, type EstadoCita, type Tablas } from "@/lib/supabase";
 import { isoDia } from "@/lib/utils";
-import { useSistema } from "@/sesion/SesionProvider";
+import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { SelectorPaciente, type PacienteBreve } from "./SelectorPaciente";
 import { Boton } from "./ui/boton";
 import { AreaTexto, Entrada, Selector } from "./ui/campos";
@@ -32,6 +33,7 @@ export function FormCita({
   const medicos = useMedicos(sistemaId);
   const servicios = useServicios(sistemaId);
   const sedes = useSedes(sistemaId);
+  const yo = useSesion().sesion?.user.id;
 
   const [paciente, setPaciente] = useState<PacienteBreve | null>(null);
   const [medico, setMedico] = useState("");
@@ -42,6 +44,8 @@ export function FormCita({
   const [duracion, setDuracion] = useState(30);
   const [motivo, setMotivo] = useState("");
   const [intentado, setIntentado] = useState(false);
+  // Un médico que agenda con otro profesional está refiriendo: se confirma antes.
+  const [confirmarReferir, setConfirmarReferir] = useState(false);
 
   useEffect(() => {
     if (!abierto) return;
@@ -55,6 +59,7 @@ export function FormCita({
     setDuracion(30);
     setMotivo("");
     setIntentado(false);
+    setConfirmarReferir(false);
   }, [abierto, dia, medicoInicial, horaInicial, llegadaDirecta]);
 
   useEffect(() => {
@@ -81,7 +86,7 @@ export function FormCita({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(llegadaDirecta ? "Paciente en sala de espera" : "Cita programada");
+      toast.success(refiere ? `Referido a ${nombreMedico}` : llegadaDirecta ? "Paciente en sala de espera" : "Cita programada");
       void qc.invalidateQueries({ queryKey: claves.citas(sistemaId) });
       void qc.invalidateQueries({ queryKey: ["dashboard", sistemaId] });
       onCerrar();
@@ -89,9 +94,19 @@ export function FormCita({
     onError: (e) => toast.error(mensajeError(e)),
   });
 
+  const soyProfesional = !!yo && (medicos.data ?? []).some((m) => m.usuario_id === yo);
+  const refiere = soyProfesional && !!medico && medico !== yo;
+  const nombreMedico = medicos.data?.find((m) => m.usuario_id === medico)?.perfil?.nombre_completo ?? "otro profesional";
+  const nombrePac = paciente ? `${paciente.nombres} ${paciente.apellidos}`.trim() : "";
+
   const enviar = () => {
     setIntentado(true);
-    if (paciente && medico) guardar.mutate();
+    if (!paciente || !medico) return;
+    if (refiere && !confirmarReferir) {
+      setConfirmarReferir(true);
+      return;
+    }
+    guardar.mutate();
   };
 
   // Solo lo que se agenda con ese médico: las consultas de su especialidad (o, si su
@@ -123,16 +138,42 @@ export function FormCita({
       titulo={llegadaDirecta ? "Llegada sin cita" : "Programar cita"}
       descripcion={llegadaDirecta ? "El paciente pasa directo a la sala de espera." : undefined}
       pie={
-        <>
-          <Boton variante="secundario" onClick={onCerrar}>
-            Cancelar
-          </Boton>
-          <Boton cargando={guardar.isPending} onClick={enviar}>
-            {llegadaDirecta ? "Enviar a sala de espera" : "Programar"}
-          </Boton>
-        </>
+        confirmarReferir ? (
+          <>
+            <Boton variante="secundario" onClick={() => setConfirmarReferir(false)} disabled={guardar.isPending}>
+              No, volver
+            </Boton>
+            <Boton cargando={guardar.isPending} onClick={enviar}>
+              Sí, referir
+            </Boton>
+          </>
+        ) : (
+          <>
+            <Boton variante="secundario" onClick={onCerrar}>
+              Cancelar
+            </Boton>
+            <Boton cargando={guardar.isPending} onClick={enviar}>
+              {refiere ? "Referir" : llegadaDirecta ? "Enviar a sala de espera" : "Programar"}
+            </Boton>
+          </>
+        )
       }
     >
+      {confirmarReferir ? (
+        <div className="flex flex-col items-center gap-3 py-4 text-center">
+          <span className="grid size-12 place-items-center rounded-2xl bg-marca-suave text-marca">
+            <Forward className="size-6" />
+          </span>
+          <p className="text-[0.9375rem] leading-relaxed">
+            ¿Desea referir a <strong className="font-semibold">{nombrePac}</strong> a{" "}
+            <strong className="font-semibold">{nombreMedico}</strong>?
+          </p>
+          <p className="text-xs text-texto-3">
+            La cita queda en la agenda de {nombreMedico}
+            {llegadaDirecta ? " y el paciente pasa a su sala de espera." : "."}
+          </p>
+        </div>
+      ) : (
       <div className="space-y-4">
         <SelectorPaciente valor={paciente} onChange={setPaciente} error={intentado && !paciente ? "Selecciona un paciente" : undefined} />
         <div className="grid grid-cols-2 gap-4">
@@ -197,6 +238,7 @@ export function FormCita({
         )}
         <AreaTexto etiqueta="Motivo" className="min-h-16" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
       </div>
+      )}
     </Modal>
   );
 }

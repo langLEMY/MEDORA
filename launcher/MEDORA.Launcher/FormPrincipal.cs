@@ -62,7 +62,7 @@ public sealed class FormPrincipal : Form
             }
         };
         FormClosed += (_, _) => _pantallaSala?.Close();
-        BackColor = TemaOscuro() ? Color.FromArgb(11, 13, 18) : Color.FromArgb(246, 247, 249);
+        BackColor = TemaOscuro() ? Color.FromArgb(11, 13, 18) : Color.FromArgb(233, 236, 240);
 
         var icono = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         if (icono is not null)

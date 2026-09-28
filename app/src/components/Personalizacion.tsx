@@ -159,9 +159,9 @@ interface Estilo<K extends string> {
 
 // Colores de muestra (los reales viven en index.css: data-claro / data-oscuro).
 const ESTILOS_CLAROS: Estilo<Preferencias["claro"]>[] = [
-  { clave: "nieve", nombre: "Nieve", fondo: "#f6f7f9", superficie: "#ffffff", borde: "#e4e7ec", texto: "#101828", suave: "#98a2b3" },
-  { clave: "marfil", nombre: "Marfil", fondo: "#f6f4ef", superficie: "#fffdf9", borde: "#e5dfd3", texto: "#1c1917", suave: "#a39c93" },
-  { clave: "niebla", nombre: "Niebla", fondo: "#eef2f7", superficie: "#fbfcfe", borde: "#d9e0ea", texto: "#0f172a", suave: "#94a3b8" },
+  { clave: "nieve", nombre: "Nieve", fondo: "#e9ecf0", superficie: "#f5f6f8", borde: "#d8dde4", texto: "#171d29", suave: "#8b94a4" },
+  { clave: "marfil", nombre: "Marfil", fondo: "#ebe6dc", superficie: "#f6f2eb", borde: "#dcd4c6", texto: "#221e1a", suave: "#978f84" },
+  { clave: "niebla", nombre: "Niebla", fondo: "#e2e7ee", superficie: "#eff2f6", borde: "#d0d8e3", texto: "#131b2e", suave: "#8793a6" },
 ];
 const ESTILOS_OSCUROS: Estilo<Preferencias["oscuro"]>[] = [
   { clave: "grafito", nombre: "Grafito", fondo: "#0b0d12", superficie: "#12151c", borde: "#232834", texto: "#f2f4f7", suave: "#6b7383" },
