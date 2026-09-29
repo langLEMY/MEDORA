@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpenCheck, ChevronDown, FileDown, Pencil, Plus, Receipt, Search, Trash2 } from "lucide-react";
+import { BookOpenCheck, ChevronDown, FileDown, Landmark, Pencil, PiggyBank, Plus, Receipt, Search, Trash2, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
@@ -471,70 +471,206 @@ function Balanza() {
   );
 }
 
+// Grupos del catálogo en lenguaje sencillo (el tipo contable queda como subtítulo).
+const GRUPOS_CATALOGO: { tipos: string[]; titulo: string; tecnico: string; ayuda: string; icono: typeof Wallet; color: string }[] = [
+  { tipos: ["activo"], titulo: "Lo que tiene el hospital", tecnico: "Activos", ayuda: "Caja, bancos, inventario y lo que le deben pacientes y ARS.", icono: Wallet, color: "var(--marca)" },
+  { tipos: ["pasivo"], titulo: "Lo que el hospital debe", tecnico: "Pasivos", ayuda: "Proveedores, sueldos, comisiones, impuestos y adelantos de pacientes sin usar.", icono: Landmark, color: "var(--aviso)" },
+  { tipos: ["patrimonio"], titulo: "Capital del hospital", tecnico: "Patrimonio", ayuda: "Lo que aportaron los dueños y las ganancias acumuladas.", icono: PiggyBank, color: "#7a5af8" },
+  { tipos: ["ingreso"], titulo: "Lo que entra", tecnico: "Ingresos", ayuda: "Consultas, laboratorio, imágenes, farmacia y demás servicios cobrados.", icono: TrendingUp, color: "var(--exito)" },
+  { tipos: ["costo", "gasto"], titulo: "Lo que se gasta", tecnico: "Costos y gastos", ayuda: "Sueldos, comisiones de médicos, compras, servicios y descuentos.", icono: TrendingDown, color: "var(--peligro)" },
+];
+
+// Para qué usa MEDORA cada cuenta, dicho como lo diría el personal.
+const USO_SENCILLO: Record<string, string> = {
+  caja: "cobros y pagos en efectivo",
+  banco: "cobros con tarjeta, transferencia o cheque",
+  cxc_pacientes: "lo que quedan debiendo los pacientes",
+  cxc_aseguradoras: "lo que deben pagar las ARS",
+  anticipos_pacientes: "dinero adelantado por pacientes",
+  descuentos: "descuentos hechos en caja",
+  ingreso_fondo_interno: "fondo interno que paga la ARS",
+  inventario: "medicamentos e insumos comprados",
+  itbis_compras: "ITBIS de las facturas de proveedores",
+  cxp: "gastos a crédito con proveedores",
+  gasto_general: "gastos sin cuenta propia",
+  gasto_comisiones: "pago por paciente a los médicos",
+  comisiones_por_pagar: "lo que se les debe a los médicos",
+  gasto_sueldos: "sueldos de la nómina",
+  gasto_aportes: "aportes del hospital a la TSS e INFOTEP",
+  retenciones_tss: "AFP y SFS descontados a empleados",
+  isr_por_pagar: "ISR descontado a empleados y médicos",
+  otras_retenciones: "otros descuentos de nómina",
+  aportes_por_pagar: "aportes a la TSS por pagar",
+  sueldos_por_pagar: "sueldos por pagar a empleados",
+};
+const usoSencillo = (clave: string) =>
+  USO_SENCILLO[clave] ??
+  (clave.startsWith("ingreso_") ? `cobros de ${(CATEGORIAS_SERVICIO[clave.slice(8) as keyof typeof CATEGORIAS_SERVICIO] ?? "otros").toLowerCase()}` : null) ??
+  CONCEPTOS.find((c) => c.clave === clave)?.etiqueta;
+
 function Catalogo() {
   const { sistemaId, roles } = useSistema();
   const cuentas = useCuentas(sistemaId);
   const qc = useQueryClient();
   const [texto, setTexto] = useState("");
   const [editar, setEditar] = useState<CuentaContable | "nueva" | null>(null);
+  const [verTodas, setVerTodas] = useState(false);
   const escribir = puedeEscribir.contabilidad(roles);
 
-  const lista = useMemo(() => {
+  // Cuánto hay en cada cuenta hoy (todo el historial).
+  const saldos = useQuery({
+    queryKey: ["saldos-cuentas", sistemaId],
+    queryFn: async () =>
+      new Map(
+        (datos(await supabase.rpc("balanza_comprobacion", { p_sistema: sistemaId, p_desde: "2000-01-01", p_hasta: isoDia() })) ?? []).map(
+          (f) => [f.codigo, Number(f.saldo)] as const,
+        ),
+      ),
+  });
+  // Para qué la usa MEDORA automáticamente (cuentas por concepto).
+  const usos = useQuery({
+    queryKey: ["cuentas-predeterminadas", sistemaId],
+    queryFn: async () => datos(await supabase.from("cuentas_predeterminadas").select("clave, cuenta_codigo").eq("sistema_id", sistemaId)),
+  });
+  const usoDe = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const u of usos.data ?? []) {
+      const etiqueta = usoSencillo(u.clave);
+      if (etiqueta) m.set(u.cuenta_codigo, [...(m.get(u.cuenta_codigo) ?? []), etiqueta]);
+    }
+    return m;
+  }, [usos.data]);
+
+  const grupos = useMemo(() => {
     const t = texto.trim().toLowerCase();
-    return (cuentas.data ?? []).filter((c) => !t || c.codigo.startsWith(t) || c.nombre.toLowerCase().includes(t));
-  }, [cuentas.data, texto]);
+    const filtradas = (cuentas.data ?? []).filter(
+      (c) =>
+        (verTodas || c.activo) &&
+        (!t || c.codigo.startsWith(t) || c.nombre.toLowerCase().includes(t) || (usoDe.get(c.codigo) ?? []).some((u) => u.toLowerCase().includes(t))),
+    );
+    return GRUPOS_CATALOGO.map((g) => {
+      // El primer nivel (1, 2, 3…) ya es el título del grupo.
+      const del = filtradas.filter((c) => g.tipos.includes(c.tipo) && c.codigo.includes(".")).sort((a, b) => a.codigo.localeCompare(b.codigo, "es", { numeric: true }));
+      const total = del.filter((c) => c.acepta_movimiento).reduce((s, c) => s + (saldos.data?.get(c.codigo) ?? 0), 0);
+      return { ...g, cuentas: del, total };
+    }).filter((g) => g.cuentas.length > 0);
+  }, [cuentas.data, texto, verTodas, usoDe, saldos.data]);
 
   return (
-    <Tarjeta className="overflow-hidden">
-      <div className="flex items-center gap-3 border-b border-borde p-3">
-        <Entrada icono={<Search />} placeholder="Buscar por código o nombre…" value={texto} onChange={(e) => setTexto(e.target.value)} contenedor="w-80" />
-        <div className="ml-auto flex gap-2">
-          <AccionesDatos
-            titulo="Catálogo de cuentas"
-            columnas={[
-              { titulo: "Código", valor: (c: CuentaContable) => c.codigo },
-              { titulo: "Nombre", valor: (c) => c.nombre },
-              { titulo: "Tipo", valor: (c) => c.tipo.charAt(0).toUpperCase() + c.tipo.slice(1) },
-              { titulo: "Acepta movimiento", valor: (c) => c.acepta_movimiento },
-              { titulo: "Activa", valor: (c) => c.activo, soloExcel: true },
-            ]}
-            obtener={async () => cuentas.data ?? []}
-            importaciones={escribir ? [IMPORTACIONES.cuentasContables] : []}
-            onImportado={() => void qc.invalidateQueries({ queryKey: ["cuentas", sistemaId] })}
-          />
-          {escribir && (
-            <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nueva")}>
-              Nueva cuenta
-            </Boton>
-          )}
+    <div className="space-y-4">
+      <Tarjeta className="p-5">
+        <div className="flex flex-wrap items-start gap-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-marca-suave text-marca">
+            <BookOpenCheck className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[0.9375rem] font-semibold">¿Qué es el catálogo de cuentas?</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-texto-2">
+              Son los «cajones» donde MEDORA anota cada peso. Cada cobro, gasto, nómina o comisión se registra aquí <b>solo</b>: no hace falta
+              tocar nada para que funcione. Solo el contador agrega o cambia cuentas si usa otra estructura.
+            </p>
+          </div>
         </div>
-      </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Entrada icono={<Search />} placeholder="Buscar: caja, banco, sueldos…" value={texto} onChange={(e) => setTexto(e.target.value)} contenedor="w-72" />
+          <Interruptor activo={verTodas} onChange={setVerTodas} etiqueta="Ver cuentas desactivadas" />
+          <div className="ml-auto flex gap-2">
+            <AccionesDatos
+              titulo="Catálogo de cuentas"
+              columnas={[
+                { titulo: "Código", valor: (c: CuentaContable) => c.codigo },
+                { titulo: "Nombre", valor: (c) => c.nombre },
+                { titulo: "Tipo", valor: (c) => c.tipo.charAt(0).toUpperCase() + c.tipo.slice(1) },
+                { titulo: "Acepta movimiento", valor: (c) => c.acepta_movimiento },
+                { titulo: "Activa", valor: (c) => c.activo, soloExcel: true },
+              ]}
+              obtener={async () => cuentas.data ?? []}
+              importaciones={escribir ? [IMPORTACIONES.cuentasContables] : []}
+              onImportado={() => void qc.invalidateQueries({ queryKey: ["cuentas", sistemaId] })}
+            />
+            {escribir && (
+              <Boton icono={<Plus className="size-4" />} onClick={() => setEditar("nueva")}>
+                Nueva cuenta
+              </Boton>
+            )}
+          </div>
+        </div>
+      </Tarjeta>
+
       {cuentas.isLoading ? (
-        <FilasEsqueleto />
+        <Tarjeta>
+          <FilasEsqueleto />
+        </Tarjeta>
+      ) : grupos.length === 0 ? (
+        <Tarjeta>
+          <Vacio icono={<Search />} titulo="Ninguna cuenta coincide" descripcion="Prueba con otra palabra." />
+        </Tarjeta>
       ) : (
-        <ul className="max-h-[60vh] divide-y divide-borde overflow-y-auto">
-          {lista.map((c) => {
-            const nivel = c.codigo.split(".").length - 1;
-            return (
-              <li key={c.codigo} className={cn("group flex items-center gap-3 px-5 py-2 text-sm", !c.activo && "opacity-50")}>
-                <span className="font-mono text-xs text-texto-3 tabular" style={{ paddingLeft: nivel * 16, width: 110 }}>
-                  {c.codigo}
-                </span>
-                <span className={cn("min-w-0 flex-1 truncate", !c.acepta_movimiento && "font-semibold")}>{c.nombre}</span>
-                <span className="text-xs text-texto-3 capitalize">{c.tipo}</span>
-                {!c.acepta_movimiento && <Insignia>Agrupación</Insignia>}
-                {escribir && (
-                  <button onClick={() => setEditar(c)} className="grid size-7 place-items-center rounded-md text-texto-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-superficie-2">
-                    <Pencil className="size-3.5" />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        grupos.map((g) => (
+          <Tarjeta key={g.titulo} className="overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-borde px-5 py-4">
+              <span
+                className="grid size-9 shrink-0 place-items-center rounded-xl"
+                style={{ background: `color-mix(in oklab, ${g.color} 13%, var(--superficie))`, color: g.color }}
+              >
+                <g.icono className="size-[1.125rem]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[0.9375rem] font-semibold">
+                  {g.titulo} <span className="text-xs font-normal text-texto-3">· {g.tecnico}</span>
+                </h3>
+                <p className="truncate text-xs text-texto-3">{g.ayuda}</p>
+              </div>
+              {saldos.isLoading ? <Esqueleto className="h-5 w-24" /> : <span className="text-[0.9375rem] font-semibold tabular">{moneda(g.total)}</span>}
+            </div>
+            <ul className="divide-y divide-borde">
+              {g.cuentas.map((c) =>
+                !c.acepta_movimiento ? (
+                  // Cuenta de agrupación: solo ordena, no recibe movimientos.
+                  <li key={c.codigo} className="group flex items-center gap-3 bg-superficie-2/50 px-5 py-1.5">
+                    <span className="text-[0.6875rem] font-semibold tracking-wide text-texto-3 uppercase">{c.nombre}</span>
+                    <span className="font-mono text-[0.6875rem] text-texto-3">{c.codigo}</span>
+                    {escribir && (
+                      <button
+                        onClick={() => setEditar(c)}
+                        className="ml-auto grid size-6 place-items-center rounded-md text-texto-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-superficie-2"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+                    )}
+                  </li>
+                ) : (
+                  <li key={c.codigo} className={cn("group flex items-center gap-4 px-5 py-2.5 text-sm", !c.activo && "opacity-50")}>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">
+                        {c.nombre}
+                        {!c.activo && <span className="ml-2 text-xs font-normal text-texto-3">(desactivada)</span>}
+                      </p>
+                      <p className="truncate text-xs text-texto-3">
+                        <span className="font-mono">{c.codigo}</span>
+                        {usoDe.get(c.codigo) ? <> · Aquí van: {usoDe.get(c.codigo)!.join(", ")}</> : null}
+                      </p>
+                    </div>
+                    <span className={cn("w-36 text-right tabular", (saldos.data?.get(c.codigo) ?? 0) === 0 ? "text-texto-3" : "font-semibold")}>
+                      {(saldos.data?.get(c.codigo) ?? 0) === 0 ? "—" : moneda(saldos.data!.get(c.codigo))}
+                    </span>
+                    {escribir && (
+                      <button
+                        onClick={() => setEditar(c)}
+                        className="grid size-7 place-items-center rounded-md text-texto-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-superficie-2"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                    )}
+                  </li>
+                ),
+              )}
+            </ul>
+          </Tarjeta>
+        ))
       )}
       <FormCuenta cuenta={editar} onCerrar={() => setEditar(null)} onListo={() => void qc.invalidateQueries({ queryKey: ["cuentas", sistemaId] })} />
-    </Tarjeta>
+    </div>
   );
 }
 
