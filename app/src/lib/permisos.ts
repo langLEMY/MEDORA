@@ -106,6 +106,9 @@ export const ETIQUETA_MODULO: Record<ModuloAjustable, string> = {
 
 const alguno = (permitidos: Rol[]) => (r: Rol[]) => r.some((x) => permitidos.includes(x));
 
+/** Catálogo de cuentas y cuentas por concepto: solo el contador o el soporte de MEDORA (RLS cuentas_* / predeterminadas_*). */
+export const editaConfigContable = (roles: Rol[], esSuperadmin: boolean) => esSuperadmin || roles.includes("contabilidad");
+
 export const puedeEscribir = {
   pacientes: alguno(["admin", "recepcion", "caja", ...CLINICOS]),
   citas: alguno(["admin", "recepcion", "gerencia", ...CLINICOS]),

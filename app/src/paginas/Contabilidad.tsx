@@ -10,7 +10,7 @@ import { Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/camp
 import { Modal } from "@/components/ui/modal";
 import { EncabezadoPagina, Esqueleto, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { CATEGORIAS_SERVICIO, TIPOS_NCF, useCuentas, type CuentaContable } from "@/lib/consultas";
-import { puedeEscribir } from "@/lib/permisos";
+import { editaConfigContable, puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
@@ -509,13 +509,13 @@ const usoSencillo = (clave: string) =>
   CONCEPTOS.find((c) => c.clave === clave)?.etiqueta;
 
 function Catalogo() {
-  const { sistemaId, roles } = useSistema();
+  const { sistemaId, roles, esSuperadmin } = useSistema();
   const cuentas = useCuentas(sistemaId);
   const qc = useQueryClient();
   const [texto, setTexto] = useState("");
   const [editar, setEditar] = useState<CuentaContable | "nueva" | null>(null);
   const [verTodas, setVerTodas] = useState(false);
-  const escribir = puedeEscribir.contabilidad(roles);
+  const escribir = editaConfigContable(roles, esSuperadmin);
 
   // Cuánto hay en cada cuenta hoy (todo el historial).
   const saldos = useQuery({
@@ -569,6 +569,7 @@ function Catalogo() {
               Son los «cajones» donde MEDORA anota cada peso. Cada cobro, gasto, nómina o comisión se registra aquí <b>solo</b>: no hace falta
               tocar nada para que funcione. Solo el contador agrega o cambia cuentas si usa otra estructura.
             </p>
+            {!escribir && <p className="mt-2 text-xs text-texto-3">Estás en modo lectura: las cuentas solo las cambia el contador del hospital.</p>}
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -765,7 +766,7 @@ const CONCEPTOS: { clave: string; etiqueta: string; grupo: string }[] = [
 ];
 
 function Configuracion() {
-  const { sistemaId, roles } = useSistema();
+  const { sistemaId, roles, esSuperadmin } = useSistema();
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["cuentas-predeterminadas", sistemaId],
@@ -784,7 +785,7 @@ function Configuracion() {
   });
   const valor = (clave: string) => q.data?.find((x) => x.clave === clave)?.cuenta_codigo ?? null;
   const grupos = [...new Set(CONCEPTOS.map((c) => c.grupo))];
-  const editable = puedeEscribir.contabilidad(roles);
+  const editable = editaConfigContable(roles, esSuperadmin);
 
   if (q.isLoading) return <Esqueleto className="h-80 rounded-2xl" />;
   const faltan = CONCEPTOS.filter((c) => !valor(c.clave));
@@ -800,8 +801,8 @@ function Configuracion() {
           </p>
         ) : (
           <p className="text-sm text-texto-2">
-            <span className="font-semibold text-exito">Todo asignado.</span> Cada cobro, compra, nómina y comisión sabe a qué cuenta va. Solo cámbialo si tu contador usa otra
-            estructura.
+            <span className="font-semibold text-exito">Todo asignado.</span> Cada cobro, gasto, nómina y comisión sabe a qué cuenta va.{" "}
+            {editable ? "Solo cámbialo si tu contador usa otra estructura." : "Modo lectura: esto solo lo cambia el contador del hospital."}
           </p>
         )}
       </Tarjeta>
