@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Copy, KeyRound, LockKeyhole, MoreHorizontal, Pencil, Search, UserPlus, Users } from "lucide-react";
+import { Check, Copy, KeyRound, LockKeyhole, MoreHorizontal, Pencil, Search, Trash2, UserPlus, Users, WalletCards } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
@@ -10,7 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { Avatar, EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { claves, usePersonal, useSedes, type Miembro } from "@/lib/consultas";
-import { ETIQUETA_MODULO, ETIQUETA_ROL, MODULOS_AJUSTABLES, ROLES, ROLES_PROFESIONALES, type Permisos } from "@/lib/permisos";
+import { ETIQUETA_MODULO, ETIQUETA_ROL, MODULOS_AJUSTABLES, puedeEscribir, ROLES, ROLES_PROFESIONALES, type Permisos } from "@/lib/permisos";
 import { datos, invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
 import { cn, correoVisible, sugerirUsuario, USUARIO_RE } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
@@ -37,7 +38,34 @@ export default function Personal() {
   const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
   const [asignar, setAsignar] = useState<Miembro | null>(null);
   const [verInactivos, setVerInactivos] = useState(false);
-  const { esSuperadmin } = useSesion();
+  const [eliminar, setEliminar] = useState<Miembro | null>(null);
+  const { esSuperadmin, sesion } = useSesion();
+  const { roles } = useSistema();
+  const navegar = useNavigate();
+  const qc = useQueryClient();
+
+  // Quién ya está en nómina (empleado activo vinculado a su usuario).
+  const verNomina = puedeEscribir.nomina(roles);
+  const enNomina = useQuery({
+    queryKey: ["empleados-vinculados", sistemaId],
+    enabled: verNomina,
+    queryFn: async () =>
+      new Set(
+        (datos(await supabase.from("empleados").select("usuario_id").eq("sistema_id", sistemaId).eq("activo", true).not("usuario_id", "is", null)) ?? []).map(
+          (e) => e.usuario_id as string,
+        ),
+      ),
+  });
+
+  const quitar = useMutation({
+    mutationFn: async (m: Miembro) => datos(await supabase.rpc("eliminar_miembro", { p_sistema: sistemaId, p_usuario: m.usuario_id })),
+    onSuccess: (_r, m) => {
+      toast.success(`${m.perfil?.nombre_completo ?? "La persona"} ya no tiene acceso a ${sistema.nombre}`);
+      void qc.invalidateQueries({ queryKey: claves.personal(sistemaId) });
+      setEliminar(null);
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
 
   const restablecer = useMutation({
     mutationFn: async (m: Miembro) => {
@@ -135,6 +163,7 @@ export default function Personal() {
                       {ETIQUETA_ROL[r]}
                     </Insignia>
                   ))}
+                  {enNomina.data?.has(m.usuario_id) && <Insignia tono="exito">En nómina</Insignia>}
                   {!m.activo && <Insignia tono="peligro">Inactivo</Insignia>}
                 </div>
                 <Menu
@@ -159,6 +188,16 @@ export default function Personal() {
                           Asignar contraseña…
                         </ItemMenu>
                       )}
+                      {verNomina && (
+                        <ItemMenu icono={<WalletCards />} onClick={() => (navegar(`/nomina?vista=empleados&vincular=${m.usuario_id}`), cerrar())}>
+                          {enNomina.data?.has(m.usuario_id) ? "Ver en nómina" : "Agregar a nómina"}
+                        </ItemMenu>
+                      )}
+                      {m.usuario_id !== sesion?.user.id && (
+                        <ItemMenu icono={<Trash2 />} peligro onClick={() => (setEliminar(m), cerrar())}>
+                          Eliminar del sistema…
+                        </ItemMenu>
+                      )}
                     </>
                   )}
                 </Menu>
@@ -171,6 +210,30 @@ export default function Personal() {
       <NuevoMiembro abierto={nuevo} onCerrar={() => setNuevo(false)} onCreado={setCredenciales} />
       <EditarMiembro miembro={editar} onCerrar={() => setEditar(null)} />
       <MostrarCredenciales datos={credenciales} onCerrar={() => setCredenciales(null)} />
+      <Modal
+        abierto={!!eliminar}
+        onCerrar={() => setEliminar(null)}
+        titulo="Eliminar del sistema"
+        pie={
+          <>
+            <Boton variante="secundario" onClick={() => setEliminar(null)} disabled={quitar.isPending}>
+              Cancelar
+            </Boton>
+            <Boton variante="peligro" cargando={quitar.isPending} onClick={() => eliminar && quitar.mutate(eliminar)}>
+              Eliminar
+            </Boton>
+          </>
+        }
+      >
+        <p className="text-sm leading-relaxed">
+          <strong className="font-semibold">{eliminar?.perfil?.nombre_completo}</strong> dejará de tener acceso a {sistema.nombre} y
+          desaparecerá de esta lista.
+        </p>
+        <p className="mt-2 text-xs text-texto-3">
+          Lo que hizo (citas, cobros, notas clínicas, auditoría) se conserva con su nombre. Si está en nómina, su ficha de empleado no
+          cambia: desactívala o elimínala en Nómina si ya no trabaja aquí.
+        </p>
+      </Modal>
       <AsignarPassword
         usuario={
           asignar && {

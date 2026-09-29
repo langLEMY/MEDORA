@@ -40,6 +40,8 @@ export function usePersonal(sistemaId: string) {
           .from("membresias")
           .select("id, usuario_id, roles, especialidad, exequatur, sede_id, activo, atiende_agenda, consultorio, permisos, creado_en, perfil:perfiles!membresias_usuario_id_fkey(nombre_completo, nombre_usuario, email, telefono, foto)")
           .eq("sistema_id", sistemaId)
+          // Quitados del sistema con historial: la fila queda solo por integridad.
+          .is("eliminado_en", null)
           .order("creado_en"),
       ) as unknown as Miembro[],
   });

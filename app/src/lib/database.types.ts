@@ -1825,6 +1825,7 @@ export type Database = {
           consultorio: string | null
           creado_en: string
           creado_por: string | null
+          eliminado_en: string | null
           especialidad: string | null
           exequatur: string | null
           id: string
@@ -1842,6 +1843,7 @@ export type Database = {
           consultorio?: string | null
           creado_en?: string
           creado_por?: string | null
+          eliminado_en?: string | null
           especialidad?: string | null
           exequatur?: string | null
           id?: string
@@ -1859,6 +1861,7 @@ export type Database = {
           consultorio?: string | null
           creado_en?: string
           creado_por?: string | null
+          eliminado_en?: string | null
           especialidad?: string | null
           exequatur?: string | null
           id?: string
@@ -2843,7 +2846,15 @@ export type Database = {
           telefono?: string | null
           zona_horaria?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sistemas_pruebas_de_fkey"
+            columns: ["pruebas_de"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       turnos_caja: {
         Row: {
@@ -3059,6 +3070,10 @@ export type Database = {
         Returns: undefined
       }
       aprobar_nomina: { Args: { p_nomina: string }; Returns: string }
+      asignar_medico_cobro: {
+        Args: { p_cobro: string; p_medico: string }
+        Returns: string
+      }
       balanza_comprobacion: {
         Args: { p_desde: string; p_hasta: string; p_sistema: string }
         Returns: {
@@ -3096,6 +3111,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      cobros_sin_medico: {
+        Args: { p_desde: string; p_hasta: string; p_sistema: string }
+        Returns: {
+          cobro_id: string
+          creado_en: string
+          especialidad: string
+          numero: string
+          paciente: string
+          total: number
+          turno: string
+        }[]
+      }
       consultar_codigo_invitacion: { Args: { p_codigo: string }; Returns: Json }
       consumir_credencial_legado: {
         Args: { p_usuario_id: string }
@@ -3132,9 +3159,23 @@ export type Database = {
           usuario_id: string
         }[]
       }
+      eliminar_empleado: { Args: { p_empleado: string }; Returns: string }
+      eliminar_miembro: {
+        Args: { p_sistema: string; p_usuario: string }
+        Returns: string
+      }
       eliminar_nomina_borrador: {
         Args: { p_nomina: string }
         Returns: undefined
+      }
+      estadisticas_medico: {
+        Args: {
+          p_desde: string
+          p_hasta: string
+          p_medico: string
+          p_sistema: string
+        }
+        Returns: Json
       }
       estado_cuenta: {
         Args: { p_contacto: string; p_sistema: string; p_tipo: string }
@@ -3257,36 +3298,20 @@ export type Database = {
       }
       pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
       plataforma_cerrar_sesiones: { Args: never; Returns: number }
-      asignar_medico_cobro: {
-        Args: { p_cobro: string; p_medico: string }
-        Returns: string
-      }
-      cobros_sin_medico: {
-        Args: { p_desde: string; p_hasta: string; p_sistema: string }
-        Returns: {
-          cobro_id: string
-          creado_en: string
-          especialidad: string
-          numero: string
-          paciente: string
-          total: number
-          turno: string
-        }[]
-      }
-      estadisticas_medico: {
-        Args: { p_desde: string; p_hasta: string; p_medico: string; p_sistema: string }
-        Returns: Json
-      }
       plataforma_crear_sistema_pruebas: {
         Args: { p_miembros?: string[]; p_origen: string }
         Returns: string
       }
-      plataforma_limpiar_operaciones: {
-        Args: { p_alcance: string[]; p_confirmacion?: string; p_sistema: string }
-        Returns: Json
-      }
       plataforma_eliminar_sistema: {
         Args: { p_confirmacion: string; p_sistema: string }
+        Returns: Json
+      }
+      plataforma_limpiar_operaciones: {
+        Args: {
+          p_alcance: string[]
+          p_confirmacion?: string
+          p_sistema: string
+        }
         Returns: Json
       }
       plataforma_mantenimiento: {

@@ -618,7 +618,8 @@ function MiConsulta() {
       <EncabezadoPagina titulo="Mi consulta" descripcion={`Tus pacientes de hoy, en vivo · ${atendidos} atendido${atendidos === 1 ? "" : "s"}`} />
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
-        <Tarjeta className="flex min-h-72 flex-col items-center justify-center gap-4 p-8 text-center">
+        {/* Arriba y fijo: con una sala llena, la lista es larga y el botón no debe quedar fuera de la pantalla. */}
+        <Tarjeta className="flex min-h-72 flex-col items-center justify-center gap-4 self-start p-8 text-center lg:sticky lg:top-20">
           {turnos.isLoading ? (
             <Esqueleto className="h-40 w-full" />
           ) : actual ? (

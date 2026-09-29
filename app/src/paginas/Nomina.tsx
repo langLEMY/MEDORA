@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { BookCheck, CheckCircle2, FileDown, Pencil, Plus, Trash2, UserPlus, Users, WalletCards } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
 import { Boton } from "@/components/ui/boton";
@@ -10,7 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { Avatar, EncabezadoPagina, Esqueleto, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { usePersonal } from "@/lib/consultas";
-import { puedeEscribir } from "@/lib/permisos";
+import { ETIQUETA_ROL, puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
@@ -20,7 +21,8 @@ import { IMPORTACIONES } from "@/lib/importaciones";
 type Vista = "nominas" | "empleados" | "parametros";
 
 export default function Nomina() {
-  const [vista, setVista] = useState<Vista>("nominas");
+  const [params] = useSearchParams();
+  const [vista, setVista] = useState<Vista>(() => (params.get("vista") === "empleados" ? "empleados" : "nominas"));
   // Las tasas de TSS y la escala de ISR las mantiene el soporte de MEDORA (RLS: parametros_update).
   const { esSuperadmin } = useSistema();
   return (
@@ -95,8 +97,7 @@ function Nominas() {
           .order("desde", { ascending: false }),
       ),
   });
-  const escribir = puedeEscribir.nomina(roles);
-  return (
+  const escribir = puedeEscribir.nomina(roles);  return (
     <>
       <Tarjeta className="overflow-hidden">
         {escribir && (
@@ -540,6 +541,11 @@ function Empleados() {
   const qc = useQueryClient();
   const personal = usePersonal(sistemaId);
   const [editar, setEditar] = useState<Fila<"empleados"> | "nuevo" | null>(null);
+  const [verInactivos, setVerInactivos] = useState(false);
+  const [borrar, setBorrar] = useState<Fila<"empleados"> | null>(null);
+  // Usuario a vincular al abrir "Nuevo empleado" desde Personal (se aplica tras limpiar el formulario).
+  const [pendiente, setPendiente] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
   const q = useQuery({
     queryKey: ["empleados", sistemaId],
     queryFn: async () => datos(await supabase.from("empleados").select("*").eq("sistema_id", sistemaId).order("apellidos")),
@@ -580,6 +586,10 @@ function Empleados() {
           }
         : vacio,
     );
+    if (!e && pendiente) {
+      importar(pendiente);
+      setPendiente(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editar, e]);
 
@@ -611,6 +621,39 @@ function Empleados() {
   });
 
   const escribir = puedeEscribir.nomina(roles);
+
+  // Desde Personal → "Agregar a nómina": abre su ficha o una nueva ya vinculada.
+  const vincular = params.get("vincular");
+  useEffect(() => {
+    if (!vincular || !q.data || !personal.data || !escribir) return;
+    setParams({}, { replace: true });
+    const existente = q.data.find((x) => x.usuario_id === vincular);
+    if (existente) {
+      if (!existente.activo) setVerInactivos(true);
+      setEditar(existente);
+    } else {
+      setPendiente(vincular);
+      setEditar("nuevo");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vincular, q.data, personal.data, escribir]);
+
+  const eliminarEmpleado = useMutation({
+    mutationFn: async (x: Fila<"empleados">) => datos(await supabase.rpc("eliminar_empleado", { p_empleado: x.id })),
+    onSuccess: (r) => {
+      toast.success(r === "eliminado" ? "Empleado eliminado" : "Ya cobró nóminas: quedó desactivado para conservar el historial de pagos");
+      void qc.invalidateQueries({ queryKey: ["empleados", sistemaId] });
+      setBorrar(null);
+    },
+    onError: (err) => toast.error(mensajeError(err)),
+  });
+  const lista = (q.data ?? []).filter((x) => verInactivos || x.activo);
+  const inactivos = (q.data ?? []).filter((x) => !x.activo).length;
+  // Para vincular: personal activo que aún no tiene ficha (o el de esta ficha).
+  const vinculables = (personal.data ?? []).filter(
+    (p) => p.activo && (!q.data?.some((x) => x.usuario_id === p.usuario_id) || p.usuario_id === e?.usuario_id),
+  );
+
   const importar = (usuarioId: string) => {
     const p = personal.data?.find((x) => x.usuario_id === usuarioId);
     const partes = (p?.perfil?.nombre_completo ?? "").split(" ");
@@ -619,13 +662,14 @@ function Empleados() {
       usuario_id: usuarioId,
       nombres: x.nombres || partes.slice(0, Math.ceil(partes.length / 2)).join(" "),
       apellidos: x.apellidos || partes.slice(Math.ceil(partes.length / 2)).join(" "),
-      cargo: x.cargo || p?.especialidad || "",
+      cargo: x.cargo || p?.especialidad || (p?.roles[0] ? ETIQUETA_ROL[p.roles[0]] : ""),
     }));
   };
 
   return (
     <Tarjeta className="overflow-hidden">
-      <div className="flex justify-end gap-2 border-b border-borde p-3">
+      <div className="flex items-center justify-end gap-2 border-b border-borde p-3">
+        {inactivos > 0 && <Interruptor activo={verInactivos} onChange={setVerInactivos} etiqueta={`Mostrar inactivos (${inactivos})`} />}
         <AccionesDatos
           titulo="Empleados"
           columnas={COLUMNAS_EMPLEADOS}
@@ -641,11 +685,11 @@ function Empleados() {
       </div>
       {q.isLoading ? (
         <FilasEsqueleto />
-      ) : (q.data?.length ?? 0) === 0 ? (
+      ) : lista.length === 0 ? (
         <Vacio icono={<Users />} titulo="Sin empleados" descripcion="Incluye también al personal que no usa MEDORA (limpieza, mantenimiento…)." />
       ) : (
         <ul className="divide-y divide-borde">
-          {q.data!.map((x) => (
+          {lista.map((x) => (
             <li key={x.id} className={cn("group flex items-center gap-4 px-5 py-3 text-sm", !x.activo && "opacity-50")}>
               <Avatar nombre={`${x.nombres} ${x.apellidos}`} />
               <span className="min-w-0 flex-1">
@@ -658,9 +702,14 @@ function Empleados() {
               {!x.activo && <Insignia tono="peligro">Inactivo</Insignia>}
               <span className="w-32 text-right font-semibold tabular">{moneda(x.salario_mensual)}</span>
               {escribir && (
-                <button onClick={() => setEditar(x)} className="grid size-8 place-items-center rounded-lg text-texto-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-superficie-2">
-                  <Pencil className="size-4" />
-                </button>
+                <span className="flex opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                  <button onClick={() => setEditar(x)} title="Editar" className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto">
+                    <Pencil className="size-4" />
+                  </button>
+                  <button onClick={() => setBorrar(x)} title="Eliminar" className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-peligro">
+                    <Trash2 className="size-4" />
+                  </button>
+                </span>
               )}
             </li>
           ))}
@@ -685,7 +734,7 @@ function Empleados() {
         <div className="grid grid-cols-2 gap-4">
           <Selector etiqueta="Vincular con usuario de MEDORA (opcional)" contenedor="col-span-2" value={f.usuario_id} onChange={(x) => importar(x.target.value)}>
             <option value="">Sin cuenta en MEDORA</option>
-            {personal.data?.map((p) => (
+            {vinculables.map((p) => (
               <option key={p.usuario_id} value={p.usuario_id}>
                 {p.perfil?.nombre_completo}
               </option>
@@ -706,6 +755,26 @@ function Empleados() {
           <Entrada etiqueta="Cuenta bancaria" value={f.cuenta_bancaria} onChange={(x) => setF({ ...f, cuenta_bancaria: x.target.value })} />
           {e && <Interruptor activo={f.activo} onChange={(activo) => setF({ ...f, activo })} etiqueta="Activo" />}
         </div>
+      </Modal>
+      <Modal
+        abierto={!!borrar}
+        onCerrar={() => setBorrar(null)}
+        titulo="Eliminar empleado"
+        pie={
+          <>
+            <Boton variante="secundario" onClick={() => setBorrar(null)} disabled={eliminarEmpleado.isPending}>
+              Cancelar
+            </Boton>
+            <Boton variante="peligro" cargando={eliminarEmpleado.isPending} onClick={() => borrar && eliminarEmpleado.mutate(borrar)}>
+              Eliminar
+            </Boton>
+          </>
+        }
+      >
+        <p className="text-sm leading-relaxed">
+          ¿Eliminar a <strong className="font-semibold">{borrar?.nombres} {borrar?.apellidos}</strong> de la nómina?
+        </p>
+        <p className="mt-2 text-xs text-texto-3">Si ya cobró alguna nómina, se desactiva en lugar de borrarse para no perder el historial de pagos.</p>
       </Modal>
     </Tarjeta>
   );
