@@ -20,7 +20,7 @@ import {
   HandHeart,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
 import { EstadoCuenta, type ContactoCuenta } from "@/components/EstadoCuenta";
@@ -834,6 +834,8 @@ function NuevoCobro({
   const aseguradoras = useAseguradoras(sistemaId);
   const personal = useMedicos(sistemaId);
   const [paciente, setPaciente] = useState<PacienteBreve | null>(null);
+  // Clave única por intento de cobro: si el clic se repite o la red reintenta, no se cobra dos veces.
+  const claveCobro = useRef(crypto.randomUUID());
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [aseguradora, setAseguradora] = useState("");
@@ -849,6 +851,7 @@ function NuevoCobro({
 
   useEffect(() => {
     if (!abierto) return;
+    claveCobro.current = crypto.randomUUID();
     setArea(cita?.especialidad ?? null);
     setPaciente(cita?.paciente ? { ...cita.paciente } : null);
     setLineas([]);
@@ -972,9 +975,11 @@ function NuevoCobro({
           p_cliente_nombre: clienteNombre || undefined,
           p_profesional: profesional || undefined,
           p_cita: cita?.id,
+          p_idempotencia: claveCobro.current,
         }),
       ) as { id: string; numero: string; ncf: string | null; turno: string | null },
     onSuccess: (r) => {
+      claveCobro.current = crypto.randomUUID();
       toast.success(`Cobro ${r.numero}${r.ncf ? ` · NCF ${r.ncf}` : ""} registrado${r.turno ? ` · turno ${r.turno}` : ""}`);
       onCerrar();
       onListo(r.id);

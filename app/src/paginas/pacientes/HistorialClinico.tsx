@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { FileImage, FilePlus2, FileText, Lock, NotebookPen, Paperclip, Reply, ShieldAlert, Upload, X } from "lucide-react";
+import { FileImage, FilePlus2, FileText, Lock, NotebookPen, Paperclip, Pill, Plus, Printer, Reply, ShieldAlert, Upload, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
@@ -11,7 +11,8 @@ import { puedeEscribir } from "@/lib/permisos";
 import type { Json } from "@/lib/database.types";
 import { datos, mensajeError, supabase, type TipoEntradaClinica } from "@/lib/supabase";
 import { cn, fechaHora, relativo } from "@/lib/utils";
-import { useSistema } from "@/sesion/SesionProvider";
+import { useSesion, useSistema } from "@/sesion/SesionProvider";
+import { DocumentoClinico, esDocumento, type ItemReceta, type MedicoFirma, type TipoDocumento } from "./DocumentoClinico";
 
 const TIPOS: Record<TipoEntradaClinica, { etiqueta: string; tono: Tono }> = {
   consulta: { etiqueta: "Consulta", tono: "marca" },
@@ -26,6 +27,9 @@ const TIPOS: Record<TipoEntradaClinica, { etiqueta: string; tono: Tono }> = {
   nutricion: { etiqueta: "Nutrición", tono: "exito" },
   anestesia: { etiqueta: "Anestesia", tono: "peligro" },
   psicologia: { etiqueta: "Psicología", tono: "violeta" },
+  certificado: { etiqueta: "Certificado", tono: "info" },
+  referimiento: { etiqueta: "Referimiento", tono: "marca" },
+  orden: { etiqueta: "Orden médica", tono: "aviso" },
   anexo: { etiqueta: "Anexo", tono: "neutro" },
   adenda: { etiqueta: "Adenda", tono: "neutro" },
 };
@@ -110,7 +114,7 @@ function imc(peso?: unknown, talla?: unknown) {
  * Una corrección es una "adenda" enlazada a la entrada original. Las notas de
  * psicología solo las ve psicología (política RLS).
  */
-export function HistorialClinico({ pacienteId }: { pacienteId: string }) {
+export function HistorialClinico({ pacienteId, pacienteNombre }: { pacienteId: string; pacienteNombre?: string }) {
   const { sistemaId, roles } = useSistema();
   const [nueva, setNueva] = useState<{ corrige?: Entrada_ } | null>(null);
   const [filtro, setFiltro] = useState<TipoEntradaClinica | "todos">("todos");
@@ -183,10 +187,10 @@ export function HistorialClinico({ pacienteId }: { pacienteId: string }) {
               >
                 <span className="absolute top-4 left-2 size-[15px] rounded-full border-[3px] border-superficie bg-marca shadow-sm" />
                 <Tarjeta className="p-5">
-                  <EntradaVista e={e} />
+                  <EntradaVista e={e} paciente={pacienteNombre} />
                   {adendas(e.id).map((a) => (
                     <div key={a.id} className="mt-4 rounded-xl border border-dashed border-borde-fuerte bg-superficie-2/50 p-4">
-                      <EntradaVista e={a} />
+                      <EntradaVista e={a} paciente={pacienteNombre} />
                     </div>
                   ))}
                   {escribir && (e.tipo !== "psicologia" || puedeEscribir.psicologia(roles)) && (
@@ -209,7 +213,11 @@ export function HistorialClinico({ pacienteId }: { pacienteId: string }) {
   );
 }
 
-function EntradaVista({ e }: { e: Entrada_ }) {
+function EntradaVista({ e, paciente }: { e: Entrada_; paciente?: string }) {
+  const [imprimir, setImprimir] = useState(false);
+  const items = (e.datos?.items as ItemReceta[] | undefined) ?? [];
+  const medico = (e.datos?.medico as MedicoFirma | undefined) ?? (e.autor ? { nombre: e.autor.nombre_completo } : null);
+  const imprimible = esDocumento(e.tipo);
   const archivos = (e.datos?.archivos as Archivo[] | undefined) ?? [];
   const valores = Object.entries(e.datos ?? {}).filter(([k, v]) => k !== "archivos" && v !== "" && v !== null && v !== undefined);
   const cortos = valores.filter(([k]) => !CAMPOS[e.tipo]?.find((c) => c.clave === k && c.tipo === "area"));
@@ -260,7 +268,21 @@ function EntradaVista({ e }: { e: Entrada_ }) {
           <p className="text-sm whitespace-pre-wrap">{String(v)}</p>
         </div>
       ))}
-      <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-texto">{e.contenido}</p>
+      {items.length > 0 && (
+        <ol className="mt-3 space-y-1.5">
+          {items.map((it, i) => (
+            <li key={i} className="flex gap-2 text-sm">
+              <Pill className="mt-0.5 size-3.5 shrink-0 text-marca" />
+              <span>
+                <b className="font-medium">{it.nombre}</b>
+                {it.detalle ? ` — ${it.detalle}` : ""}
+                {it.indicaciones ? <span className="text-texto-3"> · {it.indicaciones}</span> : null}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {e.contenido && <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-texto">{e.contenido}</p>}
       {archivos.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {archivos.map((a) => (
@@ -275,6 +297,27 @@ function EntradaVista({ e }: { e: Entrada_ }) {
             </button>
           ))}
         </div>
+      )}
+      {imprimible && (
+        <button
+          onClick={() => setImprimir(true)}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-marca-texto transition-colors hover:underline"
+        >
+          <Printer className="size-3.5" /> Imprimir
+        </button>
+      )}
+      {imprimible && (
+        <DocumentoClinico
+          abierto={imprimir}
+          onCerrar={() => setImprimir(false)}
+          tipo={e.tipo as TipoDocumento}
+          titulo={e.titulo}
+          contenido={e.contenido}
+          items={items}
+          medico={medico}
+          paciente={paciente ?? "Paciente"}
+          fechaEntrada={e.creado_en}
+        />
       )}
     </>
   );
@@ -292,11 +335,13 @@ function NuevaEntrada({
   onCerrar: () => void;
 }) {
   const { sistemaId, roles } = useSistema();
+  const { perfil } = useSesion();
   const qc = useQueryClient();
   const [tipo, setTipo] = useState<TipoEntradaClinica>("consulta");
   const [titulo, setTitulo] = useState("");
   const [contenido, setContenido] = useState("");
   const [campos, setCampos] = useState<Record<string, string>>({});
+  const [items, setItems] = useState<ItemReceta[]>([{ nombre: "", detalle: "", indicaciones: "" }]);
   const [archivos, setArchivos] = useState<File[]>([]);
   const [progreso, setProgreso] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -312,6 +357,7 @@ function NuevaEntrada({
     setTitulo("");
     setContenido("");
     setCampos({});
+    setItems([{ nombre: "", detalle: "", indicaciones: "" }]);
     setArchivos([]);
     setProgreso(null);
   };
@@ -328,8 +374,15 @@ function NuevaEntrada({
         subidos.push({ ruta, nombre: f.name, tipo: f.type, tamano: f.size });
       }
       setProgreso(null);
-      const valores = Object.fromEntries(Object.entries(campos).filter(([, v]) => v.trim() !== ""));
+      const valores: Record<string, unknown> = Object.fromEntries(Object.entries(campos).filter(([, v]) => v.trim() !== ""));
       if (indice && tipoEfectivo === "nutricion") valores.imc = indice.valor;
+      // Receta: renglones estructurados. Documentos: foto del médico que firma (nombre/especialidad/exequátur).
+      const itemsLimpios = items.map((i) => ({ nombre: i.nombre.trim(), detalle: i.detalle?.trim() || undefined, indicaciones: i.indicaciones?.trim() || undefined })).filter((i) => i.nombre);
+      if (tipoEfectivo === "receta" && itemsLimpios.length) valores.items = itemsLimpios;
+      if (["receta", "certificado", "referimiento", "orden"].includes(tipoEfectivo)) {
+        const { data: mem } = await supabase.from("membresias").select("especialidad, exequatur").eq("sistema_id", sistemaId).eq("usuario_id", u.user!.id).maybeSingle();
+        valores.medico = { nombre: perfil?.nombre_completo ?? "", especialidad: mem?.especialidad ?? undefined, exequatur: mem?.exequatur ?? undefined };
+      }
       const texto = contenido.trim() || (subidos.length ? `Anexo: ${subidos.map((s) => s.nombre).join(", ")}` : "");
       const { error } = await supabase.from("historial_clinico").insert({
         sistema_id: sistemaId,
@@ -355,7 +408,7 @@ function NuevaEntrada({
     },
   });
 
-  const valido = contenido.trim() || archivos.length > 0 || Object.values(campos).some((v) => v.trim());
+  const valido = contenido.trim() || archivos.length > 0 || Object.values(campos).some((v) => v.trim()) || (tipoEfectivo === "receta" && items.some((i) => i.nombre.trim()));
 
   return (
     <Modal
@@ -506,17 +559,50 @@ function NuevaEntrada({
           </div>
         )}
 
+        {tipoEfectivo === "receta" && (
+          <div className="space-y-2">
+            <p className="text-[0.8125rem] font-medium text-texto-2">Medicamentos</p>
+            <AnimatePresence initial={false}>
+              {items.map((it, i) => (
+                <motion.div key={i} layout initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} className="rounded-xl border border-borde bg-superficie-2/40 p-3">
+                  <div className="grid grid-cols-5 gap-2">
+                    <Entrada contenedor="col-span-3" placeholder="Medicamento (ej.: Amoxicilina 500 mg)" value={it.nombre} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x)))} />
+                    <Entrada contenedor="col-span-2" placeholder="Cantidad / presentación" value={it.detalle ?? ""} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, detalle: e.target.value } : x)))} />
+                    <div className="col-span-5 flex items-center gap-2">
+                      <Entrada contenedor="flex-1" placeholder="Indicaciones (ej.: 1 cada 8 horas por 7 días)" value={it.indicaciones ?? ""} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, indicaciones: e.target.value } : x)))} />
+                      {items.length > 1 && (
+                        <button type="button" onClick={() => setItems((a) => a.filter((_, j) => j !== i))} className="shrink-0 text-texto-3 hover:text-peligro" title="Quitar">
+                          <X className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            <button type="button" onClick={() => setItems((a) => [...a, { nombre: "", detalle: "", indicaciones: "" }])} className="inline-flex items-center gap-1.5 text-xs font-medium text-marca-texto hover:underline">
+              <Plus className="size-3.5" /> Agregar medicamento
+            </button>
+          </div>
+        )}
+
         <AreaTexto
-          etiqueta={corrige ? "Corrección o ampliación" : tipoEfectivo === "psicologia" ? "Notas de la sesión" : "Contenido"}
+          etiqueta={corrige ? "Corrección o ampliación" : tipoEfectivo === "psicologia" ? "Notas de la sesión" : tipoEfectivo === "receta" ? "Indicaciones generales (opcional)" : ["certificado", "referimiento", "orden"].includes(tipoEfectivo) ? "Texto del documento" : "Contenido"}
           className="min-h-32"
           value={contenido}
           onChange={(e) => setContenido(e.target.value)}
           placeholder={
             tipoEfectivo === "receta"
-              ? "Medicamento, dosis, frecuencia y duración…"
-              : tipoEfectivo === "anexo"
-                ? "Descripción del documento (opcional)"
-                : "Hallazgos, evolución, plan…"
+              ? "Reposo, dieta, próxima cita… (opcional)"
+              : tipoEfectivo === "certificado"
+                ? "Certifico que el/la paciente… (motivo, reposo, fechas)"
+                : tipoEfectivo === "referimiento"
+                  ? "Refiero al paciente a… por… con estos hallazgos…"
+                  : tipoEfectivo === "orden"
+                    ? "Estudios/indicaciones solicitados…"
+                    : tipoEfectivo === "anexo"
+                      ? "Descripción del documento (opcional)"
+                      : "Hallazgos, evolución, plan…"
           }
         />
       </div>

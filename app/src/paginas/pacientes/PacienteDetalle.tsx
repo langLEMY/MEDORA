@@ -152,7 +152,7 @@ export default function PacienteDetalle() {
           exit={{ opacity: 0, transition: { duration: 0.08 } }}
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
         >
-          {pestana === "historial" && <HistorialClinico pacienteId={id} />}
+          {pestana === "historial" && <HistorialClinico pacienteId={id} pacienteNombre={nombre} />}
 
           {pestana === "citas" && (
             <Tarjeta className="overflow-hidden">

@@ -855,6 +855,7 @@ export type Database = {
           aseguradora_id: string | null
           cajero_id: string
           cita_id: string | null
+          clave_idempotencia: string | null
           cliente_nombre: string | null
           cliente_rnc: string | null
           cobertura_seguro: number
@@ -883,6 +884,7 @@ export type Database = {
           aseguradora_id?: string | null
           cajero_id?: string
           cita_id?: string | null
+          clave_idempotencia?: string | null
           cliente_nombre?: string | null
           cliente_rnc?: string | null
           cobertura_seguro?: number
@@ -911,6 +913,7 @@ export type Database = {
           aseguradora_id?: string | null
           cajero_id?: string
           cita_id?: string | null
+          clave_idempotencia?: string | null
           cliente_nombre?: string | null
           cliente_rnc?: string | null
           cobertura_seguro?: number
@@ -3657,26 +3660,48 @@ export type Database = {
         }
         Returns: string
       }
-      registrar_cobro: {
-        Args: {
-          p_aseguradora?: string
-          p_autorizacion?: string
-          p_cita?: string
-          p_cliente_nombre?: string
-          p_cliente_rnc?: string
-          p_descuento?: number
-          p_items: Json
-          p_notas?: string
-          p_paciente: string
-          p_pagos: Json
-          p_profesional?: string
-          p_referencia?: string
-          p_sistema: string
-          p_tipo_ncf?: string
-          p_vendedor?: string
-        }
-        Returns: Json
-      }
+      registrar_cobro:
+        | {
+            Args: {
+              p_aseguradora?: string
+              p_autorizacion?: string
+              p_cita?: string
+              p_cliente_nombre?: string
+              p_cliente_rnc?: string
+              p_descuento?: number
+              p_items: Json
+              p_notas?: string
+              p_paciente: string
+              p_pagos: Json
+              p_profesional?: string
+              p_referencia?: string
+              p_sistema: string
+              p_tipo_ncf?: string
+              p_vendedor?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_aseguradora?: string
+              p_autorizacion?: string
+              p_cita?: string
+              p_cliente_nombre?: string
+              p_cliente_rnc?: string
+              p_descuento?: number
+              p_idempotencia?: string
+              p_items: Json
+              p_notas?: string
+              p_paciente: string
+              p_pagos: Json
+              p_profesional?: string
+              p_referencia?: string
+              p_sistema: string
+              p_tipo_ncf?: string
+              p_vendedor?: string
+            }
+            Returns: Json
+          }
       registrar_compra: {
         Args: {
           p_fecha: string
@@ -3850,6 +3875,9 @@ export type Database = {
         | "anestesia"
         | "psicologia"
         | "anexo"
+        | "certificado"
+        | "referimiento"
+        | "orden"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4028,6 +4056,9 @@ export const Constants = {
         "anestesia",
         "psicologia",
         "anexo",
+        "certificado",
+        "referimiento",
+        "orden",
       ],
     },
   },

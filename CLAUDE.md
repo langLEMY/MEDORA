@@ -64,6 +64,8 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 - **Presencia** (`lib/presencia.ts`, Realtime Presence; el superadmin no se anuncia). **Sin conexión** (`lib/sinConexion.ts`): copia en IndexedDB solo de claves operativas (nunca historia clínica, pacientes ni finanzas), 24 h, se borra al cerrar sesión; las mutaciones fallan al instante sin conexión.
 - **Recuperar contraseña**: código de 6 dígitos (`verifyOtp` tipo recovery). Requiere SMTP propio en Supabase y la plantilla "Reset password" con `{{ .Token }}`.
 - **Impresión**: el launcher guarda `impresion.json` (recibos, tickets, preguntar); la app lo edita en Mi perfil (`components/Impresion.tsx`).
+- **Cobro sin duplicados**: `registrar_cobro` acepta `p_idempotencia`; la app manda una clave por intento (`clave_idempotencia`, índice único por sistema). Doble clic o reintento de red no cobra dos veces.
+- **Recetas y documentos clínicos**: tipos `receta` (renglones en `datos.items`), `certificado`, `referimiento`, `orden`; cada uno guarda `datos.medico` (nombre/especialidad/exequátur) e imprime con membrete (`DocumentoClinico.tsx`).
 - **Pruebas**: `npm test` (vitest, en CI) + `supabase/tests/funcional_roles.sql`.
 
 ## Launcher / releases
