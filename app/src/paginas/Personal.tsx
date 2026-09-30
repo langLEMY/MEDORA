@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Copy, KeyRound, LockKeyhole, MoreHorizontal, Pencil, Search, Trash2, UserPlus, Users, WalletCards } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useConectados } from "@/lib/presencia";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
@@ -46,6 +47,7 @@ export default function Personal() {
 
   // Quién ya está en nómina (empleado activo vinculado a su usuario).
   const verNomina = puedeEscribir.nomina(roles);
+  const enLinea = new Set(useConectados(sistemaId).map((c) => c.id));
   const enNomina = useQuery({
     queryKey: ["empleados-vinculados", sistemaId],
     enabled: verNomina,
@@ -147,7 +149,12 @@ export default function Personal() {
           <motion.ul key={`${rol}-${texto}`} variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
             {lista.map((m) => (
               <motion.li key={m.id} variants={itemEscalonado} className={cn("flex items-center gap-4 px-5 py-3.5", !m.activo && "opacity-50")}>
-                <Avatar nombre={m.perfil?.nombre_completo} foto={m.perfil?.foto} tamano={36} />
+                <span className="relative shrink-0">
+                  <Avatar nombre={m.perfil?.nombre_completo} foto={m.perfil?.foto} tamano={36} />
+                  {enLinea.has(m.usuario_id) && (
+                    <span title="Conectado ahora" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-exito ring-2 ring-superficie" />
+                  )}
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {m.perfil?.nombre_completo}

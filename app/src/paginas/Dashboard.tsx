@@ -217,7 +217,7 @@ function Indicador({
   const color = tono === "marca" ? "var(--marca)" : `var(--${tono})`;
   const idGradiente = `mini${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const contenido = (
-    <Tarjeta className="group relative h-full overflow-hidden p-5 transition-[border-color,box-shadow] duration-200 hover:border-borde-fuerte hover:shadow-md">
+    <Tarjeta interactiva={!!ruta} className="group relative h-full overflow-hidden p-5">
       <div className="flex items-center justify-between">
         <span className="text-[0.8125rem] font-medium text-texto-2">{etiqueta}</span>
         <span

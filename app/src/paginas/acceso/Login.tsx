@@ -8,6 +8,7 @@ import { Boton } from "@/components/ui/boton";
 import { Entrada } from "@/components/ui/campos";
 import { invocar, mensajeError, supabase } from "@/lib/supabase";
 import { PantallaAcceso } from "./PantallaAcceso";
+import { RecuperarPassword } from "./RecuperarPassword";
 import { Registro } from "./Registro";
 
 const esquema = z.object({
@@ -19,6 +20,7 @@ type Datos = z.infer<typeof esquema>;
 export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [registro, setRegistro] = useState(false);
+  const [recuperar, setRecuperar] = useState(false);
   const sacudir = useAnimation();
   const { register, handleSubmit, formState } = useForm<Datos>({ resolver: zodResolver(esquema) });
 
@@ -95,8 +97,11 @@ export function Login() {
         </button>
       </div>
       <p className="mt-3 text-center text-xs text-texto-3">
-        ¿Olvidaste tu contraseña? Pide a la administración que la restablezca.
+        <button type="button" onClick={() => setRecuperar(true)} className="font-medium text-marca-texto hover:underline">
+          ¿Olvidaste tu contraseña?
+        </button>
       </p>
+      <RecuperarPassword abierto={recuperar} onCerrar={() => setRecuperar(false)} />
     </PantallaAcceso>
   );
 }

@@ -4,6 +4,7 @@ import { Camera, Check, MonitorDown, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { Impresion } from "@/components/Impresion";
 import { Personalizacion } from "@/components/Personalizacion";
 import { Soporte } from "@/components/Soporte";
 import { Boton } from "@/components/ui/boton";
@@ -144,6 +145,7 @@ export default function Perfil() {
 
         <div className="space-y-4">
           <Personalizacion />
+          <Impresion />
           <Tarjeta className="p-6">
             <h2 className="mb-4 text-[0.9375rem] font-semibold">Cambiar contraseña</h2>
             <form onSubmit={cambiar} className="space-y-4" noValidate>

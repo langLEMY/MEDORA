@@ -54,7 +54,7 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18 }}
             onClick={onCerrar}
           />
           <div
@@ -68,14 +68,15 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
               role="dialog"
               aria-modal
               tabIndex={-1}
-              initial={lateral ? { x: "100%" } : { opacity: 0, scale: 0.96, y: 8 }}
+              // Pop: nace un poco más pequeño y con un rebote leve; se va rápido.
+              initial={lateral ? { x: "100%" } : { opacity: 0, scale: 0.94, y: 12 }}
               animate={lateral ? { x: 0 } : { opacity: 1, scale: 1, y: 0 }}
-              exit={lateral ? { x: "100%" } : { opacity: 0, scale: 0.98, y: 4 }}
-              transition={
+              exit={
                 lateral
-                  ? { type: "spring", duration: 0.45, bounce: 0.05 }
-                  : { type: "spring", duration: 0.32, bounce: 0.12 }
+                  ? { x: "100%", transition: { duration: 0.2, ease: [0.32, 0.72, 0, 1] } }
+                  : { opacity: 0, scale: 0.97, y: 6, transition: { duration: 0.14, ease: [0.23, 1, 0.32, 1] } }
               }
+              transition={lateral ? { type: "spring", duration: 0.42, bounce: 0.05 } : { type: "spring", duration: 0.38, bounce: 0.24 }}
               className={cn(
                 "pointer-events-auto flex w-full flex-col bg-superficie shadow-lg outline-none",
                 lateral
@@ -96,7 +97,16 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
                   <X className="size-4" />
                 </button>
               </div>
-              {children != null && children !== false && <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>}
+              {children != null && children !== false && (
+                <motion.div
+                  className="flex-1 overflow-y-auto px-6 py-5"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.26, delay: 0.05, ease: [0.23, 1, 0.32, 1] }}
+                >
+                  {children}
+                </motion.div>
+              )}
               {pie && (
                 <div className="flex items-center justify-end gap-2 border-t border-borde bg-superficie-2/50 px-6 py-3.5">
                   {pie}

@@ -3,8 +3,22 @@ import { useEffect, useRef, type HTMLAttributes, type ReactNode } from "react";
 import { cn, iniciales } from "@/lib/utils";
 import { itemEscalonado } from "./movimiento";
 
-export function Tarjeta({ className, ...p }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-2xl border border-borde bg-superficie shadow-sm", className)} {...p} />;
+/**
+ * Superficie base. `interactiva`: se levanta al pasar el mouse y cede al tocarla
+ * (solo en equipos con puntero: el `hover:` de Tailwind 4 ya lo condiciona).
+ */
+export function Tarjeta({ className, interactiva, ...p }: HTMLAttributes<HTMLDivElement> & { interactiva?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-borde bg-superficie shadow-sm",
+        interactiva &&
+          "cursor-pointer transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-borde-fuerte hover:shadow-md active:translate-y-0 active:scale-[0.99]",
+        className,
+      )}
+      {...p}
+    />
+  );
 }
 
 export function EncabezadoPagina({
@@ -102,9 +116,14 @@ export function Vacio({
       transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
       className="flex flex-col items-center px-6 py-14 text-center"
     >
-      <div className="mb-4 grid size-12 place-items-center rounded-2xl border border-borde bg-superficie-2 text-texto-2 shadow-sm [&>svg]:size-5">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8, y: 6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", duration: 0.45, bounce: 0.35, delay: 0.04 }}
+        className="mb-4 grid size-12 place-items-center rounded-2xl border border-borde bg-superficie-2 text-texto-2 shadow-sm [&>svg]:size-5"
+      >
         {icono}
-      </div>
+      </motion.div>
       <p className="text-[0.9375rem] font-semibold text-texto">{titulo}</p>
       {descripcion && <p className="mt-1 max-w-sm text-sm text-texto-2">{descripcion}</p>}
       {accion && <div className="mt-5">{accion}</div>}

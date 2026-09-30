@@ -17,7 +17,9 @@ import {
   Unlock,
   UserCheck,
   Wallet,
+  HandHeart,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
@@ -121,6 +123,7 @@ export default function Caja() {
   const yo = sesion!.user.id;
   const operar = puedeEscribir.caja(roles);
   const [vista, setVista] = useState<Vista>("cobrar");
+  const navegarDonacion = useNavigate();
   const [cerrar, setCerrar] = useState(false);
   const [cobrar, setCobrar] = useState(false);
   // Paciente que llegó a recepción y espera cobro para recibir su turno.
@@ -221,6 +224,9 @@ export default function Caja() {
                         }}
                       >
                         Entrada o salida de caja
+                      </ItemMenu>
+                      <ItemMenu icono={<HandHeart />} onClick={() => (navegarDonacion("/finanzas?vista=donaciones&accion=nueva"), cerrarMenu())}>
+                        Registrar donación
                       </ItemMenu>
                       <SeparadorMenu />
                     </>

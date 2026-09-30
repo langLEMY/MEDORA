@@ -3,6 +3,8 @@ import type { Database } from "./database.types";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const clave = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+export const SUPABASE_URL = url;
+export const SUPABASE_CLAVE = clave;
 
 export const supabase = createClient<Database>(url, clave, {
   auth: { persistSession: true, autoRefreshToken: true, storageKey: "medora.sesion" },

@@ -14,7 +14,8 @@ export type MensajeLauncher =
   | { tipo: "actualizacion"; version: string; notas?: string }
   | { tipo: "sin-actualizacion" }
   | { tipo: "progreso"; porcentaje: number }
-  | { tipo: "error-actualizacion"; mensaje: string };
+  | { tipo: "error-actualizacion"; mensaje: string }
+  | { tipo: "impresoras"; lista: string[]; predeterminada: string; recibos: string | null; tickets: string | null; preguntar: boolean };
 
 type Manejador = (e: { data: unknown }) => void;
 interface WebView {
@@ -28,7 +29,7 @@ const webview = (window as unknown as { chrome?: { webview?: WebView } }).chrome
 export const enEscritorio = !!webview;
 
 export function enviar(
-  tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" | "imprimir-directo" | "pdf" | "salir-quiosco",
+  tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" | "imprimir-directo" | "pdf" | "salir-quiosco" | "impresoras" | "configurar-impresion",
   extra?: Record<string, unknown>,
 ) {
   webview?.postMessage(JSON.stringify({ tipo, ...extra }));

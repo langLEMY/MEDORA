@@ -1,5 +1,6 @@
 import "./index.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { MotionConfig } from "motion/react";
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -9,6 +10,7 @@ import { aplicarPreferenciasIniciales, usePreferencias } from "./lib/preferencia
 import { cambiarTemaAnimado, temaGuardado } from "./lib/tema";
 import { enrutador } from "./rutas";
 import { SesionProvider } from "./sesion/SesionProvider";
+import { guardarEnEquipo, MAX_EDAD, persistidor } from "./lib/sinConexion";
 
 aplicarPreferenciasIniciales();
 // "Sistema": sigue a Windows en vivo si cambia de claro a oscuro con MEDORA abierto.
@@ -18,8 +20,10 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
 
 const qc = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: true },
-    mutations: { retry: 0 },
+    // gcTime ≥ lo que dura la copia en el equipo, para que no se descarte antes.
+    queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: true, gcTime: MAX_EDAD },
+    // Sin conexión, los cambios fallan al instante con un mensaje claro (no quedan en cola).
+    mutations: { retry: 0, networkMode: "always" },
   },
 });
 
@@ -31,7 +35,10 @@ function Movimiento({ children }: { children: ReactNode }) {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={qc}>
+    <PersistQueryClientProvider
+      client={qc}
+      persistOptions={{ persister: persistidor, maxAge: MAX_EDAD, buster: __VERSION_APP__, dehydrateOptions: { shouldDehydrateQuery: guardarEnEquipo } }}
+    >
       <Movimiento>
         <SesionProvider>
           <RouterProvider router={enrutador} />
@@ -43,6 +50,6 @@ createRoot(document.getElementById("root")!).render(
           />
         </SesionProvider>
       </Movimiento>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </StrictMode>,
 );

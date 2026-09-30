@@ -21,10 +21,16 @@ const ACCIONES: Record<string, { etiqueta: string; tono: Tono }> = {
   CAMBIO_PASSWORD: { etiqueta: "Cambió su contraseña", tono: "aviso" },
   EXPORTAR: { etiqueta: "Exportó", tono: "violeta" },
   IMPRIMIR: { etiqueta: "Imprimió", tono: "neutro" },
+  VER: { etiqueta: "Vio el expediente", tono: "info" },
+  DESCARGAR_RESPALDO: { etiqueta: "Descargó un respaldo", tono: "aviso" },
+  RESPALDO: { etiqueta: "Exportó respaldo", tono: "violeta" },
 };
 
 const TABLAS: Record<string, string> = {
   pacientes: "Paciente",
+  donaciones: "Donación",
+  anulaciones_donacion: "Anulación de donación",
+  resumenes_diarios: "Cierre diario",
   citas: "Cita",
   historial_clinico: "Historia clínica",
   cobros: "Cobro",

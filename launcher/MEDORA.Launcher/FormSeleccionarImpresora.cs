@@ -14,7 +14,7 @@ public sealed class FormSeleccionarImpresora : Form
 
     public string? ImpresoraSeleccionada { get; private set; }
 
-    public FormSeleccionarImpresora()
+    public FormSeleccionarImpresora(string? sugerida = null)
     {
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
@@ -33,7 +33,7 @@ public sealed class FormSeleccionarImpresora : Form
             _combo.Items.Add(nombre);
         }
 
-        var ultima = LeerUltima();
+        var ultima = sugerida ?? LeerUltima();
         var preseleccion = ultima is not null && _combo.Items.Contains(ultima) ? ultima : new PrinterSettings().PrinterName;
         if (_combo.Items.Contains(preseleccion))
         {

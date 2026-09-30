@@ -55,6 +55,17 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 - **Movimiento**: seguir `components/ui/movimiento.ts` y las skills de `.claude/skills` (emil‑design‑eng, apple‑design). Solo transform/opacity, entradas ≤ 300 ms con curva de salida, nunca escalar desde 0, `MotionConfig reducedMotion="user"`. Revisar animaciones nuevas con la skill `review-animations`.
 - Colores siempre por tokens (`bg-superficie`, `text-texto-2`, `bg-marca`…): la marca la define cada sistema y existe tema oscuro.
 
+## Continuidad, finanzas y trazabilidad
+
+- **Respaldos**: Edge Function `respaldo` (cifra con AES-256-GCM; clave `RESPALDO_CLAVE` y token `RESPALDO_TOKEN` como secretos de la función, token también en Vault `respaldo_cron`) → bucket privado `respaldos`, tabla `respaldos` (solo superadmin). pg_cron `medora-respaldo-diario` 07:00 UTC; conserva 30. Nunca poner esas claves en el repo.
+- **Cierres diarios**: `resumenes_diarios` (pg_cron `medora-cierre-diario`, `privado.generar_resumen_diario`).
+- **Finanzas** (`/finanzas`, hub en `Secciones.tsx`): `resumen_financiero` y `movimientos_importantes` salen de la contabilidad; Donaciones (`registrar_donacion`/`anular_donacion`, cuenta `ingreso_donaciones` 4.4).
+- **Accesos a expedientes**: `registrar_acceso_expediente` (auditoría acción `VER`, 1 cada 10 min) y `accesos_expediente` (admin/gerencia/auditor). Foto de cédula: `pacientes.foto_documento` en bucket `documentos-pacientes`.
+- **Presencia** (`lib/presencia.ts`, Realtime Presence; el superadmin no se anuncia). **Sin conexión** (`lib/sinConexion.ts`): copia en IndexedDB solo de claves operativas (nunca historia clínica, pacientes ni finanzas), 24 h, se borra al cerrar sesión; las mutaciones fallan al instante sin conexión.
+- **Recuperar contraseña**: código de 6 dígitos (`verifyOtp` tipo recovery). Requiere SMTP propio en Supabase y la plantilla "Reset password" con `{{ .Token }}`.
+- **Impresión**: el launcher guarda `impresion.json` (recibos, tickets, preguntar); la app lo edita en Mi perfil (`components/Impresion.tsx`).
+- **Pruebas**: `npm test` (vitest, en CI) + `supabase/tests/funcional_roles.sql`.
+
 ## Launcher / releases
 
 - El launcher nunca bloquea el arranque por la red; el chequeo de versión corre en segundo plano.

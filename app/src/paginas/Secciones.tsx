@@ -19,6 +19,11 @@ const Aseguradoras = lazy(() => import("./Catalogos").then((m) => ({ default: m.
 const Configuracion = lazy(() => import("./Configuracion"));
 const Integraciones = lazy(() => import("./Integraciones"));
 const Auditoria = lazy(() => import("./Auditoria"));
+const Reportes = lazy(() => import("./Reportes"));
+const ResumenFinanciero = lazy(() => import("./Finanzas").then((m) => ({ default: m.ResumenFinanciero })));
+const MovimientosImportantes = lazy(() => import("./Finanzas").then((m) => ({ default: m.MovimientosImportantes })));
+const CierresDiarios = lazy(() => import("./Finanzas").then((m) => ({ default: m.CierresDiarios })));
+const Donaciones = lazy(() => import("./Finanzas").then((m) => ({ default: m.Donaciones })));
 
 interface Seccion {
   clave: string;
@@ -88,6 +93,23 @@ export function PaginaPrecios() {
       secciones={[
         { clave: "servicios", etiqueta: "Servicios y precios", visible: ver("catalogos"), contenido: <Servicios /> },
         { clave: "aseguradoras", etiqueta: "Aseguradoras", visible: ver("aseguradoras"), contenido: <Aseguradoras /> },
+      ]}
+    />
+  );
+}
+
+/** Finanzas: resumen con gráficos · movimientos importantes · cierres diarios · donaciones · reportes. */
+export function PaginaFinanzas() {
+  const { ver } = usePuede();
+  return (
+    <Secciones
+      id="finanzas"
+      secciones={[
+        { clave: "resumen", etiqueta: "Resumen", visible: ver("contabilidad"), contenido: <ResumenFinanciero /> },
+        { clave: "movimientos", etiqueta: "Movimientos", visible: ver("contabilidad"), contenido: <MovimientosImportantes /> },
+        { clave: "cierres", etiqueta: "Cierres diarios", visible: ver("contabilidad"), contenido: <CierresDiarios /> },
+        { clave: "donaciones", etiqueta: "Donaciones", visible: ver("caja") || ver("contabilidad"), contenido: <Donaciones /> },
+        { clave: "reportes", etiqueta: "Reportes", visible: ver("reportes"), contenido: <Reportes /> },
       ]}
     />
   );

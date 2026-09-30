@@ -229,11 +229,13 @@ public sealed class FormPrincipal : Form
     {
         string? tipo;
         string? nombre = null;
+        JsonElement raiz;
         try
         {
             using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
-            tipo = doc.RootElement.GetProperty("tipo").GetString();
-            if (doc.RootElement.TryGetProperty("nombre", out var n))
+            raiz = doc.RootElement.Clone();
+            tipo = raiz.GetProperty("tipo").GetString();
+            if (raiz.TryGetProperty("nombre", out var n))
             {
                 nombre = n.GetString();
             }
@@ -267,6 +269,31 @@ public sealed class FormPrincipal : Form
             case "pdf":
                 await ExportarPdfAsync(nombre);
                 break;
+            case "impresoras":
+                EnviarImpresoras();
+                break;
+            case "configurar-impresion":
+                {
+                    var cfg = ConfiguracionImpresion.Cargar();
+                    if (raiz.TryGetProperty("recibos", out var rec))
+                    {
+                        cfg.Recibos = rec.ValueKind == JsonValueKind.String ? rec.GetString() : null;
+                    }
+
+                    if (raiz.TryGetProperty("tickets", out var tic))
+                    {
+                        cfg.Tickets = tic.ValueKind == JsonValueKind.String ? tic.GetString() : null;
+                    }
+
+                    if (raiz.TryGetProperty("preguntar", out var pre) && pre.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    {
+                        cfg.Preguntar = pre.GetBoolean();
+                    }
+
+                    cfg.Guardar();
+                    EnviarImpresoras();
+                    break;
+                }
         }
     }
 
@@ -337,13 +364,37 @@ public sealed class FormPrincipal : Form
         }
     }
 
-    /// <summary>Imprime la vista actual (recibos) preguntando antes a qué impresora.</summary>
+    private void EnviarImpresoras()
+    {
+        var cfg = ConfiguracionImpresion.Cargar();
+        Enviar(new
+        {
+            tipo = "impresoras",
+            lista = ConfiguracionImpresion.Instaladas(),
+            predeterminada = ConfiguracionImpresion.Predeterminada(),
+            recibos = cfg.Recibos,
+            tickets = cfg.Tickets,
+            preguntar = cfg.Preguntar,
+        });
+    }
+
+    /// <summary>
+    /// Imprime la vista actual (recibos, documentos). Si en MEDORA se eligió una
+    /// impresora y "imprimir sin preguntar", va directo; si no, pregunta a cuál.
+    /// </summary>
     private async Task ImprimirAsync()
     {
-        using var selector = new FormSeleccionarImpresora();
-        if (selector.ShowDialog(this) != DialogResult.OK || selector.ImpresoraSeleccionada is null)
+        var preferida = ConfiguracionImpresion.Cargar();
+        var impresora = preferida.Preguntar ? null : ConfiguracionImpresion.SiExiste(preferida.Recibos);
+        if (impresora is null)
         {
-            return;
+            using var selector = new FormSeleccionarImpresora(ConfiguracionImpresion.SiExiste(preferida.Recibos));
+            if (selector.ShowDialog(this) != DialogResult.OK || selector.ImpresoraSeleccionada is null)
+            {
+                return;
+            }
+
+            impresora = selector.ImpresoraSeleccionada;
         }
 
         try
@@ -351,7 +402,7 @@ public sealed class FormPrincipal : Form
             var config = _webView.CoreWebView2.Environment.CreatePrintSettings();
             config.ShouldPrintBackgrounds = true;
             config.ShouldPrintHeaderAndFooter = false;
-            config.PrinterName = selector.ImpresoraSeleccionada;
+            config.PrinterName = impresora;
             config.MarginTop = config.MarginBottom = config.MarginLeft = config.MarginRight = 0.08;
 
             var resultado = await _webView.CoreWebView2.PrintAsync(config);
@@ -378,7 +429,7 @@ public sealed class FormPrincipal : Form
             var config = _webView.CoreWebView2.Environment.CreatePrintSettings();
             config.ShouldPrintBackgrounds = true;
             config.ShouldPrintHeaderAndFooter = false;
-            config.PrinterName = new System.Drawing.Printing.PrinterSettings().PrinterName;
+            config.PrinterName = ConfiguracionImpresion.SiExiste(ConfiguracionImpresion.Cargar().Tickets) ?? ConfiguracionImpresion.Predeterminada();
             config.MarginTop = config.MarginBottom = config.MarginLeft = config.MarginRight = 0.08;
             var resultado = await _webView.CoreWebView2.PrintAsync(config);
             if (resultado != CoreWebView2PrintStatus.Succeeded)

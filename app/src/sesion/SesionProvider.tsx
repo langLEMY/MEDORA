@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { borrarCacheOperativa } from "@/lib/sinConexion";
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { datos, supabase, type Fila, type Rol } from "@/lib/supabase";
@@ -116,6 +117,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const cerrarSesion = useCallback(async () => {
     await supabase.rpc("registrar_evento", { p_accion: "LOGOUT", p_sistema: sistema?.id });
     await supabase.auth.signOut();
+    await borrarCacheOperativa();
   }, [sistema?.id]);
 
   const recargar = useCallback(async () => {

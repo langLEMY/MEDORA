@@ -12,6 +12,8 @@ import { puede, puedeEscribir } from "@/lib/permisos";
 import { datos, supabase } from "@/lib/supabase";
 import { edad, fecha, fechaHora, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { AccesosExpediente, useRegistrarAcceso } from "@/components/AccesosExpediente";
+import { FotoDocumento } from "@/components/FotoDocumento";
 import { FormPaciente } from "./FormPaciente";
 import { HistorialClinico } from "./HistorialClinico";
 
@@ -24,6 +26,8 @@ export default function PacienteDetalle() {
   const verCobros = puede(roles, "caja", false, permisos);
   const [pestana, setPestana] = useState<Pestana>(verHistorial ? "historial" : "citas");
   const [editar, setEditar] = useState(false);
+  // Queda en la auditoría quién abrió el expediente y, aparte, la historia clínica.
+  useRegistrarAcceso(id, pestana === "historial" ? "historia clínica" : "expediente");
 
   const paciente = useQuery({
     queryKey: claves.paciente(sistemaId, id),
@@ -124,11 +128,15 @@ export default function PacienteDetalle() {
               )}
             </div>
           </div>
-          {puedeEscribir.pacientes(roles) && (
-            <Boton variante="secundario" icono={<Pencil className="size-3.5" />} onClick={() => setEditar(true)}>
-              Editar
-            </Boton>
-          )}
+          <FotoDocumento pacienteId={p.id} ruta={p.foto_documento} editable={puedeEscribir.pacientes(roles)} />
+          <div className="flex flex-col items-end gap-2">
+            {puedeEscribir.pacientes(roles) && (
+              <Boton variante="secundario" icono={<Pencil className="size-3.5" />} onClick={() => setEditar(true)}>
+                Editar
+              </Boton>
+            )}
+            <AccesosExpediente pacienteId={p.id} />
+          </div>
         </div>
       </Tarjeta>
 

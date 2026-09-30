@@ -22,8 +22,8 @@ const Contabilidad = lazy(() => import("./paginas/Contabilidad"));
 const PaginaMedicos = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaMedicos })));
 const PaginaPrecios = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaPrecios })));
 const PaginaAdministracion = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaAdministracion })));
+const PaginaFinanzas = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaFinanzas })));
 const Estadisticas = lazy(() => import("./paginas/Estadisticas"));
-const Reportes = lazy(() => import("./paginas/Reportes"));
 const Inventario = lazy(() => import("./paginas/Inventario"));
 const Personal = lazy(() => import("./paginas/Personal"));
 const Plataforma = lazy(() => import("./paginas/Plataforma"));
@@ -93,7 +93,8 @@ export const enrutador = createHashRouter([
           { path: "comisiones", element: <Navigate to="/medicos?vista=pagos" replace /> },
           { path: "nomina", element: s(<Nomina />) },
           { path: "contabilidad", element: s(<Contabilidad />) },
-          { path: "reportes", element: s(<Reportes />) },
+          { path: "finanzas", element: s(<PaginaFinanzas />) },
+          { path: "reportes", element: <Navigate to="/finanzas?vista=reportes" replace /> },
           { path: "inventario", element: s(<Inventario />) },
           { path: "personal", element: s(<Personal />) },
           { path: "precios", element: s(<PaginaPrecios />) },

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Archive, Construction, Eraser, FileClock, LogOut, Power, RefreshCw, ShieldAlert } from "lucide-react";
+import { Archive, Construction, DatabaseBackup, Eraser, FileClock, LogOut, Power, RefreshCw, ShieldAlert } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { obtenerTodo } from "@/components/AccionesDatos";
@@ -9,7 +9,9 @@ import { AreaTexto, Interruptor } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { Tarjeta } from "@/components/ui/superficies";
 import { exportarExcel, type Celda } from "@/lib/excel";
-import { invocar, mensajeError, supabase } from "@/lib/supabase";
+import { invocar, mensajeError, supabase, SUPABASE_CLAVE, SUPABASE_URL } from "@/lib/supabase";
+import { useConectados } from "@/lib/presencia";
+import { borrarCacheOperativa } from "@/lib/sinConexion";
 import { cn, fechaHora, isoDia, relativo } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 
@@ -61,10 +63,163 @@ export function Soporte() {
   return (
     <div className="space-y-4">
       <EstadoSistema />
+      <Conectados />
+      <Respaldos />
       <Herramientas puedeRespaldar={!!sistema} />
       {esSuperadmin && <Avanzado />}
       <ZonaRiesgo />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+interface FilaRespaldo {
+  id: string;
+  creado_en: string;
+  origen: "automatico" | "manual";
+  estado: "ok" | "error";
+  ruta: string | null;
+  bytes: number | null;
+  filas: number | null;
+  tablas: number | null;
+  duracion_ms: number | null;
+  error: string | null;
+}
+
+/** Respaldos cifrados de toda la plataforma (Edge Function "respaldo" + pg_cron cada madrugada). */
+function Respaldos() {
+  const qc = useQueryClient();
+  const [bajando, setBajando] = useState<string | null>(null);
+  const q = useQuery({
+    queryKey: ["respaldos"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("respaldos").select("*").order("creado_en", { ascending: false }).limit(12);
+      if (error) throw error;
+      return data as unknown as FilaRespaldo[];
+    },
+  });
+  const ahora = useMutation({
+    mutationFn: () => invocar<{ respaldo: { filas: number } }>("respaldo", { accion: "ahora" }),
+    onSuccess: (r) => {
+      toast.success("Respaldo hecho", { description: `${Number(r.respaldo?.filas ?? 0).toLocaleString("es-DO")} registros cifrados y guardados.` });
+      void qc.invalidateQueries({ queryKey: ["respaldos"] });
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  const descargar = async (r: FilaRespaldo) => {
+    setBajando(r.id);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/respaldo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_CLAVE, Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+        body: JSON.stringify({ accion: "descargar", id: r.id }),
+      });
+      if (!resp.ok) throw new Error((await resp.json().catch(() => null))?.error ?? "No se pudo descargar.");
+      const url = URL.createObjectURL(await resp.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `medora-respaldo-${r.creado_en.slice(0, 10)}.json.gz`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      toast.error(mensajeError(e));
+    } finally {
+      setBajando(null);
+    }
+  };
+  const ultimo = q.data?.find((r) => r.estado === "ok");
+  const fallo = q.data?.[0]?.estado === "error";
+
+  return (
+    <Tarjeta className="p-6">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold">
+            <DatabaseBackup className="size-4 text-marca" /> Respaldos automáticos
+          </h2>
+          <p className="text-xs text-texto-3">
+            Toda la base, cifrada (AES-256), cada madrugada a las 3:00 a. m. Se conservan los últimos 30.{" "}
+            {ultimo ? <>Último: {relativo(ultimo.creado_en)}.</> : "Aún no hay ninguno."}
+          </p>
+        </div>
+        <Boton tamano="sm" icono={<DatabaseBackup className="size-4" />} cargando={ahora.isPending} onClick={() => ahora.mutate()}>
+          Respaldar ahora
+        </Boton>
+      </div>
+      {fallo && (
+        <p className="mb-3 rounded-lg bg-[color-mix(in_oklab,var(--peligro)_10%,transparent)] px-3 py-2 text-xs text-peligro">
+          El último intento falló: {q.data?.[0]?.error}
+        </p>
+      )}
+      <ul className="divide-y divide-borde overflow-hidden rounded-xl border border-borde">
+        {(q.data ?? []).map((r) => (
+          <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+            <span className={cn("size-2 shrink-0 rounded-full", r.estado === "ok" ? "bg-exito" : "bg-peligro")} />
+            <span className="min-w-0 flex-1">
+              <span className="block">{fechaHora(r.creado_en)}</span>
+              <span className="block truncate text-xs text-texto-3">
+                {r.origen === "manual" ? "Manual" : "Automático"}
+                {r.estado === "ok" ? ` · ${Number(r.filas ?? 0).toLocaleString("es-DO")} registros · ${mb(Number(r.bytes ?? 0))}` : ` · ${r.error ?? "Error"}`}
+              </span>
+            </span>
+            {r.ruta && r.estado === "ok" ? (
+              <Boton tamano="sm" variante="fantasma" cargando={bajando === r.id} onClick={() => void descargar(r)}>
+                Descargar
+              </Boton>
+            ) : (
+              r.estado === "ok" && <span className="text-xs text-texto-3">Archivado</span>
+            )}
+          </li>
+        ))}
+        {!q.isLoading && !q.data?.length && <li className="px-3 py-6 text-center text-xs text-texto-3">El primer respaldo se hará esta madrugada.</li>}
+      </ul>
+    </Tarjeta>
+  );
+}
+
+/** Personal con MEDORA abierto ahora mismo en este sistema. */
+function Conectados() {
+  const { sistema } = useSesion();
+  const lista = useConectados(sistema?.id);
+  return (
+    <Tarjeta className="p-6">
+      <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold">
+        <span className="relative flex size-2">
+          <span className="absolute inset-0 animate-ping rounded-full bg-exito opacity-60" />
+          <span className="relative size-2 rounded-full bg-exito" />
+        </span>
+        Conectados ahora · {lista.length}
+      </h2>
+      <p className="mb-3 text-xs text-texto-3">Quién tiene {sistema?.nombre ?? "el sistema"} abierto y en qué pantalla está.</p>
+      {!lista.length ? (
+        <p className="py-4 text-center text-xs text-texto-3">Nadie más conectado en este momento.</p>
+      ) : (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          <AnimatePresence initial={false}>
+            {lista.map((c) => (
+              <motion.li
+                key={c.id}
+                layout
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+                className="flex items-center gap-2.5 rounded-xl border border-borde px-3 py-2"
+              >
+                <span className="size-2 shrink-0 rounded-full bg-exito" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{c.nombre || "Sin nombre"}</span>
+                  <span className="block truncate text-xs text-texto-3">
+                    En {c.pantalla} · desde {relativo(c.desde)}
+                  </span>
+                </span>
+              </motion.li>
+            ))}
+          </AnimatePresence>
+        </ul>
+      )}
+    </Tarjeta>
   );
 }
 
@@ -299,8 +454,9 @@ function Herramientas({ puedeRespaldar }: { puedeRespaldar: boolean }) {
     onError: (e) => toast.error(mensajeError(e)),
   });
 
-  const limpiarCache = () => {
+  const limpiarCache = async () => {
     qc.clear();
+    await borrarCacheOperativa();
     try {
       for (const k of Object.keys(localStorage)) {
         if (k.startsWith("medora.") && k !== "medora.tema" && k !== "medora.sistema") localStorage.removeItem(k);
@@ -320,7 +476,7 @@ function Herramientas({ puedeRespaldar }: { puedeRespaldar: boolean }) {
         {puedeRespaldar && (
           <Herramienta
             icono={<Archive />}
-            titulo="Descargar respaldo"
+            titulo="Exportar a Excel"
             detalle={progreso ?? `Todos los datos de ${sistema?.nombre} en un Excel (una hoja por tabla).`}
             accion="Descargar"
             cargando={respaldo.isPending}
@@ -342,7 +498,7 @@ function Herramientas({ puedeRespaldar }: { puedeRespaldar: boolean }) {
           titulo="Limpiar caché local"
           detalle="Descarta los datos guardados en este equipo y recarga. Útil si algo se ve desactualizado."
           accion="Limpiar"
-          onClick={limpiarCache}
+          onClick={() => void limpiarCache()}
         />
       </div>
     </Tarjeta>

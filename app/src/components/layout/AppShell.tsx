@@ -26,13 +26,22 @@ import { Isotipo } from "./Logo";
 import { NAVEGACION, inicioPorRol, puedeVer } from "./navegacion";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
+import { FranjaSinConexion } from "@/components/FranjaSinConexion";
 import { AvisoLlamados } from "@/components/LlamadosEnVivo";
+import { nombrePantalla, useAnunciarPresencia } from "@/lib/presencia";
 
 const CLAVE_COLAPSADO = "medora.nav-colapsada";
 
 export function AppShell() {
-  const { roles, permisos, esSuperadmin, sistema } = useSesion();
+  const { roles, permisos, esSuperadmin, sistema, perfil, sesion } = useSesion();
   const location = useLocation();
+  // Presencia: el personal ve quién está conectado; la superadministración no se anuncia.
+  useAnunciarPresencia(
+    sistema?.id,
+    sesion ? { id: sesion.user.id, nombre: perfil?.nombre_completo ?? "" } : null,
+    nombrePantalla(location.pathname),
+    !esSuperadmin,
+  );
   const [colapsada, setColapsada] = useState(() => {
     try {
       return localStorage.getItem(CLAVE_COLAPSADO) === "1";
@@ -169,6 +178,7 @@ export function AppShell() {
       </motion.aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <FranjaSinConexion />
         <FranjaPruebas sistemaId={sistema?.id} />
         <BarraSuperior onBuscar={() => setPaleta(true)} />
         <main className="flex-1 overflow-y-auto">

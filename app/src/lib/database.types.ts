@@ -274,6 +274,55 @@ export type Database = {
           },
         ]
       }
+      anulaciones_donacion: {
+        Row: {
+          anulado_por: string
+          creado_en: string
+          donacion_id: string
+          id: string
+          motivo: string
+          sistema_id: string
+        }
+        Insert: {
+          anulado_por?: string
+          creado_en?: string
+          donacion_id: string
+          id?: string
+          motivo: string
+          sistema_id: string
+        }
+        Update: {
+          anulado_por?: string
+          creado_en?: string
+          donacion_id?: string
+          id?: string
+          motivo?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anulaciones_donacion_anulado_por_fkey"
+            columns: ["anulado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anulaciones_donacion_sistema_id_donacion_id_fkey"
+            columns: ["sistema_id", "donacion_id"]
+            isOneToOne: false
+            referencedRelation: "donaciones"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "anulaciones_donacion_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aseguradoras: {
         Row: {
           activo: boolean
@@ -1384,6 +1433,85 @@ export type Database = {
           },
         ]
       }
+      donaciones: {
+        Row: {
+          anonima: boolean
+          creado_en: string
+          creado_por: string
+          destino: string | null
+          donante_contacto: string | null
+          donante_documento: string | null
+          donante_nombre: string
+          fecha: string
+          id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          notas: string | null
+          numero: string
+          referencia: string | null
+          sistema_id: string
+          turno_id: string | null
+        }
+        Insert: {
+          anonima?: boolean
+          creado_en?: string
+          creado_por?: string
+          destino?: string | null
+          donante_contacto?: string | null
+          donante_documento?: string | null
+          donante_nombre: string
+          fecha?: string
+          id?: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          notas?: string | null
+          numero: string
+          referencia?: string | null
+          sistema_id: string
+          turno_id?: string | null
+        }
+        Update: {
+          anonima?: boolean
+          creado_en?: string
+          creado_por?: string
+          destino?: string | null
+          donante_contacto?: string | null
+          donante_documento?: string | null
+          donante_nombre?: string
+          fecha?: string
+          id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"]
+          monto?: number
+          notas?: string | null
+          numero?: string
+          referencia?: string | null
+          sistema_id?: string
+          turno_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "donaciones_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donaciones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donaciones_sistema_id_turno_id_fkey"
+            columns: ["sistema_id", "turno_id"]
+            isOneToOne: false
+            referencedRelation: "turnos_caja"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       empleados: {
         Row: {
           activo: boolean
@@ -2226,6 +2354,7 @@ export type Database = {
           email: string | null
           expediente: string
           fecha_nacimiento: string | null
+          foto_documento: string | null
           id: string
           nombres: string
           notas: string | null
@@ -2254,6 +2383,7 @@ export type Database = {
           email?: string | null
           expediente: string
           fecha_nacimiento?: string | null
+          foto_documento?: string | null
           id?: string
           nombres: string
           notas?: string | null
@@ -2282,6 +2412,7 @@ export type Database = {
           email?: string | null
           expediente?: string
           fecha_nacimiento?: string | null
+          foto_documento?: string | null
           id?: string
           nombres?: string
           notas?: string | null
@@ -2608,6 +2739,118 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "servicios"
             referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      respaldos: {
+        Row: {
+          bytes: number | null
+          creado_en: string
+          duracion_ms: number | null
+          error: string | null
+          estado: string
+          filas: number | null
+          id: string
+          origen: string
+          ruta: string | null
+          solicitado_por: string | null
+          tablas: number | null
+        }
+        Insert: {
+          bytes?: number | null
+          creado_en?: string
+          duracion_ms?: number | null
+          error?: string | null
+          estado: string
+          filas?: number | null
+          id?: string
+          origen: string
+          ruta?: string | null
+          solicitado_por?: string | null
+          tablas?: number | null
+        }
+        Update: {
+          bytes?: number | null
+          creado_en?: string
+          duracion_ms?: number | null
+          error?: string | null
+          estado?: string
+          filas?: number | null
+          id?: string
+          origen?: string
+          ruta?: string | null
+          solicitado_por?: string | null
+          tablas?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "respaldos_solicitado_por_fkey"
+            columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resumenes_diarios: {
+        Row: {
+          atendidos: number
+          citas: number
+          cobertura_ars: number
+          cobros: number
+          donaciones: number
+          efectivo: number
+          facturado: number
+          fecha: string
+          gastos: number
+          generado_en: string
+          otros: number
+          pacientes_cobrados: number
+          sistema_id: string
+          tarjeta: number
+          transferencia: number
+        }
+        Insert: {
+          atendidos?: number
+          citas?: number
+          cobertura_ars?: number
+          cobros?: number
+          donaciones?: number
+          efectivo?: number
+          facturado?: number
+          fecha: string
+          gastos?: number
+          generado_en?: string
+          otros?: number
+          pacientes_cobrados?: number
+          sistema_id: string
+          tarjeta?: number
+          transferencia?: number
+        }
+        Update: {
+          atendidos?: number
+          citas?: number
+          cobertura_ars?: number
+          cobros?: number
+          donaciones?: number
+          efectivo?: number
+          facturado?: number
+          fecha?: string
+          gastos?: number
+          generado_en?: string
+          otros?: number
+          pacientes_cobrados?: number
+          sistema_id?: string
+          tarjeta?: number
+          transferencia?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resumenes_diarios_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3047,6 +3290,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      accesos_expediente: {
+        Args: { p_paciente: string }
+        Returns: {
+          cuando: string
+          recurso: string
+          usuario: string
+        }[]
+      }
       activar_integracion: {
         Args: { p_activo: boolean; p_proveedor: string; p_sistema: string }
         Returns: undefined
@@ -3067,6 +3318,10 @@ export type Database = {
       }
       anular_compra: {
         Args: { p_compra: string; p_motivo: string }
+        Returns: undefined
+      }
+      anular_donacion: {
+        Args: { p_donacion: string; p_motivo: string }
         Returns: undefined
       }
       aprobar_nomina: { Args: { p_nomina: string }; Returns: string }
@@ -3296,6 +3551,15 @@ export type Database = {
           zona_horaria: string
         }[]
       }
+      movimientos_importantes: {
+        Args: {
+          p_desde: string
+          p_hasta: string
+          p_minimo?: number
+          p_sistema: string
+        }
+        Returns: Json
+      }
       pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
       plataforma_cerrar_sesiones: { Args: never; Returns: number }
       plataforma_crear_sistema_pruebas: {
@@ -3368,6 +3632,10 @@ export type Database = {
         }
         Returns: Json
       }
+      registrar_acceso_expediente: {
+        Args: { p_paciente: string; p_recurso?: string }
+        Returns: undefined
+      }
       registrar_anticipo: {
         Args: {
           p_fecha?: string
@@ -3417,6 +3685,22 @@ export type Database = {
           p_ncf: string
           p_notas?: string
           p_proveedor: string
+          p_sistema: string
+        }
+        Returns: Json
+      }
+      registrar_donacion: {
+        Args: {
+          p_anonima?: boolean
+          p_contacto?: string
+          p_destino?: string
+          p_documento?: string
+          p_donante: string
+          p_fecha?: string
+          p_metodo: Database["public"]["Enums"]["metodo_pago"]
+          p_monto: number
+          p_notas?: string
+          p_referencia?: string
           p_sistema: string
         }
         Returns: Json
@@ -3498,7 +3782,18 @@ export type Database = {
           retencion: number
         }[]
       }
+      respaldo_tabla: { Args: { p_tabla: string }; Returns: Json }
+      respaldo_tablas: { Args: never; Returns: string[] }
       resumen_dashboard: { Args: { p_sistema: string }; Returns: Json }
+      resumen_financiero: {
+        Args: {
+          p_agrupar?: string
+          p_desde: string
+          p_hasta: string
+          p_sistema: string
+        }
+        Returns: Json
+      }
       revocar_codigo_invitacion: { Args: { p_id: string }; Returns: undefined }
       verificar_codigo_instalacion: {
         Args: { p_codigo: string }
