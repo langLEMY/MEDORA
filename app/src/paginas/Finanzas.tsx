@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   ArrowDownRight,
   ArrowUpRight,
   Ban,
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
   HandCoins,
   HandHeart,
@@ -697,6 +700,7 @@ const COLUMNAS_CIERRES: ColumnaDatos<Cierre>[] = [
 
 export function CierresDiarios() {
   const { sistemaId } = useSistema();
+  const navegar = useNavigate();
   const q = useQuery({
     queryKey: ["cierres-diarios", sistemaId],
     queryFn: async () =>
@@ -731,6 +735,51 @@ export function CierresDiarios() {
           )}
         </div>
       </Tarjeta>
+      <Tarjeta className="flex flex-col items-center gap-3 p-10 text-center">
+        <span className="grid size-12 place-items-center rounded-2xl bg-marca-suave text-marca">
+          <CalendarDays className="size-6" />
+        </span>
+        <div>
+          <h2 className="text-[0.9375rem] font-semibold">Detalle día por día</h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-texto-2">Mira cada cierre con su dinero por método de pago, gastos y donaciones.</p>
+        </div>
+        <Boton icono={<ArrowRight className="size-4" />} onClick={() => navegar("/finanzas/cierres")}>
+          Más información
+        </Boton>
+      </Tarjeta>
+    </>
+  );
+}
+
+/** Pantalla detallada de los cierres diarios (se llega desde el botón "Más información"). */
+export function CierresDetalle() {
+  const { sistemaId } = useSistema();
+  const [verVacios, setVerVacios] = useState(false);
+  const q = useQuery({
+    queryKey: ["cierres-diarios", sistemaId],
+    queryFn: async () =>
+      datos(await supabase.from("resumenes_diarios").select("*").eq("sistema_id", sistemaId).order("fecha", { ascending: false }).limit(180)) as unknown as Cierre[],
+  });
+  const todos = q.data ?? [];
+  const conMovimiento = (c: Cierre) => c.atendidos > 0 || Number(c.facturado) > 0 || Number(c.gastos) > 0 || Number(c.donaciones) > 0;
+  const lista = verVacios ? todos : todos.filter(conMovimiento);
+  const vacios = todos.length - todos.filter(conMovimiento).length;
+
+  return (
+    <>
+      <Link to="/finanzas?vista=cierres" className="mb-4 inline-flex items-center gap-1.5 text-sm text-texto-2 transition-colors hover:text-texto">
+        <ArrowLeft className="size-4" /> Cierres diarios
+      </Link>
+      <EncabezadoPagina
+        titulo="Detalle de cierres"
+        descripcion="Cada día con su foto: pacientes atendidos, dinero por método de pago, gastos y donaciones."
+        acciones={
+          <>
+            {vacios > 0 && <Interruptor activo={verVacios} onChange={setVerVacios} etiqueta={`Mostrar días sin movimiento (${vacios})`} />}
+            <AccionesDatos titulo="Cierres diarios" columnas={COLUMNAS_CIERRES} obtener={async () => todos} />
+          </>
+        }
+      />
       <Tarjeta className="overflow-x-auto">
         {q.isLoading ? (
           <div className="space-y-3 p-5">
@@ -739,7 +788,11 @@ export function CierresDiarios() {
             ))}
           </div>
         ) : !lista.length ? (
-          <Vacio icono={<CalendarDays />} titulo="Aún no hay cierres" descripcion="El primero se guarda esta noche." />
+          <Vacio
+            icono={<CalendarDays />}
+            titulo={todos.length ? "Ningún día con movimiento todavía" : "Aún no hay cierres"}
+            descripcion={todos.length ? "Activa «Mostrar días sin movimiento» para verlos todos." : "El primero se guarda esta noche."}
+          />
         ) : (
           <table className="w-full text-sm">
             <thead>
