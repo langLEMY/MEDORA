@@ -17,8 +17,8 @@ import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { useAccionUrl } from "@/lib/accionUrl";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 
-const HORA_INICIO = 7;
-const HORA_FIN = 21;
+const HORA_INICIO = 8;
+const HORA_FIN = 17;
 const ANCHO_MEDICO = 190; // columna fija de la izquierda (médico)
 const ALTO_FILA = 66;
 const PX_MIN = 64;
