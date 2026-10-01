@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { CalendarPlus, ChevronLeft, ChevronRight, Stethoscope } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Minus, Plus, Stethoscope } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FormCita, useCambiarEstadoCita } from "@/components/FormCita";
@@ -19,7 +19,12 @@ import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 
 const HORA_INICIO = 7;
 const HORA_FIN = 21;
-const ALTO_HORA = 68;
+const ANCHO_MEDICO = 190; // columna fija de la izquierda (médico)
+const ALTO_FILA = 66;
+const PX_MIN = 64;
+const PX_MAX = 260;
+const PX_DEFECTO = 120; // píxeles por hora al abrir
+const CLAVE_ZOOM = "medora.agenda-zoom";
 
 const COLUMNAS_AGENDA: ColumnaDatos<CitaConRelaciones>[] = [
   { titulo: "Hora", valor: (c) => `${hora(c.inicio)} – ${hora(c.fin)}` },
@@ -30,17 +35,19 @@ const COLUMNAS_AGENDA: ColumnaDatos<CitaConRelaciones>[] = [
   { titulo: "Estado", valor: (c) => ESTADO_CITA[c.estado].etiqueta },
 ];
 
-const COLOR_ESTADO: Record<EstadoCita, string> = {
-  programada: "border-l-[var(--borde-fuerte)]",
-  confirmada: "border-l-[#2e90fa]",
-  por_cobrar: "border-l-[var(--aviso)]",
-  en_espera: "border-l-[var(--aviso)]",
-  llamado: "border-l-[#2e90fa]",
-  en_consulta: "border-l-[#7a5af8]",
-  completada: "border-l-[var(--exito)]",
-  cancelada: "border-l-[var(--peligro)] opacity-50",
-  no_asistio: "border-l-[var(--peligro)] opacity-50",
+// Color base de cada estado (para los bloques de la línea de tiempo).
+const COLOR: Record<EstadoCita, string> = {
+  programada: "var(--texto-3)",
+  confirmada: "#2e90fa",
+  por_cobrar: "var(--aviso)",
+  en_espera: "var(--aviso)",
+  llamado: "#53b1fd",
+  en_consulta: "#7a5af8",
+  completada: "var(--exito)",
+  cancelada: "var(--peligro)",
+  no_asistio: "var(--peligro)",
 };
+const minutosDia = (d: Date) => d.getHours() * 60 + d.getMinutes();
 
 export default function Agenda() {
   const { sistemaId, roles, soloPropio } = useSistema();
@@ -48,7 +55,13 @@ export default function Agenda() {
   const [params, setParams] = useSearchParams();
   const [dia, setDia] = useState(isoDia());
   const [direccion, setDireccion] = useState(0);
-  // El médico solo tiene su propia columna.
+  const [px, setPx] = useState(() => {
+    try {
+      return Math.min(PX_MAX, Math.max(PX_MIN, Number(localStorage.getItem(CLAVE_ZOOM)) || PX_DEFECTO));
+    } catch {
+      return PX_DEFECTO;
+    }
+  });
   const [medico, setMedico] = useState(soloPropio ? yo : "");
   const [nueva, setNueva] = useState<{ medico?: string; hora?: string } | null>(params.get("nueva") ? {} : null);
   const [detalle, setDetalle] = useState<CitaConRelaciones | null>(null);
@@ -65,7 +78,6 @@ export default function Agenda() {
   const citas = useCitas(sistemaId, desde, hasta);
   useTiempoReal("citas", sistemaId, [[...claves.citas(sistemaId)]]);
 
-  // "" = todos; "esp:<nombre>" = toda una especialidad; si no, un médico.
   const esp = medico.startsWith("esp:") ? medico.slice(4) : null;
   const columnas = (medicos.data ?? []).filter((m) =>
     !medico ? true : esp ? (m.especialidad?.trim() || SIN_ESPECIALIDAD) === esp : m.usuario_id === medico,
@@ -74,11 +86,31 @@ export default function Agenda() {
   const escribir = puedeEscribir.citas(roles);
   const esHoy = dia === isoDia();
 
+  const horas = HORA_FIN - HORA_INICIO;
+  const anchoPista = horas * px;
+
+  // Estados presentes hoy (para la leyenda).
+  const presentes = useMemo(() => {
+    const vistos = new Set<EstadoCita>();
+    for (const c of citas.data ?? []) if (!c.medico_id || idsVisibles.has(c.medico_id)) vistos.add(c.estado);
+    return [...vistos];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [citas.data, medico]);
+
+  const guardarZoom = (v: number) => {
+    setPx(v);
+    try {
+      localStorage.setItem(CLAVE_ZOOM, String(v));
+    } catch {
+      /* sin almacenamiento */
+    }
+  };
+
   useEffect(() => {
-    // Lleva la vista a la hora actual (o a las 8:00) al abrir.
+    // Lleva la vista a la hora actual (o a las 8:00) al abrir o cambiar de día/zoom.
     const h = esHoy ? Math.max(new Date().getHours() - 1, HORA_INICIO) : 8;
-    scroll.current?.scrollTo({ top: (h - HORA_INICIO) * ALTO_HORA, behavior: "smooth" });
-  }, [dia, esHoy]);
+    scroll.current?.scrollTo({ left: (h - HORA_INICIO) * px - 24, behavior: "smooth" });
+  }, [dia, esHoy, px]);
 
   const mover = (dias: number) => {
     const d = new Date(dia + "T00:00:00");
@@ -89,7 +121,8 @@ export default function Agenda() {
 
   const titulo = new Intl.DateTimeFormat("es-DO", { weekday: "long", day: "numeric", month: "long" }).format(new Date(dia + "T00:00:00"));
   const ahora = new Date();
-  const lineaAhora = esHoy ? ((ahora.getHours() - HORA_INICIO) * 60 + ahora.getMinutes()) * (ALTO_HORA / 60) : null;
+  const ahoraMin = minutosDia(ahora);
+  const ahoraX = esHoy && ahoraMin >= HORA_INICIO * 60 && ahoraMin <= HORA_FIN * 60 ? ((ahoraMin - HORA_INICIO * 60) / 60) * px : null;
 
   return (
     <>
@@ -104,7 +137,7 @@ export default function Agenda() {
               </Selector>
             )}
             <AccionesDatos
-              titulo={`Agenda del ${new Intl.DateTimeFormat("es-DO", { weekday: "long", day: "numeric", month: "long" }).format(new Date(dia + "T00:00:00"))}`}
+              titulo={`Agenda del ${titulo}`}
               columnas={COLUMNAS_AGENDA}
               obtener={async () => (citas.data ?? []).filter((c) => !medico || (!!c.medico_id && idsVisibles.has(c.medico_id)))}
             />
@@ -118,14 +151,15 @@ export default function Agenda() {
       />
 
       <Tarjeta className="overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-borde px-4 py-3">
+        {/* Barra: navegación de día, fecha, leyenda y zoom */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-borde px-4 py-3">
           <Boton variante="secundario" tamano="icono" onClick={() => mover(-1)} aria-label="Día anterior">
             <ChevronLeft className="size-4" />
           </Boton>
           <Boton variante="secundario" tamano="icono" onClick={() => mover(1)} aria-label="Día siguiente">
             <ChevronRight className="size-4" />
           </Boton>
-          <div className="relative ml-2 h-6 flex-1 overflow-hidden">
+          <div className="relative ml-1 h-6 w-56 overflow-hidden">
             <AnimatePresence initial={false} custom={direccion} mode="popLayout">
               <motion.h2
                 key={dia}
@@ -151,6 +185,46 @@ export default function Agenda() {
             onChange={(e) => e.target.value && setDia(e.target.value)}
             className="h-8 rounded-lg border border-borde bg-superficie px-2 text-sm"
           />
+
+          {/* Leyenda de estados */}
+          {presentes.length > 0 && (
+            <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 lg:flex">
+              {presentes.map((e) => (
+                <span key={e} className="flex items-center gap-1.5 text-xs text-texto-2">
+                  <span className="size-2.5 rounded-[3px]" style={{ background: COLOR[e] }} />
+                  {ESTADO_CITA[e].etiqueta}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Zoom */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={() => guardarZoom(Math.max(PX_MIN, px - 24))}
+              className="grid size-7 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto"
+              aria-label="Alejar"
+            >
+              <Minus className="size-4" />
+            </button>
+            <input
+              type="range"
+              min={PX_MIN}
+              max={PX_MAX}
+              step={4}
+              value={px}
+              onChange={(e) => guardarZoom(Number(e.target.value))}
+              className="h-1.5 w-24 cursor-pointer accent-[var(--marca)]"
+              aria-label="Nivel de zoom"
+            />
+            <button
+              onClick={() => guardarZoom(Math.min(PX_MAX, px + 24))}
+              className="grid size-7 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto"
+              aria-label="Acercar"
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
         </div>
 
         {medicos.isLoading ? (
@@ -159,87 +233,101 @@ export default function Agenda() {
           <Vacio
             icono={<Stethoscope />}
             titulo="No hay profesionales con agenda"
-            descripcion="En Personal, activa “Atiende citas” para médicos, psicología, nutrición o terapia."
+            descripcion="En Personal, activa “Atiende citas” para médicos, psicología, nutricion o terapia."
           />
         ) : (
-          <div ref={scroll} className="max-h-[calc(100vh-240px)] overflow-auto">
-            <div className="flex min-w-fit">
-              {/* Columna de horas */}
-              <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-borde bg-superficie">
-                <div className="sticky top-0 z-10 h-12 border-b border-borde bg-superficie" />
-                {Array.from({ length: HORA_FIN - HORA_INICIO }, (_, i) => (
-                  <div key={i} className="relative text-right text-[0.6875rem] text-texto-3 tabular" style={{ height: ALTO_HORA }}>
-                    {i > 0 && <span className="absolute -top-2 right-2">{horaCorta(HORA_INICIO + i)}</span>}
-                  </div>
-                ))}
+          <div ref={scroll} className="max-h-[calc(100vh-250px)] overflow-auto">
+            <div style={{ width: ANCHO_MEDICO + anchoPista }}>
+              {/* Encabezado: horas */}
+              <div className="sticky top-0 z-30 flex border-b border-borde bg-superficie">
+                <div className="sticky left-0 z-10 shrink-0 border-r border-borde bg-superficie px-4 py-2 text-xs font-medium text-texto-3" style={{ width: ANCHO_MEDICO }}>
+                  Médicos
+                </div>
+                <div className="relative" style={{ width: anchoPista, height: 34 }}>
+                  {Array.from({ length: horas + 1 }, (_, i) => (
+                    <span key={i} className="absolute top-2 -translate-x-1/2 text-[0.6875rem] text-texto-3 tabular" style={{ left: i * px }}>
+                      {i < horas && horaCorta(HORA_INICIO + i)}
+                    </span>
+                  ))}
+                  {ahoraX !== null && (
+                    <span className="absolute top-1 z-10 -translate-x-1/2 rounded-md bg-peligro px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular" style={{ left: ahoraX }}>
+                      Ahora {hora(ahora)}
+                    </span>
+                  )}
+                </div>
               </div>
 
+              {/* Filas por médico */}
               {columnas.map((m) => {
                 const suyas = citas.data?.filter((c) => c.medico_id === m.usuario_id) ?? [];
+                const activas = suyas.filter((c) => c.estado !== "cancelada" && c.estado !== "no_asistio");
                 return (
-                  <div key={m.usuario_id} className="min-w-[220px] flex-1 border-r border-borde last:border-r-0">
-                    <div className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-borde bg-superficie/95 px-3 backdrop-blur">
-                      <Avatar nombre={m.perfil?.nombre_completo} foto={m.perfil?.foto} tamano={24} />
-                      <div className="min-w-0">
+                  <div key={m.usuario_id} className="flex border-b border-borde last:border-b-0">
+                    {/* Médico (fijo a la izquierda) */}
+                    <div className="sticky left-0 z-20 flex shrink-0 items-center gap-2.5 border-r border-borde bg-superficie px-3" style={{ width: ANCHO_MEDICO, height: ALTO_FILA }}>
+                      <Avatar nombre={m.perfil?.nombre_completo} foto={m.perfil?.foto} tamano={30} />
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-[0.8125rem] font-semibold">{m.perfil?.nombre_completo}</p>
-                        {m.especialidad && <p className="truncate text-[0.6875rem] text-texto-3">{m.especialidad}</p>}
+                        <p className="truncate text-[0.6875rem] text-texto-3">{m.especialidad || "—"}</p>
                       </div>
-                      <span className="ml-auto text-xs text-texto-3 tabular">{suyas.filter((c) => c.estado !== "cancelada").length}</span>
-                    </div>
-                    <div className="relative" style={{ height: (HORA_FIN - HORA_INICIO) * ALTO_HORA }}>
-                      {Array.from({ length: (HORA_FIN - HORA_INICIO) * 2 }, (_, i) => (
-                        <button
-                          key={i}
-                          disabled={!escribir}
-                          onClick={() => {
-                            const minutos = HORA_INICIO * 60 + i * 30;
-                            setNueva({
-                              medico: m.usuario_id,
-                              hora: `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`,
-                            });
-                          }}
-                          className={cn(
-                            "block w-full transition-colors hover:bg-marca-suave/60",
-                            i % 2 === 1 ? "border-b border-borde" : "border-b border-dashed border-borde/60",
-                          )}
-                          style={{ height: ALTO_HORA / 2 }}
-                          aria-label="Agendar en este horario"
-                        />
-                      ))}
-                      {lineaAhora !== null && lineaAhora > 0 && (
-                        <div className="pointer-events-none absolute inset-x-0 z-10 h-px bg-peligro" style={{ top: lineaAhora }}>
-                          <span className="absolute -top-1 -left-1 size-2 rounded-full bg-peligro" />
-                        </div>
+                      {activas.length > 0 && (
+                        <span className="shrink-0 rounded-full bg-superficie-2 px-1.5 py-0.5 text-[0.625rem] font-semibold text-texto-2 tabular">{activas.length}</span>
                       )}
+                    </div>
+
+                    {/* Pista de tiempo */}
+                    <div className="relative" style={{ width: anchoPista, height: ALTO_FILA }}>
+                      {/* Celdas de media hora para agendar + líneas de hora */}
+                      {Array.from({ length: horas * 2 }, (_, i) => {
+                        const minutos = HORA_INICIO * 60 + i * 30;
+                        return (
+                          <button
+                            key={i}
+                            disabled={!escribir}
+                            onClick={() =>
+                              setNueva({ medico: m.usuario_id, hora: `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}` })
+                            }
+                            className={cn("absolute inset-y-0 transition-colors enabled:hover:bg-marca-suave/50", i % 2 === 0 ? "border-l border-borde" : "border-l border-dashed border-borde/50")}
+                            style={{ left: (i * px) / 2, width: px / 2 }}
+                            aria-label="Agendar en este horario"
+                          />
+                        );
+                      })}
+
+                      {ahoraX !== null && <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-peligro" style={{ left: ahoraX }} />}
+
                       <AnimatePresence>
                         {suyas.map((c, i) => {
                           const ini = new Date(c.inicio);
                           const fin = new Date(c.fin);
-                          const top = ((ini.getHours() - HORA_INICIO) * 60 + ini.getMinutes()) * (ALTO_HORA / 60);
-                          const alto = Math.max(((fin.getTime() - ini.getTime()) / 60000) * (ALTO_HORA / 60) - 3, 26);
+                          const left = ((minutosDia(ini) - HORA_INICIO * 60) / 60) * px;
+                          const ancho = Math.max(((fin.getTime() - ini.getTime()) / 3_600_000) * px - 3, 40);
+                          const color = COLOR[c.estado];
+                          const apagada = c.estado === "cancelada" || c.estado === "no_asistio";
                           return (
                             <motion.button
                               key={c.id}
-                              initial={{ opacity: 0, y: 4 }}
-                              animate={{ opacity: 1, y: 0 }}
+                              initial={{ opacity: 0, scale: 0.96 }}
+                              animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0 }}
-                              transition={{ delay: i * 0.025, duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                              transition={{ delay: Math.min(i * 0.02, 0.2), duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                               whileHover={{ y: -1 }}
                               onClick={() => setDetalle(c)}
-                              className={cn(
-                                "absolute inset-x-1.5 z-[5] overflow-hidden rounded-lg border border-l-[3px] border-borde bg-superficie px-2 py-1 text-left shadow-sm transition-shadow hover:shadow-md",
-                                COLOR_ESTADO[c.estado],
-                              )}
-                              style={{ top: top + 1, height: alto }}
+                              title={`${nombrePaciente(c)} · ${hora(c.inicio)} · ${ESTADO_CITA[c.estado].etiqueta}`}
+                              className={cn("absolute top-1.5 z-[5] overflow-hidden rounded-lg border-l-[3px] px-2 py-1 text-left shadow-sm transition-shadow hover:shadow-md", apagada && "opacity-55")}
+                              style={{
+                                left: left + 1,
+                                width: ancho,
+                                height: ALTO_FILA - 12,
+                                borderLeftColor: color,
+                                background: `color-mix(in oklab, ${color} 14%, var(--superficie))`,
+                              }}
                             >
-                              <p className="truncate text-xs font-semibold">
-                                {nombrePaciente(c)}
+                              <p className={cn("truncate text-xs font-semibold", apagada && "line-through")}>{nombrePaciente(c)}</p>
+                              <p className="truncate text-[0.6875rem] text-texto-2">
+                                {hora(c.inicio)}
+                                {ancho > 120 ? ` · ${c.servicio?.nombre ?? c.motivo ?? "Consulta"}` : ""}
                               </p>
-                              {alto > 40 && (
-                                <p className="truncate text-[0.6875rem] text-texto-3">
-                                  {hora(c.inicio)} · {c.servicio?.nombre ?? c.motivo ?? "Consulta"}
-                                </p>
-                              )}
                             </motion.button>
                           );
                         })}
