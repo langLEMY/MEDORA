@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Package, Pencil, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, History, Package, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
@@ -58,14 +58,36 @@ const CATEGORIAS = [
   ["otro", "Otros"],
 ] as const;
 
+type TipoMov = "entrada" | "salida" | "ajuste";
+
+/** Botón de acción por fila: icono + texto, compacto, visible siempre. */
+function AccionFila({ icono, texto, onClick, peligro, disabled }: { icono: React.ReactNode; texto: string; onClick: () => void; peligro?: boolean; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={texto}
+      className={cn(
+        "inline-flex h-8 items-center gap-1.5 rounded-lg border border-borde bg-superficie px-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+        peligro ? "text-peligro hover:border-peligro/40 hover:bg-[color-mix(in_oklab,var(--peligro)_10%,transparent)]" : "text-texto-2 hover:border-borde-fuerte hover:bg-superficie-2 hover:text-texto",
+      )}
+    >
+      {icono}
+      <span className="hidden sm:inline">{texto}</span>
+    </button>
+  );
+}
+
 export default function Inventario() {
   const { sistemaId, roles } = useSistema();
   const [filtro, setFiltro] = useState<"todos" | "bajo">("todos");
   const [categoria, setCategoria] = useState("");
   const [texto, setTexto] = useState("");
   const [editar, setEditar] = useState<Item | "nuevo" | null>(null);
-  const [mover, setMover] = useState<Item | null>(null);
+  const [mover, setMover] = useState<{ item: Item; tipo: TipoMov } | null>(null);
   const [historial, setHistorial] = useState<Item | null>(null);
+  const [eliminar, setEliminar] = useState<Item | null>(null);
 
   const qc = useQueryClient();
   const q = useQuery({
@@ -178,23 +200,14 @@ export default function Inventario() {
                       />
                     </div>
                   </div>
-                  <div className="flex w-28 justify-end gap-1">
-                    {bajo && i.activo && <AlertTriangle className="mr-1 size-4 self-center text-aviso group-hover:hidden" />}
-                    <div className="hidden gap-1 group-hover:flex">
-                      {salidas && (
-                        <button title="Movimiento" onClick={() => setMover(i)} className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto">
-                          <SlidersHorizontal className="size-4" />
-                        </button>
-                      )}
-                      <button title="Historial" onClick={() => setHistorial(i)} className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto">
-                        <History className="size-4" />
-                      </button>
-                      {gestionar && (
-                        <button title="Editar" onClick={() => setEditar(i)} className="grid size-8 place-items-center rounded-lg text-texto-3 hover:bg-superficie-2 hover:text-texto">
-                          <Pencil className="size-4" />
-                        </button>
-                      )}
-                    </div>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                    {bajo && i.activo && <AlertTriangle className="mr-1 size-4 text-aviso" />}
+                    {gestionar && <AccionFila icono={<ArrowDownToLine className="size-3.5" />} texto="Entrada" onClick={() => setMover({ item: i, tipo: "entrada" })} />}
+                    {salidas && <AccionFila icono={<ArrowUpFromLine className="size-3.5" />} texto="Salida" disabled={stock <= 0} onClick={() => setMover({ item: i, tipo: "salida" })} />}
+                    {gestionar && <AccionFila icono={<SlidersHorizontal className="size-3.5" />} texto="Ajuste" onClick={() => setMover({ item: i, tipo: "ajuste" })} />}
+                    <AccionFila icono={<History className="size-3.5" />} texto="Historial" onClick={() => setHistorial(i)} />
+                    {gestionar && <AccionFila icono={<Pencil className="size-3.5" />} texto="Editar" onClick={() => setEditar(i)} />}
+                    {gestionar && <AccionFila icono={<Trash2 className="size-3.5" />} texto="Eliminar" peligro onClick={() => setEliminar(i)} />}
                   </div>
                 </motion.li>
               );
@@ -204,8 +217,9 @@ export default function Inventario() {
       </Tarjeta>
 
       <FormItem item={editar} onCerrar={() => setEditar(null)} />
-      <FormMovimiento item={mover} onCerrar={() => setMover(null)} />
+      <FormMovimiento mov={mover} onCerrar={() => setMover(null)} />
       <HistorialItem item={historial} onCerrar={() => setHistorial(null)} />
+      <EliminarItem item={eliminar} onCerrar={() => setEliminar(null)} />
     </>
   );
 }
@@ -304,10 +318,11 @@ function FormItem({ item, onCerrar }: { item: Item | "nuevo" | null; onCerrar: (
   );
 }
 
-function FormMovimiento({ item, onCerrar }: { item: Item | null; onCerrar: () => void }) {
+function FormMovimiento({ mov, onCerrar }: { mov: { item: Item; tipo: TipoMov } | null; onCerrar: () => void }) {
   const { sistemaId, roles } = useSistema();
   const qc = useQueryClient();
-  const [tipo, setTipo] = useState<"entrada" | "salida" | "ajuste">("salida");
+  const item = mov?.item ?? null;
+  const [tipo, setTipo] = useState<TipoMov>("salida");
   const [cantidad, setCantidad] = useState("");
   const [lote, setLote] = useState("");
   const [vence, setVence] = useState("");
@@ -315,14 +330,14 @@ function FormMovimiento({ item, onCerrar }: { item: Item | null; onCerrar: () =>
   const gestionar = puedeEscribir.inventario(roles);
 
   useEffect(() => {
-    if (item) {
-      setTipo(gestionar ? "entrada" : "salida");
+    if (mov) {
+      setTipo(mov.tipo);
       setCantidad("");
       setLote("");
       setVence("");
       setMotivo("");
     }
-  }, [item, gestionar]);
+  }, [mov]);
 
   const m = useMutation({
     mutationFn: async () => {
@@ -395,6 +410,42 @@ function FormMovimiento({ item, onCerrar }: { item: Item | null; onCerrar: () =>
         )}
         <Entrada etiqueta="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder={tipo === "salida" ? "Ej. Uso en sala de emergencias" : ""} />
       </div>
+    </Modal>
+  );
+}
+
+function EliminarItem({ item, onCerrar }: { item: Item | null; onCerrar: () => void }) {
+  const { sistemaId } = useSistema();
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: async () => datos(await supabase.rpc("eliminar_item", { p_item: item!.id })),
+    onSuccess: (r) => {
+      toast.success(r === "eliminado" ? "Artículo eliminado" : "Tenía movimientos registrados: quedó desactivado para conservar el historial.");
+      void qc.invalidateQueries({ queryKey: claves.inventario(sistemaId) });
+      onCerrar();
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  return (
+    <Modal
+      abierto={!!item}
+      onCerrar={onCerrar}
+      titulo="Eliminar artículo"
+      pie={
+        <>
+          <Boton variante="secundario" onClick={onCerrar} disabled={m.isPending}>
+            Cancelar
+          </Boton>
+          <Boton variante="peligro" cargando={m.isPending} onClick={() => m.mutate()}>
+            Eliminar
+          </Boton>
+        </>
+      }
+    >
+      <p className="text-sm leading-relaxed">
+        ¿Eliminar <strong className="font-semibold">{item?.nombre}</strong> del inventario?
+      </p>
+      <p className="mt-2 text-xs text-texto-3">Si ya tuvo entradas o salidas, se desactiva en lugar de borrarse para no perder la trazabilidad.</p>
     </Modal>
   );
 }

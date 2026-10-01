@@ -3418,6 +3418,7 @@ export type Database = {
         }[]
       }
       eliminar_empleado: { Args: { p_empleado: string }; Returns: string }
+      eliminar_item: { Args: { p_item: string }; Returns: string }
       eliminar_miembro: {
         Args: { p_sistema: string; p_usuario: string }
         Returns: string
@@ -3660,48 +3661,27 @@ export type Database = {
         }
         Returns: string
       }
-      registrar_cobro:
-        | {
-            Args: {
-              p_aseguradora?: string
-              p_autorizacion?: string
-              p_cita?: string
-              p_cliente_nombre?: string
-              p_cliente_rnc?: string
-              p_descuento?: number
-              p_items: Json
-              p_notas?: string
-              p_paciente: string
-              p_pagos: Json
-              p_profesional?: string
-              p_referencia?: string
-              p_sistema: string
-              p_tipo_ncf?: string
-              p_vendedor?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_aseguradora?: string
-              p_autorizacion?: string
-              p_cita?: string
-              p_cliente_nombre?: string
-              p_cliente_rnc?: string
-              p_descuento?: number
-              p_idempotencia?: string
-              p_items: Json
-              p_notas?: string
-              p_paciente: string
-              p_pagos: Json
-              p_profesional?: string
-              p_referencia?: string
-              p_sistema: string
-              p_tipo_ncf?: string
-              p_vendedor?: string
-            }
-            Returns: Json
-          }
+      registrar_cobro: {
+        Args: {
+          p_aseguradora?: string
+          p_autorizacion?: string
+          p_cita?: string
+          p_cliente_nombre?: string
+          p_cliente_rnc?: string
+          p_descuento?: number
+          p_idempotencia?: string
+          p_items: Json
+          p_notas?: string
+          p_paciente: string
+          p_pagos: Json
+          p_profesional?: string
+          p_referencia?: string
+          p_sistema: string
+          p_tipo_ncf?: string
+          p_vendedor?: string
+        }
+        Returns: Json
+      }
       registrar_compra: {
         Args: {
           p_fecha: string
