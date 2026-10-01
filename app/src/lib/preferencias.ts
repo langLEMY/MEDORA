@@ -20,6 +20,8 @@ export interface Preferencias {
   oscuro: "grafito" | "medianoche" | "carbon";
   /** Ruta que se abre al entrar: "auto" = según el rol (navegacion.ts#inicioPorRol), "/" = Inicio. */
   inicio: string;
+  /** Minutos de inactividad para bloquear la sesión; "nunca" lo desactiva. */
+  bloqueo: "nunca" | "15" | "25" | "30";
 }
 
 export const PREFERENCIAS_DEFECTO: Preferencias = {
@@ -31,6 +33,7 @@ export const PREFERENCIAS_DEFECTO: Preferencias = {
   claro: "nieve",
   oscuro: "grafito",
   inicio: "auto",
+  bloqueo: "nunca",
 };
 
 const CLAVE = "medora.preferencias";
@@ -59,6 +62,7 @@ function normalizar(p: Partial<Preferencias>): Preferencias {
     claro: de("claro", ["nieve", "marfil", "niebla"]),
     oscuro: de("oscuro", ["grafito", "medianoche", "carbon"]),
     inicio: typeof p.inicio === "string" && (p.inicio === "auto" || p.inicio.startsWith("/")) ? p.inicio : "auto",
+    bloqueo: de("bloqueo", ["nunca", "15", "25", "30"]),
   };
 }
 

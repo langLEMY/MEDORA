@@ -27,6 +27,7 @@ import { NAVEGACION, inicioPorRol, puedeVer } from "./navegacion";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
 import { FranjaSinConexion } from "@/components/FranjaSinConexion";
+import { BloqueoSesion } from "@/components/BloqueoSesion";
 import { AvisoLlamados } from "@/components/LlamadosEnVivo";
 import { nombrePantalla, useAnunciarPresencia } from "@/lib/presencia";
 
@@ -197,6 +198,7 @@ export function AppShell() {
       <PaletaComandos abierta={paleta} onCerrar={() => setPaleta(false)} />
       <AvisoActualizacion />
       <AvisoLlamados />
+      <BloqueoSesion />
     </div>
   );
 }

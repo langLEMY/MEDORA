@@ -133,6 +133,16 @@ export function Personalizacion() {
             ))}
           </Selector>,
         )}
+        {fila(
+          "Bloqueo por inactividad",
+          "Pide tu contraseña tras un rato sin usar MEDORA, sin cerrar la sesión ni perder lo que estés haciendo.",
+          <Selector value={p.bloqueo} onChange={(e) => cambiar({ bloqueo: e.target.value as typeof p.bloqueo })} contenedor="w-52">
+            <option value="nunca">Nunca</option>
+            <option value="15">A los 15 minutos</option>
+            <option value="25">A los 25 minutos</option>
+            <option value="30">A los 30 minutos</option>
+          </Selector>,
+        )}
       </div>
     </Tarjeta>
   );
