@@ -1,10 +1,12 @@
 name: Release
 
 # Publicar una versión:
-#   1. Subir version.txt (p. ej. 1.1.0) y hacer commit en main.
-#   2. git tag v1.1.0 && git push origin v1.1.0
-# Este workflow compila el instalador, calcula su SHA256 y crea la GitHub Release.
-# Todas las PCs con MEDORA la detectan y se actualizan solas (ver launcher/).
+#   1. Subir version.txt (p. ej. 1.4.0) y hacer commit en main.
+#   2. git tag v1.4.0 && git push origin v1.4.0
+# Este workflow publica, en la MISMA GitHub Release:
+#   - Windows: instalador .exe + .exe.sha256 (launcher WebView2, con auto-update).
+#   - Linux:   .AppImage y .deb (Tauri).
+#   - macOS:   .dmg (Tauri, sin firmar).
 
 on:
   push:
@@ -14,6 +16,7 @@ permissions:
   contents: write
 
 jobs:
+  # --- Windows: instalador con el launcher (auto-update) ---
   instalador:
     runs-on: windows-latest
     steps:
@@ -47,7 +50,7 @@ jobs:
         shell: pwsh
         run: ./scripts/generar-instalador.ps1
 
-      - name: Publicar release
+      - name: Publicar release (crea la release con el .exe)
         uses: softprops/action-gh-release@v2
         with:
           name: MEDORA ${{ github.ref_name }}
@@ -55,3 +58,58 @@ jobs:
           files: |
             instalacion/Output/*.exe
             instalacion/Output/*.exe.sha256
+
+  # --- Linux y macOS: apps de escritorio con Tauri ---
+  escritorio:
+    needs: instalador # la release ya existe; aquí solo se suben los binarios
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - plataforma: ubuntu-22.04
+            args: ''
+          - plataforma: macos-latest
+            args: '--target universal-apple-darwin'
+    runs-on: ${{ matrix.plataforma }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inyectar la versión del tag en Tauri
+        shell: bash
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          node -e "const f='desktop/src-tauri/tauri.conf.json';const c=require('./'+f);c.version='$v';require('fs').writeFileSync(f,JSON.stringify(c,null,2))"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.plataforma == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Caché de Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Dependencias de Linux
+        if: matrix.plataforma == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev
+
+      - name: Compilar y subir (Tauri)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ./desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: MEDORA ${{ github.ref_name }}
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

@@ -69,6 +69,12 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 - **Bloqueo por inactividad** (`components/BloqueoSesion.tsx`, montado en AppShell): preferencia `bloqueo` (nunca/15/25/30 min) en Mi perfil; cubre la pantalla y revalida la contraseña sin cerrar la sesión. Última actividad en localStorage (`medora.ultima-actividad`), así recargar no lo evade.
 - **Pruebas**: `npm test` (vitest, en CI) + `supabase/tests/funcional_roles.sql`.
 
+## Multiplataforma (open source)
+
+- **Windows**: launcher WinForms/WebView2 (único con auto-update, quiosco y TV).
+- **Linux/macOS**: `desktop/` (Tauri 2) envuelve la misma `app/dist` en una ventana nativa; sin bridge de impresión/quiosco (cae al comportamiento de navegador). Los binarios (.AppImage/.deb/.dmg) los compila `release.yml` en runners ubuntu/macos y se suben a la misma Release. macOS va **sin firmar**. Íconos en `desktop/src-tauri/icons` (regenerar con `npx @tauri-apps/cli icon <png-1024>`).
+- **Licencia MIT** (`LICENSE`); self-host con `app/.env.example` + migraciones.
+
 ## Launcher / releases
 
 - El launcher nunca bloquea el arranque por la red; el chequeo de versión corre en segundo plano.

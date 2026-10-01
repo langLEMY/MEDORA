@@ -11,6 +11,14 @@
 
 ---
 
+## Código abierto (MIT)
+
+MEDORA es software libre bajo licencia [MIT](LICENSE). Puedes autoalojarlo con tu propio proyecto de Supabase:
+
+1. Crea un proyecto en [Supabase](https://supabase.com) y aplica las migraciones de `supabase/migrations`.
+2. Copia `app/.env.example` a `app/.env.production` con la URL y la clave publicable de **tu** proyecto.
+3. Compila la app (`cd app && npm ci && npm run build`) y empaqueta el escritorio para tu sistema (ver `desktop/` y el workflow `release.yml`).
+
 ## 🏛️ **1. RESUMEN EJECUTIVO**
 
 **MEDORA** es una plataforma de gestión hospitalaria diseñada para operar redes de salud, grupos clínicos y consorcios médicos con varias sedes desde una sola aplicación.
@@ -77,9 +85,21 @@ En el sector salud la continuidad es crítica. **MEDORA** se apoya en Supabase (
 ```
 
 - **Sin servidor propio ni secretos en el instalador.** La app usa la clave *publicable* de Supabase; toda autorización la aplica Postgres con RLS (`supabase/migrations`). Las operaciones que requieren la service key (crear usuarios) viven en Edge Functions que validan permisos.
-- **Stack:** React 19 + TypeScript + Vite + Tailwind 4 + Motion + TanStack Query · .NET 9 WinForms + WebView2 · Supabase (Postgres 17).
+- **Stack:** React 19 + TypeScript + Vite + Tailwind 4 + Motion + TanStack Query · .NET 9 WinForms + WebView2 (Windows) · Tauri 2 (Linux/macOS) · Supabase (Postgres 17).
 
 Más detalle en [docs/arquitectura.md](docs/arquitectura.md).
+
+## Descargas (Windows, Linux y macOS)
+
+Todas las versiones se publican en [GitHub Releases](../../releases/latest):
+
+| Sistema | Archivo | Notas |
+|---|---|---|
+| **Windows** | `MEDORA-X.Y.Z-Setup-x64.exe` | Instalador con el launcher y actualización automática. |
+| **Linux** | `MEDORA_X.Y.Z_amd64.AppImage` o `.deb` | App de escritorio (Tauri). El AppImage corre sin instalar: `chmod +x` y ejecutar. |
+| **macOS** | `MEDORA_X.Y.Z_universal.dmg` | App de escritorio (Tauri), Intel y Apple Silicon. Sin firmar: la primera vez, clic derecho → **Abrir**. |
+
+Las apps de Linux y macOS (carpeta `desktop/`, Tauri) abren la misma app de MEDORA en una ventana nativa; toda la lógica vive en Supabase. La actualización automática y el modo quiosco/TV son exclusivos del launcher de Windows.
 
 ## Instalación (único método)
 
