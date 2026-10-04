@@ -50,11 +50,21 @@ jobs:
         shell: pwsh
         run: ./scripts/generar-instalador.ps1
 
+      # Notas escritas a mano en notas-version/<tag>.md; si no hay, las genera GitHub.
+      - name: Notas de la versión
+        id: notas
+        shell: pwsh
+        run: |
+          $ruta = "notas-version/${{ github.ref_name }}.md"
+          if (Test-Path $ruta) { "ruta=$ruta" >> $env:GITHUB_OUTPUT; "auto=false" >> $env:GITHUB_OUTPUT }
+          else { "ruta=" >> $env:GITHUB_OUTPUT; "auto=true" >> $env:GITHUB_OUTPUT }
+
       - name: Publicar release (crea la release con el .exe)
         uses: softprops/action-gh-release@v2
         with:
           name: MEDORA ${{ github.ref_name }}
-          generate_release_notes: true
+          body_path: ${{ steps.notas.outputs.ruta }}
+          generate_release_notes: ${{ steps.notas.outputs.auto == 'true' }}
           files: |
             instalacion/Output/*.exe
             instalacion/Output/*.exe.sha256
