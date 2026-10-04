@@ -33,6 +33,10 @@ interface ContextoSesion {
   roles: Rol[];
   permisos: Permisos;
   esSuperadmin: boolean;
+  /** La cuenta tiene 2FA y esta sesión todavía no pasó el código (aal1 → aal2). */
+  requiereSegundoPaso: boolean;
+  /** Vuelve a leer el nivel de verificación (tras activar o quitar el 2FA). */
+  actualizarVerificacion: () => Promise<void>;
   cambiarSistema: (id: string) => void;
   cerrarSesion: () => Promise<void>;
   recargar: () => Promise<void>;
@@ -68,6 +72,23 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   }, [qc]);
 
   const usuarioId = sesion?.user.id;
+
+  // Nivel de verificación de la sesión (Supabase Auth MFA). Se lee del token y de
+  // los factores del usuario; cambia al pasar el código (MFA_CHALLENGE_VERIFIED).
+  const [aal, setAal] = useState<{ actual: string | null; siguiente: string | null } | null>(null);
+  const tokenSesion = sesion?.access_token;
+  const actualizarVerificacion = useCallback(async () => {
+    if (!tokenSesion) {
+      setAal(null);
+      return;
+    }
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    setAal({ actual: data?.currentLevel ?? null, siguiente: data?.nextLevel ?? null });
+  }, [tokenSesion]);
+  useEffect(() => {
+    void actualizarVerificacion();
+  }, [actualizarVerificacion]);
+  const requiereSegundoPaso = !!aal && aal.siguiente === "aal2" && aal.actual !== "aal2";
 
   const perfilQ = useQuery({
     queryKey: ["perfil", usuarioId],
@@ -125,7 +146,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   }, [perfilQ, sistemasQ]);
 
   const valor: ContextoSesion = {
-    cargando: !sesionLista || (!!usuarioId && (perfilQ.isLoading || sistemasQ.isLoading)),
+    cargando: !sesionLista || (!!usuarioId && (perfilQ.isLoading || sistemasQ.isLoading || !aal)),
     sesion,
     perfil: perfilQ.data ?? null,
     sistemas,
@@ -133,6 +154,8 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     roles: sistema?.roles ?? [],
     permisos: sistema?.permisos ?? {},
     esSuperadmin: !!perfilQ.data?.es_superadmin,
+    requiereSegundoPaso,
+    actualizarVerificacion,
     cambiarSistema,
     cerrarSesion,
     recargar,

@@ -9,10 +9,11 @@ import { CambiarPassword } from "./CambiarPassword";
 import { ConfiguracionInicial } from "./ConfiguracionInicial";
 import { Login } from "./Login";
 import { PantallaAcceso, Splash } from "./PantallaAcceso";
+import { VerificarDosPasos } from "./VerificarDosPasos";
 
 /** Decide qué ve la persona: primer arranque, login, cambio de contraseña o la app. */
 export function Puerta() {
-  const { cargando, sesion, perfil, sistemas, esSuperadmin, cerrarSesion } = useSesion();
+  const { cargando, sesion, perfil, sistemas, esSuperadmin, requiereSegundoPaso, cerrarSesion } = useSesion();
 
   const instalacion = useQuery({
     queryKey: ["estado-instalacion"],
@@ -44,6 +45,8 @@ export function Puerta() {
     vista = instalacion.data?.requiere_configuracion
       ? { clave: "config", nodo: <ConfiguracionInicial /> }
       : { clave: "login", nodo: <Login /> };
+  } else if (requiereSegundoPaso) {
+    vista = { clave: "2fa", nodo: <VerificarDosPasos /> };
   } else if (perfil && !perfil.activo) {
     vista = {
       clave: "desactivado",

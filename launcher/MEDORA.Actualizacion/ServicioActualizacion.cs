@@ -17,6 +17,12 @@ public sealed class ServicioActualizacion(HttpClient http, string repositorio = 
 {
     public const string RepositorioPorDefecto = "langLEMY/MEDORA";
 
+    /// <summary>
+    /// Por qué falló la última búsqueda (null si GitHub respondió bien). Sirve para no
+    /// decir "ya tienes la versión más reciente" cuando en realidad no se pudo consultar.
+    /// </summary>
+    public string? UltimoProblema { get; private set; }
+
     /// <summary>Nunca lanza: sin red, con rate limit o con un release mal formado, devuelve null.</summary>
     public async Task<InfoActualizacion?> BuscarAsync(Version versionLocal, CancellationToken ct)
     {
@@ -29,14 +35,19 @@ public sealed class ServicioActualizacion(HttpClient http, string repositorio = 
             using var respuesta = await http.SendAsync(solicitud, ct);
             if (!respuesta.IsSuccessStatusCode)
             {
+                UltimoProblema = (int)respuesta.StatusCode == 404
+                    ? "No se encontró ninguna versión publicada (el repositorio es privado o aún no tiene Releases)."
+                    : $"GitHub respondió {(int)respuesta.StatusCode}. Intenta más tarde.";
                 return null;
             }
 
+            UltimoProblema = null;
             var release = await respuesta.Content.ReadFromJsonAsync<ReleaseGitHub>(ct);
             return InterpretarRelease(release, versionLocal);
         }
         catch
         {
+            UltimoProblema = "No hay conexión con el servidor de actualizaciones.";
             return null;
         }
     }

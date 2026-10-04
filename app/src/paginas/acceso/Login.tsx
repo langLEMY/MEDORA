@@ -26,14 +26,15 @@ export function Login() {
 
   const entrar = handleSubmit(async ({ usuario, password }) => {
     setError(null);
-    // Usuario → correo de Auth (también acepta el correo directamente).
-    const { data: email, error: errUsuario } = await supabase.rpc("correo_de_acceso", { p_usuario: usuario });
-    let { error } = errUsuario ? { error: errUsuario } : await supabase.auth.signInWithPassword({ email: email!, password });
-    // Contraseña heredada de FUNBIDE (formato que Supabase no lee): el servidor la
-    // verifica, la registra en Auth la primera vez y se reintenta el acceso.
-    if (error && !errUsuario && error.code === "invalid_credentials") {
-      const legado = await invocar<{ email: string }>("acceso-legado", { usuario, password }).catch(() => null);
-      if (legado) ({ error } = await supabase.auth.signInWithPassword({ email: legado.email, password }));
+    // El servidor (Edge Function "acceso") resuelve usuario→correo sin revelarlo,
+    // limita los intentos, migra la contraseña heredada de FUNBIDE y devuelve la
+    // sesión. Si la cuenta tiene 2FA, la Puerta pide el código a continuación.
+    let error: unknown = null;
+    try {
+      const tokens = await invocar<{ access_token: string; refresh_token: string }>("acceso", { usuario, password });
+      ({ error } = await supabase.auth.setSession(tokens));
+    } catch (e) {
+      error = e;
     }
     if (error) {
       setError(mensajeError(error));

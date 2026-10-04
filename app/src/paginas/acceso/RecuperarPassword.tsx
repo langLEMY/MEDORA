@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
 import { Entrada } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
-import { mensajeError, supabase } from "@/lib/supabase";
+import { invocar, mensajeError, supabase } from "@/lib/supabase";
 
 /**
  * Recuperar la contraseña con un código de 6 dígitos que llega al correo
@@ -14,11 +14,6 @@ import { mensajeError, supabase } from "@/lib/supabase";
  * abriría en el navegador. Quien no tiene correo real se lo pide a la administración.
  */
 type Paso = "usuario" | "codigo" | "sin-correo";
-
-const enmascarar = (correo: string) => {
-  const [u, d] = correo.split("@");
-  return `${u.slice(0, 2)}${"•".repeat(Math.max(2, u.length - 2))}@${d}`;
-};
 
 export function RecuperarPassword({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
   const [paso, setPaso] = useState<Paso>("usuario");
@@ -44,15 +39,16 @@ export function RecuperarPassword({ abierto, onCerrar }: { abierto: boolean; onC
     if (usuario.trim().length < 2) return setError("Escribe tu usuario.");
     setCargando(true);
     try {
-      const { data, error: e } = await supabase.rpc("correo_de_acceso", { p_usuario: usuario.trim() });
-      if (e || !data) throw new Error("No encontramos ese usuario.");
-      if (data.endsWith(".invalid")) {
+      // El servidor busca el correo y envía el código sin revelarlo (llega enmascarado).
+      const r = await invocar<{ estado: "enviado" | "sin_correo"; correo?: string }>("recuperar", {
+        accion: "solicitar",
+        usuario: usuario.trim(),
+      });
+      if (r.estado === "sin_correo") {
         setPaso("sin-correo");
         return;
       }
-      const { error: e2 } = await supabase.auth.resetPasswordForEmail(data);
-      if (e2) throw e2;
-      setCorreo(data);
+      setCorreo(r.correo ?? "");
       setPaso("codigo");
     } catch (e) {
       setError(mensajeError(e));
@@ -68,11 +64,14 @@ export function RecuperarPassword({ abierto, onCerrar }: { abierto: boolean; onC
     if (clave !== clave2) return setError("Las contraseñas no coinciden.");
     setCargando(true);
     try {
-      const { error: e } = await supabase.auth.verifyOtp({ email: correo, token: codigo.trim(), type: "recovery" });
-      if (e) throw new Error("El código no es válido o ya venció. Pide uno nuevo.");
-      const { error: e2 } = await supabase.auth.updateUser({ password: clave });
-      if (e2) throw e2;
-      await supabase.rpc("marcar_password_actualizada");
+      const tokens = await invocar<{ access_token: string; refresh_token: string }>("recuperar", {
+        accion: "confirmar",
+        usuario: usuario.trim(),
+        codigo: codigo.trim(),
+        password: clave,
+      });
+      const { error: e } = await supabase.auth.setSession(tokens);
+      if (e) throw e;
       toast.success("Contraseña cambiada", { description: "Ya estás dentro de MEDORA." });
       onCerrar();
     } catch (e) {
@@ -130,7 +129,7 @@ export function RecuperarPassword({ abierto, onCerrar }: { abierto: boolean; onC
               <div className="flex items-start gap-3 rounded-xl bg-marca-suave p-3 text-sm">
                 <Mail className="mt-0.5 size-4 shrink-0 text-marca" />
                 <span>
-                  Enviamos un código a <b>{enmascarar(correo)}</b>. Revisa también la carpeta de spam.
+                  Enviamos un código a <b>{correo}</b>. Revisa también la carpeta de spam.
                 </span>
               </div>
               <Entrada

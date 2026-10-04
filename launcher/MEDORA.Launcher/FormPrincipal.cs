@@ -321,7 +321,9 @@ public sealed class FormPrincipal : Form
         }
         else if (manual)
         {
-            Enviar(new { tipo = "sin-actualizacion" });
+            Enviar(_actualizacion.UltimoProblema is { } problema
+                ? new { tipo = "error-busqueda", mensaje = problema }
+                : new { tipo = "sin-actualizacion" });
         }
 
         _primerChequeo = false;

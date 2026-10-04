@@ -4,6 +4,7 @@ import { Camera, Check, MonitorDown, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { DosPasos } from "@/components/DosPasos";
 import { Impresion } from "@/components/Impresion";
 import { Personalizacion } from "@/components/Personalizacion";
 import { Soporte } from "@/components/Soporte";
@@ -42,6 +43,10 @@ export default function Perfil() {
       if (m.tipo === "sin-actualizacion") {
         setBuscando(false);
         toast.success("Ya tienes la versión más reciente");
+      }
+      if (m.tipo === "error-busqueda") {
+        setBuscando(false);
+        toast.error("No se pudo buscar actualizaciones", { description: m.mensaje });
       }
       if (m.tipo === "actualizacion") setBuscando(false);
     });
@@ -158,6 +163,8 @@ export default function Perfil() {
               </div>
             </form>
           </Tarjeta>
+
+          <DosPasos />
 
           <Tarjeta className="flex items-center gap-4 p-6">
             <span className="grid size-10 place-items-center rounded-xl bg-marca-suave text-marca">

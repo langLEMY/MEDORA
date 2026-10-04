@@ -6,7 +6,7 @@
  * App → launcher:  { tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" }
  * Launcher → app:  { tipo: "info", version } | { tipo: "actualizacion", version, notas }
  *                  | { tipo: "sin-actualizacion" } | { tipo: "progreso", porcentaje }
- *                  | { tipo: "error-actualizacion", mensaje }
+ *                  | { tipo: "error-actualizacion", mensaje } | { tipo: "error-busqueda", mensaje }
  * Ver launcher/FormPrincipal.cs.
  */
 export type MensajeLauncher =
@@ -15,6 +15,8 @@ export type MensajeLauncher =
   | { tipo: "sin-actualizacion" }
   | { tipo: "progreso"; porcentaje: number }
   | { tipo: "error-actualizacion"; mensaje: string }
+  /** La búsqueda manual no pudo consultar GitHub (sin red, rate limit…): no es "estás al día". */
+  | { tipo: "error-busqueda"; mensaje: string }
   | { tipo: "impresoras"; lista: string[]; predeterminada: string; recibos: string | null; tickets: string | null; preguntar: boolean };
 
 type Manejador = (e: { data: unknown }) => void;

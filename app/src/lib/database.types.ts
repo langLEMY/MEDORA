@@ -3386,6 +3386,10 @@ export type Database = {
         Args: { p_usuario_id: string }
         Returns: undefined
       }
+      consumir_limite: {
+        Args: { p_clave: string; p_max: number; p_ventana_seg: number }
+        Returns: boolean
+      }
       correo_de_acceso: { Args: { p_usuario: string }; Returns: string }
       credencial_legado: {
         Args: { p_usuario: string }
@@ -3395,6 +3399,7 @@ export type Database = {
           usuario_id: string
         }[]
       }
+      cuenta_tiene_mfa: { Args: { p_usuario: string }; Returns: boolean }
       diagnostico_plataforma: { Args: never; Returns: Json }
       directorio_medicos: {
         Args: { p_sistema: string }
