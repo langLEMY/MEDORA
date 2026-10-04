@@ -23,6 +23,61 @@ export function clienteServicio(): SupabaseClient {
   });
 }
 
+/** Cliente con la clave pública (anon): para iniciar sesión en nombre del usuario. */
+export function clienteAnon(): SupabaseClient {
+  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/** IP del cliente (detrás del proxy de Supabase). Para el limitador de intentos. */
+export function ipCliente(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  return (xff?.split(",")[0] ?? req.headers.get("cf-connecting-ip") ?? "0.0.0.0").trim();
+}
+
+/**
+ * Limitador de intentos. Devuelve true si se permite; false si pasó el límite.
+ * Nunca hace fallar la operación por un error del limitador (mejor permitir que
+ * tumbar el acceso por una incidencia de infraestructura).
+ */
+export async function limitar(admin: SupabaseClient, clave: string, max: number, ventanaSeg: number): Promise<boolean> {
+  try {
+    const { data } = await admin.rpc("consumir_limite", { p_clave: clave, p_max: max, p_ventana_seg: ventanaSeg });
+    return data !== false;
+  } catch {
+    return true;
+  }
+}
+
+/** Nivel de garantía (aal) declarado en el token ya validado por getUser. */
+export function aalDeToken(token: string): string {
+  try {
+    return JSON.parse(atob(token.split(".")[1])).aal ?? "aal1";
+  } catch {
+    return "aal1";
+  }
+}
+
+/**
+ * ¿La sesión cumple el 2FA? true si llegó a aal2 o si la cuenta no tiene segundo
+ * factor (2FA opcional). Espejo de privado.mfa_ok() para las Edge Functions.
+ */
+export async function cumpleMfa(admin: SupabaseClient, token: string, usuarioId: string): Promise<boolean> {
+  if (aalDeToken(token) === "aal2") return true;
+  const { data } = await admin.rpc("cuenta_tiene_mfa", { p_usuario: usuarioId });
+  return data !== true;
+}
+
+/** Oculta el correo para mostrarlo sin revelarlo entero. */
+export function enmascararCorreo(correo: string): string {
+  const [u, d] = correo.split("@");
+  if (!d) return correo;
+  return `${u.slice(0, 2)}${"•".repeat(Math.max(2, u.length - 2))}@${d}`;
+}
+
+export const MFA_REQUERIDO = "Esta acción requiere verificación en dos pasos: vuelve a entrar e introduce tu código.";
+
 // Sin 0/O/1/l/I: la contraseña temporal se dicta o se copia a mano.
 const ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 

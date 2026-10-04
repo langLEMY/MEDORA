@@ -8,7 +8,7 @@
 //   { accion: "limpiar_archivos_sistema", sistema_id }  (tras eliminar un sistema)
 // Las membresías (sistemas y roles) se editan directo por PostgREST: el RLS ya
 // permite al superadmin gestionarlas.
-import { clienteServicio, cors, credencialesNuevas, EMAIL_RE, error, json, normalizarUsuario, passwordTemporal, USUARIO_RE } from "../_shared/comun.ts";
+import { clienteServicio, cors, credencialesNuevas, cumpleMfa, EMAIL_RE, error, json, MFA_REQUERIDO, normalizarUsuario, passwordTemporal, USUARIO_RE } from "../_shared/comun.ts";
 
 // Bloqueo en Auth por ~100 años: no puede iniciar sesión ni renovar su token.
 const BLOQUEO = "876000h";
@@ -25,6 +25,8 @@ Deno.serve(async (req) => {
 
   const { data: miPerfil } = await admin.from("perfiles").select("es_superadmin, activo").eq("id", yo).single();
   if (!miPerfil?.es_superadmin || !miPerfil.activo) return error("Solo la superadministración.", 403);
+  // Si el superadmin activó su 2FA, exigir que esta sesión lo haya pasado (aal2).
+  if (!(await cumpleMfa(admin, token, yo))) return error(MFA_REQUERIDO, 403);
 
   let c: Record<string, unknown>;
   try {

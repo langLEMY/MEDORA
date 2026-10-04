@@ -4,7 +4,7 @@
 // SembradorUsuarioInicial de FUNBIDE, pero del lado del servidor.
 //
 // verify_jwt = false: se llama antes de que exista cualquier cuenta.
-import { clienteServicio, cors, EMAIL_RE, error, json, normalizarUsuario, USUARIO_RE } from "../_shared/comun.ts";
+import { clienteServicio, cors, EMAIL_RE, error, ipCliente, json, limitar, normalizarUsuario, USUARIO_RE } from "../_shared/comun.ts";
 
 interface Solicitud {
   codigo: string;
@@ -37,6 +37,11 @@ Deno.serve(async (req) => {
   }
 
   const admin = clienteServicio();
+
+  // Límite por IP: evita adivinar el código de instalación por fuerza bruta.
+  if (!(await limitar(admin, `config:ip:${ipCliente(req)}`, 10, 600))) {
+    return error("Demasiados intentos. Espera unos minutos e inténtalo de nuevo.", 429);
+  }
 
   const { count, error: errConteo } = await admin
     .from("perfiles")

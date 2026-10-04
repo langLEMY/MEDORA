@@ -7,7 +7,7 @@
 //   { accion: "restablecer_password", sistema_id, usuario_id }
 //   { accion: "importar", sistema_id, filas: [{ _fila, nombre_completo, nombre_usuario, email?, roles[], especialidad?, exequatur? }] }
 // Se inicia sesión con el nombre de usuario; el correo es opcional (contacto).
-import { clienteServicio, cors, credencialesNuevas, error, json, passwordTemporal } from "../_shared/comun.ts";
+import { clienteServicio, cors, credencialesNuevas, cumpleMfa, error, json, MFA_REQUERIDO, passwordTemporal } from "../_shared/comun.ts";
 
 const ROLES = new Set([
   "admin", "gerencia", "contabilidad", "medico", "enfermeria", "psicologia", "nutricion", "terapia",
@@ -49,6 +49,8 @@ Deno.serve(async (req) => {
   if (!perfil?.es_superadmin && !esAdmin) return error("No tienes permiso para gestionar personal en este sistema.", 403);
   // Los superadmins (soporte de la plataforma) no existen para el personal del hospital.
   const soySuperadmin = !!perfil?.es_superadmin;
+  // Si el superadmin activó su 2FA, exigir que esta sesión lo haya pasado (aal2).
+  if (soySuperadmin && !esAdmin && !(await cumpleMfa(admin, token, llamanteId))) return error(MFA_REQUERIDO, 403);
 
   switch (cuerpo.accion) {
     case "crear": {

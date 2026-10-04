@@ -6,28 +6,10 @@
 //   { usuario, password } → { ok, email } | 401
 // verify_jwt = false: se llama antes de tener sesión. Responde igual si el
 // usuario no existe, no tiene credencial heredada o la contraseña no coincide.
-import { clienteServicio, cors, error, json } from "../_shared/comun.ts";
+import { clienteServicio, cors, error, ipCliente, json, limitar } from "../_shared/comun.ts";
+import { verificarIdentityV3 } from "../_shared/legado.ts";
 
-const PRF: Record<number, string> = { 0: "SHA-1", 1: "SHA-256", 2: "SHA-512" };
 const RECHAZO = "Usuario o contraseña incorrectos.";
-
-async function verificarIdentityV3(hashB64: string, password: string): Promise<boolean> {
-  const b = Uint8Array.from(atob(hashB64), (c) => c.charCodeAt(0));
-  if (b[0] !== 0x01 || b.length < 13) return false;
-  const v = new DataView(b.buffer);
-  const prf = PRF[v.getUint32(1)];
-  const iteraciones = v.getUint32(5);
-  const largoSal = v.getUint32(9);
-  if (!prf || iteraciones < 1000 || iteraciones > 1_000_000) return false;
-  const sal = b.slice(13, 13 + largoSal);
-  const esperado = b.slice(13 + largoSal);
-  const clave = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: prf, salt: sal, iterations: iteraciones }, clave, esperado.length * 8));
-  // Comparación en tiempo constante.
-  let dif = bits.length ^ esperado.length;
-  for (let i = 0; i < esperado.length; i++) dif |= bits[i] ^ esperado[i];
-  return dif === 0;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -44,6 +26,13 @@ Deno.serve(async (req) => {
   if (!usuario || !password || password.length > 200) return error(RECHAZO, 401);
 
   const admin = clienteServicio();
+
+  // Límite de intentos: corta fuerza bruta y el abuso de CPU del PBKDF2.
+  const ip = ipCliente(req);
+  if (!(await limitar(admin, `legado:ip:${ip}`, 30, 300)) || !(await limitar(admin, `legado:u:${usuario}`, 10, 600))) {
+    return error("Demasiados intentos. Espera unos minutos e inténtalo de nuevo.", 429);
+  }
+
   const { data } = await admin.rpc("credencial_legado", { p_usuario: usuario });
   const fila = (data as { usuario_id: string; email: string; hash: string }[] | null)?.[0];
   if (!fila || !(await verificarIdentityV3(fila.hash, password))) return error(RECHAZO, 401);
