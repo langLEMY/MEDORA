@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { datos, supabase, type Fila, type Rol } from "@/lib/supabase";
 import type { Permisos } from "@/lib/permisos";
 import { sincronizarDesdePerfil } from "@/lib/preferencias";
+import { contextoMonitoreo } from "@/lib/monitoreo";
 import { aplicarColorMarca } from "@/lib/tema";
 
 export interface SistemaAcceso {
@@ -113,6 +114,10 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     aplicarColorMarca(sistema?.color_marca);
   }, [sistema?.color_marca]);
+
+  useEffect(() => {
+    contextoMonitoreo(usuarioId ?? null, sistema?.id ?? null);
+  }, [usuarioId, sistema?.id]);
 
   // Las preferencias guardadas en el perfil siguen al usuario a cualquier computadora.
   useEffect(() => {

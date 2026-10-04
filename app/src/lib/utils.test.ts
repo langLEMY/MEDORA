@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cedula, correoVisible, edad, horaCorta, iniciales, isoDia, moneda, rnc, sugerirUsuario, telefonoRd, USUARIO_RE } from "./utils";
+import { cedula, cedulaVerificada, correoVisible, edad, horaCorta, iniciales, isoDia, moneda, rnc, sugerirUsuario, telefonoRd, USUARIO_RE } from "./utils";
 
 describe("identificación dominicana (espejo de privado.tg_identificacion_rd)", () => {
   it("formatea la cédula con guiones solo si tiene 11 dígitos", () => {
@@ -7,6 +7,12 @@ describe("identificación dominicana (espejo de privado.tg_identificacion_rd)", 
     expect(cedula("001-1234567-8")).toBe("001-1234567-8");
     expect(cedula("0011234567")).toBeNull();
     expect(cedula(null)).toBeNull();
+  });
+  it("verifica el dígito de la cédula (módulo 10 de la JCE)", () => {
+    expect(cedulaVerificada("001-1307529-5")).toBe(true);
+    expect(cedulaVerificada("40213753516")).toBe(true);
+    expect(cedulaVerificada("001-1307529-4")).toBe(false);
+    expect(cedulaVerificada("0011307529")).toBe(false);
   });
   it("acepta RNC de 9 dígitos o cédula de 11, solo dígitos", () => {
     expect(rnc("1-30-12345-6")).toBe("130123456");

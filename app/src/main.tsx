@@ -11,7 +11,9 @@ import { cambiarTemaAnimado, temaGuardado } from "./lib/tema";
 import { enrutador } from "./rutas";
 import { SesionProvider } from "./sesion/SesionProvider";
 import { guardarEnEquipo, MAX_EDAD, persistidor } from "./lib/sinConexion";
+import { iniciarMonitoreo } from "./lib/monitoreo";
 
+iniciarMonitoreo();
 aplicarPreferenciasIniciales();
 // "Sistema": sigue a Windows en vivo si cambia de claro a oscuro con MEDORA abierto.
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {

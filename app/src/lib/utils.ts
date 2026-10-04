@@ -18,6 +18,22 @@ export function cedula(v?: string | null) {
   return d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 10)}-${d.slice(10)}` : null;
 }
 
+/**
+ * Dígito verificador de la cédula (algoritmo de la JCE, módulo 10 con pesos 1-2).
+ * Sirve para avisar de un error al digitar; no bloquea: hay cédulas antiguas
+ * válidas que no lo cumplen. La validación contra la JCE es la integración "jce".
+ */
+export function cedulaVerificada(v?: string | null) {
+  const d = digitos(v);
+  if (d.length !== 11) return false;
+  let suma = 0;
+  for (let i = 0; i < 10; i++) {
+    const p = Number(d[i]) * (i % 2 === 0 ? 1 : 2);
+    suma += Math.floor(p / 10) + (p % 10);
+  }
+  return (10 - (suma % 10)) % 10 === Number(d[10]);
+}
+
 /** RNC solo con dígitos (9, u 11 si es cédula), o null si no es válido. */
 export function rnc(v?: string | null) {
   const d = digitos(v);

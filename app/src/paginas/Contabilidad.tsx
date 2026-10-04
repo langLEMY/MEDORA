@@ -4,12 +4,13 @@ import { BookOpenCheck, ChevronDown, FileDown, Landmark, Pencil, PiggyBank, Plus
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
+import { FacturacionElectronica } from "@/components/FacturacionElectronica";
 import { SelectorCuenta } from "@/components/SelectorCuenta";
 import { Boton } from "@/components/ui/boton";
 import { Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { EncabezadoPagina, Esqueleto, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { CATEGORIAS_SERVICIO, TIPOS_NCF, useCuentas, type CuentaContable } from "@/lib/consultas";
+import { CATEGORIAS_SERVICIO, digitosNcf, TIPOS_NCF, useCuentas, type CuentaContable } from "@/lib/consultas";
 import { editaConfigContable, puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
@@ -47,7 +48,12 @@ export default function Contabilidad() {
           {vista === "balanza" && <Balanza />}
           {vista === "catalogo" && <Catalogo />}
           {vista === "configuracion" && <Configuracion />}
-          {vista === "ncf" && <Ncf />}
+          {vista === "ncf" && (
+            <div className="space-y-4">
+              <FacturacionElectronica />
+              <Ncf />
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
     </>
@@ -888,8 +894,8 @@ function Ncf() {
                 <span className="w-44 font-medium">{TIPOS_NCF[s.tipo]}</span>
                 <span className="font-mono text-xs text-texto-2">
                   {s.tipo}
-                  {String(s.desde).padStart(8, "0")} → {s.tipo}
-                  {String(s.hasta).padStart(8, "0")}
+                  {String(s.desde).padStart(digitosNcf(s.tipo), "0")} → {s.tipo}
+                  {String(s.hasta).padStart(digitosNcf(s.tipo), "0")}
                 </span>
                 <div className="flex-1">
                   <div className="mb-1 flex justify-between text-xs text-texto-3">

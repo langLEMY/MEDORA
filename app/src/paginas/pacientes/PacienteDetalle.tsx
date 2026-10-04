@@ -14,10 +14,11 @@ import { edad, fecha, fechaHora, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 import { AccesosExpediente, useRegistrarAcceso } from "@/components/AccesosExpediente";
 import { FotoDocumento } from "@/components/FotoDocumento";
+import { ResultadosLaboratorio } from "@/components/ResultadosLaboratorio";
 import { FormPaciente } from "./FormPaciente";
 import { HistorialClinico } from "./HistorialClinico";
 
-type Pestana = "historial" | "citas" | "cobros" | "datos";
+type Pestana = "historial" | "laboratorio" | "citas" | "cobros" | "datos";
 
 export default function PacienteDetalle() {
   const { id = "" } = useParams();
@@ -27,7 +28,7 @@ export default function PacienteDetalle() {
   const [pestana, setPestana] = useState<Pestana>(verHistorial ? "historial" : "citas");
   const [editar, setEditar] = useState(false);
   // Queda en la auditoría quién abrió el expediente y, aparte, la historia clínica.
-  useRegistrarAcceso(id, pestana === "historial" ? "historia clínica" : "expediente");
+  useRegistrarAcceso(id, pestana === "historial" || pestana === "laboratorio" ? "historia clínica" : "expediente");
 
   const paciente = useQuery({
     queryKey: claves.paciente(sistemaId, id),
@@ -77,6 +78,7 @@ export default function PacienteDetalle() {
   const nombre = `${p.nombres} ${p.apellidos}`;
   const opciones = [
     ...(verHistorial ? [{ valor: "historial" as const, etiqueta: "Historia clínica" }] : []),
+    ...(verHistorial ? [{ valor: "laboratorio" as const, etiqueta: "Laboratorio" }] : []),
     { valor: "citas" as const, etiqueta: "Citas" },
     ...(verCobros ? [{ valor: "cobros" as const, etiqueta: "Cobros" }] : []),
     { valor: "datos" as const, etiqueta: "Datos" },
@@ -153,6 +155,7 @@ export default function PacienteDetalle() {
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
         >
           {pestana === "historial" && <HistorialClinico pacienteId={id} pacienteNombre={nombre} />}
+          {pestana === "laboratorio" && <ResultadosLaboratorio pacienteId={id} />}
 
           {pestana === "citas" && (
             <Tarjeta className="overflow-hidden">

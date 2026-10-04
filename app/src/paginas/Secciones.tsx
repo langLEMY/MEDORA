@@ -24,6 +24,7 @@ const ResumenFinanciero = lazy(() => import("./Finanzas").then((m) => ({ default
 const MovimientosImportantes = lazy(() => import("./Finanzas").then((m) => ({ default: m.MovimientosImportantes })));
 const CierresDiarios = lazy(() => import("./Finanzas").then((m) => ({ default: m.CierresDiarios })));
 const Donaciones = lazy(() => import("./Finanzas").then((m) => ({ default: m.Donaciones })));
+const ConciliacionBancaria = lazy(() => import("@/components/ConciliacionBancaria").then((m) => ({ default: m.ConciliacionBancaria })));
 
 interface Seccion {
   clave: string;
@@ -98,7 +99,7 @@ export function PaginaPrecios() {
   );
 }
 
-/** Finanzas: resumen con gráficos · movimientos importantes · cierres diarios · donaciones · reportes. */
+/** Finanzas: resumen con gráficos · movimientos importantes · cierres diarios · donaciones · banco · reportes. */
 export function PaginaFinanzas() {
   const { ver } = usePuede();
   return (
@@ -109,6 +110,7 @@ export function PaginaFinanzas() {
         { clave: "movimientos", etiqueta: "Movimientos", visible: ver("contabilidad"), contenido: <MovimientosImportantes /> },
         { clave: "cierres", etiqueta: "Cierres diarios", visible: ver("contabilidad"), contenido: <CierresDiarios /> },
         { clave: "donaciones", etiqueta: "Donaciones", visible: ver("caja") || ver("contabilidad"), contenido: <Donaciones /> },
+        { clave: "banco", etiqueta: "Banco", visible: ver("contabilidad"), contenido: <ConciliacionBancaria /> },
         { clave: "reportes", etiqueta: "Reportes", visible: ver("reportes"), contenido: <Reportes /> },
       ]}
     />

@@ -9,7 +9,7 @@ import { AreaTexto, Entrada, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { useAseguradoras } from "@/lib/consultas";
 import { mensajeError, supabase, type Fila } from "@/lib/supabase";
-import { cedula } from "@/lib/utils";
+import { cedula, cedulaVerificada } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 
 const opcional = z
@@ -100,11 +100,17 @@ export function FormPaciente({
   const qc = useQueryClient();
   const aseguradoras = useAseguradoras(sistemaId);
   const esquema = useMemo(() => crearEsquema(paciente?.documento), [paciente?.documento]);
-  const { register, handleSubmit, reset, formState } = useForm<Entrada_, unknown, Salida>({
+  const { register, handleSubmit, reset, formState, watch } = useForm<Entrada_, unknown, Salida>({
     resolver: zodResolver(esquema),
     defaultValues: vacio,
   });
   const e = formState.errors;
+  // Aviso (no bloquea) si la cédula completa no cumple el dígito verificador de la JCE.
+  const doc = watch("documento");
+  const avisoCedula =
+    watch("documento_tipo") === "cedula" && cedula(doc) && !cedulaVerificada(doc)
+      ? "El dígito verificador no coincide: revisa que esté bien escrita."
+      : undefined;
 
   useEffect(() => {
     if (!abierto) return;
@@ -171,7 +177,13 @@ export function FormPaciente({
               <option value="menor">Menor de edad</option>
               <option value="otro">Otro</option>
             </Selector>
-            <Entrada etiqueta="Número de documento" placeholder="000-0000000-0" error={e.documento?.message} {...register("documento")} />
+            <Entrada
+              etiqueta="Número de documento"
+              placeholder="000-0000000-0"
+              error={e.documento?.message}
+              ayuda={avisoCedula}
+              {...register("documento")}
+            />
             <Entrada etiqueta="Fecha de nacimiento" type="date" {...register("fecha_nacimiento")} />
             <Selector etiqueta="Sexo" {...register("sexo")}>
               <option value="">—</option>

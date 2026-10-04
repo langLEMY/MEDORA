@@ -323,6 +323,132 @@ export type Database = {
           },
         ]
       }
+      ars_pagos_items: {
+        Row: {
+          aplicado: number
+          cobro_id: string | null
+          creado_en: string
+          estado: string
+          glosa: number
+          id: string
+          lote_id: string
+          motivo_glosa: string | null
+          numero_autorizacion: string
+          pagado: number
+          reclamado: number | null
+          sistema_id: string
+        }
+        Insert: {
+          aplicado?: number
+          cobro_id?: string | null
+          creado_en?: string
+          estado: string
+          glosa?: number
+          id?: string
+          lote_id: string
+          motivo_glosa?: string | null
+          numero_autorizacion: string
+          pagado?: number
+          reclamado?: number | null
+          sistema_id: string
+        }
+        Update: {
+          aplicado?: number
+          cobro_id?: string | null
+          creado_en?: string
+          estado?: string
+          glosa?: number
+          id?: string
+          lote_id?: string
+          motivo_glosa?: string | null
+          numero_autorizacion?: string
+          pagado?: number
+          reclamado?: number | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ars_pagos_items_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cobros"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "ars_pagos_items_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
+            foreignKeyName: "ars_pagos_items_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ars_pagos_items_sistema_id_lote_id_fkey"
+            columns: ["sistema_id", "lote_id"]
+            isOneToOne: false
+            referencedRelation: "ars_pagos_lotes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "ars_pagos_items_sistema_id_lote_id_fkey"
+            columns: ["sistema_id", "lote_id"]
+            isOneToOne: false
+            referencedRelation: "ars_pagos_resumen"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      ars_pagos_lotes: {
+        Row: {
+          aseguradora_id: string
+          creado_en: string
+          creado_por: string | null
+          fecha: string
+          id: string
+          referencia: string
+          sistema_id: string
+        }
+        Insert: {
+          aseguradora_id: string
+          creado_en?: string
+          creado_por?: string | null
+          fecha: string
+          id?: string
+          referencia: string
+          sistema_id: string
+        }
+        Update: {
+          aseguradora_id?: string
+          creado_en?: string
+          creado_por?: string | null
+          fecha?: string
+          id?: string
+          referencia?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ars_pagos_lotes_sistema_id_aseguradora_id_fkey"
+            columns: ["sistema_id", "aseguradora_id"]
+            isOneToOne: false
+            referencedRelation: "aseguradoras"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "ars_pagos_lotes_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aseguradoras: {
         Row: {
           activo: boolean
@@ -1314,6 +1440,67 @@ export type Database = {
           },
         ]
       }
+      conciliaciones_bancarias: {
+        Row: {
+          automatica: boolean
+          creado_en: string
+          creado_por: string | null
+          id: string
+          monto: number
+          movimiento_id: string
+          nota: string | null
+          origen_id: string | null
+          sistema_id: string
+          tipo: string
+        }
+        Insert: {
+          automatica?: boolean
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          monto: number
+          movimiento_id: string
+          nota?: string | null
+          origen_id?: string | null
+          sistema_id: string
+          tipo: string
+        }
+        Update: {
+          automatica?: boolean
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          monto?: number
+          movimiento_id?: string
+          nota?: string | null
+          origen_id?: string | null
+          sistema_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conciliaciones_bancarias_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conciliaciones_bancarias_sistema_id_movimiento_id_fkey"
+            columns: ["sistema_id", "movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos_bancarios"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "conciliaciones_bancarias_sistema_id_movimiento_id_fkey"
+            columns: ["sistema_id", "movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos_bancarios_estado"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       contadores: {
         Row: {
           clave: string
@@ -1333,6 +1520,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "contadores_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuentas_bancarias: {
+        Row: {
+          activo: boolean
+          banco: string
+          creado_en: string
+          creado_por: string | null
+          id: string
+          nombre: string
+          numero: string | null
+          sistema_id: string
+        }
+        Insert: {
+          activo?: boolean
+          banco: string
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          nombre: string
+          numero?: string | null
+          sistema_id: string
+        }
+        Update: {
+          activo?: boolean
+          banco?: string
+          creado_en?: string
+          creado_por?: string | null
+          id?: string
+          nombre?: string
+          numero?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuentas_bancarias_sistema_id_fkey"
             columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
@@ -1512,6 +1740,94 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "turnos_caja"
             referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      ecf_documentos: {
+        Row: {
+          actualizado_en: string
+          actualizado_por: string | null
+          cobro_id: string
+          codigo_seguridad: string | null
+          creado_en: string
+          encf: string
+          estado: string
+          fecha_firma: string | null
+          id: string
+          intentos: number
+          mensajes: Json | null
+          monto_total: number
+          qr_url: string | null
+          resumen: boolean
+          sistema_id: string
+          tipo: string
+          track_id: string | null
+          ultimo_intento: string | null
+          xml: string | null
+        }
+        Insert: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          cobro_id: string
+          codigo_seguridad?: string | null
+          creado_en?: string
+          encf: string
+          estado?: string
+          fecha_firma?: string | null
+          id?: string
+          intentos?: number
+          mensajes?: Json | null
+          monto_total: number
+          qr_url?: string | null
+          resumen?: boolean
+          sistema_id: string
+          tipo: string
+          track_id?: string | null
+          ultimo_intento?: string | null
+          xml?: string | null
+        }
+        Update: {
+          actualizado_en?: string
+          actualizado_por?: string | null
+          cobro_id?: string
+          codigo_seguridad?: string | null
+          creado_en?: string
+          encf?: string
+          estado?: string
+          fecha_firma?: string | null
+          id?: string
+          intentos?: number
+          mensajes?: Json | null
+          monto_total?: number
+          qr_url?: string | null
+          resumen?: boolean
+          sistema_id?: string
+          tipo?: string
+          track_id?: string | null
+          ultimo_intento?: string | null
+          xml?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecf_documentos_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cobros"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "ecf_documentos_sistema_id_cobro_id_fkey"
+            columns: ["sistema_id", "cobro_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_por_cobrar"
+            referencedColumns: ["sistema_id", "cobro_id"]
+          },
+          {
+            foreignKeyName: "ecf_documentos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2022,6 +2338,60 @@ export type Database = {
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimientos_bancarios: {
+        Row: {
+          creado_en: string
+          creado_por: string | null
+          cuenta_id: string
+          descripcion: string
+          fecha: string
+          huella: string
+          id: string
+          monto: number
+          referencia: string | null
+          sistema_id: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string | null
+          cuenta_id: string
+          descripcion?: string
+          fecha: string
+          huella: string
+          id?: string
+          monto: number
+          referencia?: string | null
+          sistema_id: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string | null
+          cuenta_id?: string
+          descripcion?: string
+          fecha?: string
+          huella?: string
+          id?: string
+          monto?: number
+          referencia?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimientos_bancarios_sistema_id_cuenta_id_fkey"
+            columns: ["sistema_id", "cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_bancarias"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "movimientos_bancarios_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
             referencedColumns: ["id"]
           },
         ]
@@ -2795,6 +3165,75 @@ export type Database = {
           },
         ]
       }
+      resultados_laboratorio: {
+        Row: {
+          asignado_en: string | null
+          asignado_por: string | null
+          estado: string
+          fecha_resultado: string | null
+          id: string
+          identificacion: string | null
+          laboratorio: string
+          nombre_paciente: string | null
+          observaciones: string | null
+          orden: string | null
+          paciente_id: string | null
+          pdf_ruta: string | null
+          recibido_en: string
+          resultados: Json
+          sistema_id: string
+        }
+        Insert: {
+          asignado_en?: string | null
+          asignado_por?: string | null
+          estado?: string
+          fecha_resultado?: string | null
+          id?: string
+          identificacion?: string | null
+          laboratorio: string
+          nombre_paciente?: string | null
+          observaciones?: string | null
+          orden?: string | null
+          paciente_id?: string | null
+          pdf_ruta?: string | null
+          recibido_en?: string
+          resultados?: Json
+          sistema_id: string
+        }
+        Update: {
+          asignado_en?: string | null
+          asignado_por?: string | null
+          estado?: string
+          fecha_resultado?: string | null
+          id?: string
+          identificacion?: string | null
+          laboratorio?: string
+          nombre_paciente?: string | null
+          observaciones?: string | null
+          orden?: string | null
+          paciente_id?: string | null
+          pdf_ruta?: string | null
+          recibido_en?: string
+          resultados?: Json
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resultados_laboratorio_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resultados_laboratorio_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       resumenes_diarios: {
         Row: {
           atendidos: number
@@ -3029,6 +3468,7 @@ export type Database = {
           creado_en: string
           creado_por: string | null
           direccion: string | null
+          ecf_activo: boolean
           email: string | null
           es_pruebas: boolean
           fondo_caja: number
@@ -3053,6 +3493,7 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           direccion?: string | null
+          ecf_activo?: boolean
           email?: string | null
           es_pruebas?: boolean
           fondo_caja?: number
@@ -3077,6 +3518,7 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           direccion?: string | null
+          ecf_activo?: boolean
           email?: string | null
           es_pruebas?: boolean
           fondo_caja?: number
@@ -3175,6 +3617,38 @@ export type Database = {
       }
     }
     Views: {
+      ars_pagos_resumen: {
+        Row: {
+          aplicado: number | null
+          aseguradora: string | null
+          aseguradora_id: string | null
+          creado_en: string | null
+          fecha: string | null
+          filas: number | null
+          glosado: number | null
+          id: string | null
+          pagado: number | null
+          referencia: string | null
+          sin_cobro: number | null
+          sistema_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ars_pagos_lotes_sistema_id_aseguradora_id_fkey"
+            columns: ["sistema_id", "aseguradora_id"]
+            isOneToOne: false
+            referencedRelation: "aseguradoras"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "ars_pagos_lotes_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cuentas_por_cobrar: {
         Row: {
           aseguradora_id: string | null
@@ -3245,6 +3719,40 @@ export type Database = {
           },
         ]
       }
+      movimientos_bancarios_estado: {
+        Row: {
+          automatica: boolean | null
+          conciliado: number | null
+          creado_en: string | null
+          creado_por: string | null
+          cuadrado: boolean | null
+          cuenta_id: string | null
+          descripcion: string | null
+          fecha: string | null
+          huella: string | null
+          id: string | null
+          monto: number | null
+          referencia: string | null
+          sistema_id: string | null
+          vinculos: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimientos_bancarios_sistema_id_cuenta_id_fkey"
+            columns: ["sistema_id", "cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_bancarias"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "movimientos_bancarios_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saldos_anticipo: {
         Row: {
           anticipado: number | null
@@ -3301,6 +3809,10 @@ export type Database = {
           usuario: string
         }[]
       }
+      activar_facturacion_electronica: {
+        Args: { p_activo: boolean; p_sistema: string }
+        Returns: undefined
+      }
       activar_integracion: {
         Args: { p_activo: boolean; p_proveedor: string; p_sistema: string }
         Returns: undefined
@@ -3331,6 +3843,10 @@ export type Database = {
       asignar_medico_cobro: {
         Args: { p_cobro: string; p_medico: string }
         Returns: string
+      }
+      asignar_resultado_laboratorio: {
+        Args: { p_paciente: string; p_resultado: string }
+        Returns: undefined
       }
       balanza_comprobacion: {
         Args: { p_desde: string; p_hasta: string; p_sistema: string }
@@ -3381,6 +3897,20 @@ export type Database = {
           turno: string
         }[]
       }
+      conciliar_automatico: {
+        Args: { p_cuenta: string; p_sistema: string }
+        Returns: Json
+      }
+      conciliar_manual: {
+        Args: {
+          p_ajuste: string
+          p_movimiento: string
+          p_nota: string
+          p_partidas: Json
+          p_sistema: string
+        }
+        Returns: undefined
+      }
       consultar_codigo_invitacion: { Args: { p_codigo: string }; Returns: Json }
       consumir_credencial_legado: {
         Args: { p_usuario_id: string }
@@ -3400,6 +3930,10 @@ export type Database = {
         }[]
       }
       cuenta_tiene_mfa: { Args: { p_usuario: string }; Returns: boolean }
+      deshacer_conciliacion: {
+        Args: { p_movimiento: string; p_sistema: string }
+        Returns: undefined
+      }
       diagnostico_plataforma: { Args: never; Returns: Json }
       directorio_medicos: {
         Args: { p_sistema: string }
@@ -3472,6 +4006,17 @@ export type Database = {
         }
         Returns: string
       }
+      guardar_cuenta_bancaria: {
+        Args: {
+          p_activo: boolean
+          p_banco: string
+          p_id: string
+          p_nombre: string
+          p_numero: string
+          p_sistema: string
+        }
+        Returns: string
+      }
       guardar_integracion: {
         Args: {
           p_config: Json
@@ -3505,6 +4050,10 @@ export type Database = {
         Args: { p_filas: Json; p_sistema: string }
         Returns: Json
       }
+      importar_movimientos_bancarios: {
+        Args: { p_cuenta: string; p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
       importar_movimientos_inventario: {
         Args: { p_filas: Json; p_sistema: string }
         Returns: Json
@@ -3515,6 +4064,16 @@ export type Database = {
       }
       importar_pacientes: {
         Args: { p_filas: Json; p_sistema: string }
+        Returns: Json
+      }
+      importar_pagos_ars: {
+        Args: {
+          p_aseguradora: string
+          p_fecha: string
+          p_filas: Json
+          p_referencia: string
+          p_sistema: string
+        }
         Returns: Json
       }
       importar_parametros_nomina: {
@@ -3570,6 +4129,17 @@ export type Database = {
         Returns: Json
       }
       pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
+      partidas_sin_conciliar: {
+        Args: { p_desde: string; p_hasta: string; p_sistema: string }
+        Returns: {
+          descripcion: string
+          fecha: string
+          metodo: string
+          monto: number
+          origen_id: string
+          tipo: string
+        }[]
+      }
       plataforma_cerrar_sesiones: { Args: never; Returns: number }
       plataforma_crear_sistema_pruebas: {
         Args: { p_miembros?: string[]; p_origen: string }
@@ -3717,6 +4287,16 @@ export type Database = {
       }
       registrar_evento: {
         Args: { p_accion: string; p_detalle?: Json; p_sistema?: string }
+        Returns: undefined
+      }
+      registrar_evento_integracion: {
+        Args: {
+          p_detalle: Json
+          p_ok: boolean
+          p_proveedor: string
+          p_sistema: string
+          p_tipo: string
+        }
         Returns: undefined
       }
       registrar_llegada: {

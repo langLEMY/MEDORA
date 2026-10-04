@@ -132,7 +132,19 @@ export const TIPOS_NCF: Record<string, string> = {
   B02: "B02 · Consumo",
   B14: "B14 · Régimen especial",
   B15: "B15 · Gubernamental",
+  E31: "E31 · Crédito fiscal electrónico",
+  E32: "E32 · Consumo electrónico",
+  E33: "E33 · Nota de débito electrónica",
+  E34: "E34 · Nota de crédito electrónica",
+  E44: "E44 · Régimen especial electrónico",
+  E45: "E45 · Gubernamental electrónico",
 };
+
+/** Tipo tradicional → su comprobante electrónico (privado.tipo_comprobante). */
+export const EQUIVALENTE_ECF: Record<string, string> = { B01: "E31", B02: "E32", B14: "E44", B15: "E45" };
+
+/** Dígitos de la secuencia: 8 en NCF (B…), 10 en e-NCF (E…). */
+export const digitosNcf = (tipo: string) => (tipo.startsWith("E") ? 10 : 8);
 
 export function useServicios(sistemaId: string) {
   return useQuery({

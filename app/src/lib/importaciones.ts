@@ -209,6 +209,40 @@ export const IMPORTACIONES = {
     ],
   },
 
+  pagosArs: {
+    id: "pagos-ars",
+    titulo: "Relación de pagos de la ARS",
+    descripcion:
+      "Una fila por autorización pagada. Cada pago se abona a la cuenta por cobrar de esa autorización; la diferencia con lo reclamado queda como glosa. Un mismo pago (referencia) no se puede importar dos veces.",
+    destino: "importar_pagos_ars",
+    // Un pago de la ARS es una unidad: va completo en un solo envío.
+    tamanoLote: 20000,
+    campos: [
+      c("autorizacion", "Autorización", ["no autorizacion", "numero autorizacion", "aut", "autoriz", "no. autorizacion"], { requerido: true, ejemplo: "1926028302" }),
+      c("pagado", "Monto pagado", ["pagado", "monto pagado", "valor pagado", "pago", "monto a pagar"], { conversor: "numero", requerido: true, ejemplo: 500 }),
+      c("reclamado", "Monto reclamado", ["reclamado", "facturado", "monto reclamado", "valor reclamado"], { conversor: "numero", ejemplo: 500 }),
+      c("glosa", "Glosa", ["monto glosado", "glosado", "objetado", "rechazado"], { conversor: "numero", ejemplo: 0 }),
+      c("motivo", "Motivo de la glosa", ["motivo", "observacion", "causa", "comentario"], { ejemplo: "" }),
+    ],
+  },
+
+  movimientosBancarios: {
+    id: "movimientos-bancarios",
+    titulo: "Estado de cuenta bancario",
+    descripcion:
+      "El estado de cuenta del banco tal cual (Popular, BHD, Banreservas…): fecha, descripción, referencia y el monto (o columnas de débito y crédito). Importarlo dos veces no duplica movimientos.",
+    destino: "importar_movimientos_bancarios",
+    tamanoLote: 20000,
+    campos: [
+      c("fecha", "Fecha", ["fecha transaccion", "fecha valor", "fecha efectiva", "fecha posteo"], { conversor: "fecha", requerido: true, ejemplo: "01/10/2026" }),
+      c("descripcion", "Descripción", ["concepto", "detalle", "descripcion transaccion", "transaccion"], { ejemplo: "DEP LOTE VISA" }),
+      c("referencia", "Referencia", ["no referencia", "documento", "numero documento", "serial"], { ejemplo: "123456" }),
+      c("monto", "Monto", ["importe", "valor", "monto transaccion"], { conversor: "numero", ejemplo: 9400 }),
+      c("credito", "Crédito", ["creditos", "depositos", "deposito", "abonos", "entrada"], { conversor: "numero", ejemplo: 9400 }),
+      c("debito", "Débito", ["debitos", "retiros", "retiro", "cargos", "salida"], { conversor: "numero", ejemplo: 0 }),
+    ],
+  },
+
   parametrosNomina: {
     id: "parametros-nomina",
     titulo: "Parámetros TSS",

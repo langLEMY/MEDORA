@@ -23,6 +23,8 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
+import { BotonPagoArs, PagosArsRecibidos } from "@/components/PagosArs";
+import { TimbreEcf } from "@/components/TimbreEcf";
 import { EstadoCuenta, type ContactoCuenta } from "@/components/EstadoCuenta";
 import { SelectorPaciente, type PacienteBreve } from "@/components/SelectorPaciente";
 import { SelectorServicio } from "@/components/SelectorServicio";
@@ -38,6 +40,7 @@ import {
   METODOS_PAGO,
   nombrePaciente,
   SELECT_CITA,
+  EQUIVALENTE_ECF,
   TIPOS_NCF,
   useAseguradoras,
   useMedicos,
@@ -50,7 +53,7 @@ import { useTiempoReal } from "@/lib/tiempoReal";
 import { useAccionUrl } from "@/lib/accionUrl";
 import { OpcionesMedicos } from "@/components/OpcionesMedicos";
 import { puedeEscribir } from "@/lib/permisos";
-import { datos, mensajeError, supabase, type Fila, type MetodoPago } from "@/lib/supabase";
+import { datos, invocar, mensajeError, supabase, type Fila, type MetodoPago } from "@/lib/supabase";
 import { cn, fecha, fechaHora, hora, isoDia, moneda } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
@@ -950,7 +953,9 @@ function NuevoCobro({
   const todosMedicos = personal.data ?? [];
   const delArea = area ? todosMedicos.filter((m) => m.especialidad === area) : [];
   const medicos = delArea.length ? delArea : todosMedicos;
-  const hayNcf = (tipo: string) => !!secuencias.data?.some((s) => s.tipo === tipo);
+  // La cajera elige el tipo tradicional (B…); con facturación electrónica activa el servidor
+  // emite su equivalente E… (B01→E31, B02→E32, B14→E44, B15→E45).
+  const hayNcf = (tipo: string) => !!secuencias.data?.some((s) => s.tipo === tipo || s.tipo === EQUIVALENTE_ECF[tipo]);
   const haySecuencias = (secuencias.data?.length ?? 0) > 0;
 
   const m = useMutation({
@@ -981,6 +986,8 @@ function NuevoCobro({
     onSuccess: (r) => {
       claveCobro.current = crypto.randomUUID();
       toast.success(`Cobro ${r.numero}${r.ncf ? ` · NCF ${r.ncf}` : ""} registrado${r.turno ? ` · turno ${r.turno}` : ""}`);
+      // e-CF: firmar y enviar a la DGII ya (si falla, pg_cron lo reintenta en minutos).
+      if (r.ncf?.startsWith("E")) void invocar("ecf", { accion: "enviar", sistema_id: sistemaId }).catch(() => undefined);
       onCerrar();
       onListo(r.id);
     },
@@ -1147,7 +1154,7 @@ function NuevoCobro({
             onChange={(v) => {
               setConNcf(v);
               // Al activarlo, preselecciona un tipo con secuencia disponible (B02 si la hay).
-              if (v && !hayNcf(tipoNcf)) setTipoNcf(secuencias.data?.[0]?.tipo ?? "B02");
+              if (v && !hayNcf(tipoNcf)) setTipoNcf(Object.keys(EQUIVALENTE_ECF).find(hayNcf) ?? "B02");
             }}
             etiqueta="Emitir comprobante fiscal (NCF)"
             disabled={!haySecuencias}
@@ -1165,7 +1172,7 @@ function NuevoCobro({
                 <div className="grid grid-cols-2 gap-4 pt-1">
                   <Selector etiqueta="Tipo de comprobante" contenedor="col-span-2" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value)}>
                     {Object.entries(TIPOS_NCF)
-                      .filter(([k]) => hayNcf(k))
+                      .filter(([k]) => k in EQUIVALENTE_ECF && hayNcf(k))
                       .map(([k, v]) => (
                         <option key={k} value={k}>
                           {v}
@@ -1427,6 +1434,7 @@ function Factura({ cobro, onCerrar }: { cobro: CobroFila | null; onCerrar: () =>
           <span>{moneda(c.monto_credito)}</span>
         </div>
       )}
+      {c.ncf?.startsWith("E") && <TimbreEcf cobroId={c.id} />}
       {c.anulacion?.length ? <p className="mt-2 text-center font-bold">*** ANULADO ***</p> : null}
       {c.cita?.turno && !c.anulacion?.length && <BloqueTurno turno={c.cita.turno} destino={destinoTurno(c.cita)} />}
       <hr className={linea} />
@@ -1818,9 +1826,12 @@ function CuentasPorCobrar({ onComprobante }: { onComprobante: (c: Comprobante) =
             { valor: "aseguradora", etiqueta: "Aseguradoras (ARS)" },
           ]}
         />
-        <p className="text-sm text-texto-2">
-          Total por cobrar: <span className="font-semibold text-texto tabular">{moneda(total)}</span>
-        </p>
+        <div className="flex items-center gap-3">
+          {deudor === "aseguradora" && puedeEscribir.abonos(roles) && <BotonPagoArs />}
+          <p className="text-sm text-texto-2">
+            Total por cobrar: <span className="font-semibold text-texto tabular">{moneda(total)}</span>
+          </p>
+        </div>
       </div>
       <Tarjeta className="overflow-hidden">
         {q.isLoading ? (
@@ -1868,6 +1879,7 @@ function CuentasPorCobrar({ onComprobante }: { onComprobante: (c: Comprobante) =
           </motion.ul>
         )}
       </Tarjeta>
+      {deudor === "aseguradora" && <PagosArsRecibidos />}
       <Abonar
         datos_={abonar}
         deudor={deudor}

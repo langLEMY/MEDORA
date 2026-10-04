@@ -15,6 +15,7 @@ import { useSistema } from "@/sesion/SesionProvider";
 import { useAccionUrl } from "@/lib/accionUrl";
 import { AccionesDatos, obtenerTodo, type ColumnaDatos } from "@/components/AccionesDatos";
 import { IMPORTACIONES } from "@/lib/importaciones";
+import { BandejaLaboratorio } from "@/components/ResultadosLaboratorio";
 import { useQueryClient } from "@tanstack/react-query";
 import { FormPaciente } from "./FormPaciente";
 
@@ -152,6 +153,8 @@ export default function Pacientes() {
           </>
         }
       />
+
+      {puedeEscribir.verHistorial(roles) && !soloPropio && <BandejaLaboratorio />}
 
       <Tarjeta className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-borde p-3">
