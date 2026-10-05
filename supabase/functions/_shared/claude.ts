@@ -13,8 +13,12 @@ export const MODELOS = {
 // US$ por millón de tokens (entrada, salida). Revisar en anthropic.com/pricing si cambian.
 const PRECIOS: Record<string, [number, number]> = {
   [MODELOS.rapido]: [1, 5],
-  [MODELOS.completo]: [3, 15],
+  [MODELOS.completo]: [2, 10],
 };
+
+// Sonnet 5.5 rechaza tool_choice forzado ("tool"/"any"): ahí va "auto" con strict y la
+// instrucción en el mensaje. Haiku 4.5 sí lo acepta.
+const ACEPTA_FORZADO = new Set<string>([MODELOS.rapido]);
 
 export interface Herramienta {
   name: string;
@@ -63,9 +67,13 @@ export async function pedirClaude<T = unknown>(op: {
     body: JSON.stringify({
       model: op.modelo,
       max_tokens: op.maxTokens ?? 2048,
-      system: op.sistema,
+      system: op.herramienta && !ACEPTA_FORZADO.has(op.modelo) ? `${op.sistema}\n\nResponde siempre llamando a la herramienta "${op.herramienta.name}".` : op.sistema,
       messages: [{ role: "user", content: op.mensaje }],
-      ...(op.herramienta ? { tools: [op.herramienta], tool_choice: { type: "tool", name: op.herramienta.name } } : {}),
+      ...(op.herramienta
+        ? ACEPTA_FORZADO.has(op.modelo)
+          ? { tools: [op.herramienta], tool_choice: { type: "tool", name: op.herramienta.name } }
+          : { tools: [{ ...op.herramienta, strict: true }], tool_choice: { type: "auto" } }
+        : {}),
     }),
   });
   const cuerpo = await r.json().catch(() => ({}));
