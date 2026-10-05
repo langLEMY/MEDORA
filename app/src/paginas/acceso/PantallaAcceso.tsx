@@ -1,37 +1,16 @@
 import { motion } from "motion/react";
-import { ShieldCheck, Stethoscope, Wallet } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Activity, HeartPulse, ShieldCheck, Stethoscope } from "lucide-react";
+import type { ReactNode } from "react";
 import { Isotipo, Logotipo } from "@/components/layout/Logo";
-import { cn } from "@/lib/utils";
 
 const PUNTOS = [
-  { icono: Stethoscope, texto: "Tus pacientes, la agenda y la consulta en un solo lugar" },
-  { icono: Wallet, texto: "Caja, facturación y seguros al día, sin papeles" },
-  { icono: ShieldCheck, texto: "Tu cuenta protegida, con verificación en dos pasos" },
+  { icono: Stethoscope, texto: "Historia clínica, agenda y recepción en un solo lugar" },
+  { icono: Activity, texto: "Varios sistemas hospitalarios y sedes desde una sola app" },
+  { icono: ShieldCheck, texto: "Cada sistema aislado a nivel de base de datos, con bitácora completa" },
 ];
 
-/** Conectado / sin conexión, en vivo. */
-function useEnLinea() {
-  const [enLinea, setEnLinea] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
-  useEffect(() => {
-    const si = () => setEnLinea(true);
-    const no = () => setEnLinea(false);
-    window.addEventListener("online", si);
-    window.addEventListener("offline", no);
-    return () => {
-      window.removeEventListener("online", si);
-      window.removeEventListener("offline", no);
-    };
-  }, []);
-  return enLinea;
-}
-
-/**
- * Diseño partido: panel de marca a la izquierda, formulario a la derecha. Solo la
- * marca MEDORA: el login no muestra el nombre de ningún hospital.
- */
+/** Diseño partido: panel de marca a la izquierda, formulario a la derecha. */
 export function PantallaAcceso({ children }: { children: ReactNode }) {
-  const enLinea = useEnLinea();
   return (
     <div className="grid h-full lg:grid-cols-[1.05fr_1fr]">
       <div className="relative hidden overflow-hidden bg-[#06201d] lg:block">
@@ -88,38 +67,23 @@ export function PantallaAcceso({ children }: { children: ReactNode }) {
             </motion.ul>
           </div>
 
-          <EstadoPie enLinea={enLinea} className="text-white/45" />
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            <HeartPulse className="size-3.5" /> Sistema de gestión hospitalaria
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col overflow-y-auto bg-superficie p-6">
-        <div className="flex flex-1 items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
-            className="w-full max-w-[380px]"
-          >
-            <Logotipo className="mb-10 lg:hidden" />
-            {children}
-          </motion.div>
-        </div>
-        <EstadoPie enLinea={enLinea} className="mt-6 justify-center text-texto-3 lg:hidden" />
+      <div className="flex items-center justify-center overflow-y-auto bg-superficie p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+          className="w-full max-w-[380px]"
+        >
+          <Logotipo className="mb-10 lg:hidden" />
+          {children}
+        </motion.div>
       </div>
-    </div>
-  );
-}
-
-/** Versión y conexión: lo primero que pregunta soporte. */
-function EstadoPie({ enLinea, className }: { enLinea: boolean; className?: string }) {
-  return (
-    <div className={cn("flex items-center gap-2 text-xs", className)}>
-      <span>MEDORA {__VERSION_APP__}</span>
-      <span aria-hidden>·</span>
-      <span className="inline-flex items-center gap-1.5" role="status">
-        <span className={cn("size-1.5 rounded-full", enLinea ? "bg-[#34d399]" : "bg-[#f87171]")} />
-        {enLinea ? "Conectado" : "Sin conexión a internet"}
-      </span>
     </div>
   );
 }
