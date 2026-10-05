@@ -86,6 +86,21 @@ export function passwordTemporal(longitud = 14): string {
   return Array.from(bytes, (b) => ALFABETO[b % ALFABETO.length]).join("");
 }
 
+/**
+ * Contraseña temporal solo de números (fácil de dictar): al azar y distinta por persona.
+ * 8 dígitos = 100 millones de combinaciones; el acceso está limitado a 10 intentos
+ * cada 10 min por usuario y obliga a cambiarla al entrar.
+ */
+export function pinTemporal(digitos = 8): string {
+  const max = 4294967296 - (4294967296 % 10); // sin sesgo de módulo
+  const salida: number[] = [];
+  while (salida.length < digitos) {
+    const [n] = crypto.getRandomValues(new Uint32Array(1));
+    if (n < max) salida.push(n % 10);
+  }
+  return salida.join("");
+}
+
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Nombre de usuario: identificador de acceso (ver migración usuarios_por_nombre).

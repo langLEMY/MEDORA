@@ -9,7 +9,7 @@
 //   { accion: "limpiar_archivos_sistema", sistema_id }  (tras eliminar un sistema)
 // Las membresías (sistemas y roles) se editan directo por PostgREST: el RLS ya
 // permite al superadmin gestionarlas.
-import { aalDeToken, clienteServicio, cors, credencialesNuevas, cumpleMfa, EMAIL_RE, error, json, MFA_REQUERIDO, normalizarUsuario, passwordTemporal, USUARIO_RE } from "../_shared/comun.ts";
+import { aalDeToken, clienteServicio, cors, credencialesNuevas, cumpleMfa, EMAIL_RE, error, json, MFA_REQUERIDO, normalizarUsuario, passwordTemporal, pinTemporal, USUARIO_RE } from "../_shared/comun.ts";
 
 // Bloqueo en Auth por ~100 años: no puede iniciar sesión ni renovar su token.
 const BLOQUEO = "876000h";
@@ -133,8 +133,8 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    // Restablece la contraseña de todo el personal de un sistema: una temporal distinta
-    // por persona (deben cambiarla al entrar). Exige 2FA en esta sesión y la frase
+    // Restablece la contraseña de todo el personal de un sistema: una temporal de 8 dígitos
+    // al azar y distinta por persona (deben cambiarla al entrar). Exige 2FA en esta sesión y la frase
     // "RESTABLECER". Fuera: superadmins, cuentas solo de quiosco e inactivas.
     case "restablecer_sistema": {
       if (aalDeToken(token) !== "aal2") {
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       const hechos: string[] = [];
       for (const m of personas) {
         const p = m.perfil as unknown as { nombre_completo: string; nombre_usuario: string | null };
-        const password = passwordTemporal(10);
+        const password = pinTemporal();
         const { error: e } = await admin.auth.admin.updateUserById(m.usuario_id, { password });
         if (e) {
           lista.push({ nombre: p.nombre_completo, usuario: p.nombre_usuario, password: null, error: e.message });
