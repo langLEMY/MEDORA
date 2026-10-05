@@ -1987,6 +1987,56 @@ export type Database = {
           },
         ]
       }
+      ia_eventos: {
+        Row: {
+          costo_usd: number
+          creado_en: string
+          error: string | null
+          funcion: string
+          id: string
+          modelo: string
+          ok: boolean
+          sistema_id: string
+          tokens_entrada: number
+          tokens_salida: number
+          usuario_id: string | null
+        }
+        Insert: {
+          costo_usd?: number
+          creado_en?: string
+          error?: string | null
+          funcion: string
+          id?: string
+          modelo: string
+          ok: boolean
+          sistema_id: string
+          tokens_entrada?: number
+          tokens_salida?: number
+          usuario_id?: string | null
+        }
+        Update: {
+          costo_usd?: number
+          creado_en?: string
+          error?: string | null
+          funcion?: string
+          id?: string
+          modelo?: string
+          ok?: boolean
+          sistema_id?: string
+          tokens_entrada?: number
+          tokens_salida?: number
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ia_eventos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integracion_eventos: {
         Row: {
           creado_en: string
@@ -3472,6 +3522,8 @@ export type Database = {
           email: string | null
           es_pruebas: boolean
           fondo_caja: number
+          ia_activa: boolean
+          ia_tope_mensual_usd: number
           id: string
           logo_factura: string | null
           logo_url: string | null
@@ -3497,6 +3549,8 @@ export type Database = {
           email?: string | null
           es_pruebas?: boolean
           fondo_caja?: number
+          ia_activa?: boolean
+          ia_tope_mensual_usd?: number
           id?: string
           logo_factura?: string | null
           logo_url?: string | null
@@ -3522,6 +3576,8 @@ export type Database = {
           email?: string | null
           es_pruebas?: boolean
           fondo_caja?: number
+          ia_activa?: boolean
+          ia_tope_mensual_usd?: number
           id?: string
           logo_factura?: string | null
           logo_url?: string | null
@@ -3863,6 +3919,10 @@ export type Database = {
         Args: { p_codigo: string; p_usuario: string }
         Returns: Json
       }
+      cerrar_acceso_restablecido: {
+        Args: { p_autor: string; p_sistema: string; p_usuarios: string[] }
+        Returns: number
+      }
       cerrar_turno_caja: {
         Args: { p_monto_declarado: number; p_notas?: string; p_turno: string }
         Returns: {
@@ -4026,6 +4086,7 @@ export type Database = {
         }
         Returns: Json
       }
+      ia_consumo_mes: { Args: { p_sistema: string }; Returns: number }
       identificar_turno: {
         Args: { p_cita: string; p_paciente: string }
         Returns: undefined
@@ -4348,6 +4409,20 @@ export type Database = {
           p_error: string
           p_ok: boolean
           p_proveedor: string
+          p_sistema: string
+          p_usuario: string
+        }
+        Returns: undefined
+      }
+      registrar_uso_ia: {
+        Args: {
+          p_costo: number
+          p_entrada: number
+          p_error?: string
+          p_funcion: string
+          p_modelo: string
+          p_ok: boolean
+          p_salida: number
           p_sistema: string
           p_usuario: string
         }

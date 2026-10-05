@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Building2, Check, MapPin, Pencil, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AjustesIa } from "@/components/AjustesIa";
 import { Boton } from "@/components/ui/boton";
 import { Entrada, Interruptor, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
@@ -197,7 +198,10 @@ export default function Configuracion() {
           )}
         </Tarjeta>
 
-        <Sedes />
+        <div className="space-y-4">
+          <Sedes />
+          <AjustesIa />
+        </div>
       </div>
     </>
   );
