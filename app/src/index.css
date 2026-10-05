@@ -156,6 +156,23 @@ html[data-texto="muy-grande"] {
 html[data-densidad="compacta"] {
   --spacing: 0.215rem;
 }
+/* Tableta (pantalla táctil sin mouse): controles de al menos 44 px para el dedo y
+   texto de 16 px en los campos (evita el zoom automático al enfocar en tabletas). */
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="file"], [type="color"]),
+  select,
+  textarea {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+  button:not([role="checkbox"]),
+  a[href] {
+    min-height: 2.5rem;
+  }
+  button:has(> svg:only-child) {
+    min-width: 2.5rem;
+  }
+}
 /* Estilos de color (Personalización). Solo cambian superficies y textos; el color
    de marca de cada hospital se mantiene. Van antes del contraste alto para que
    este siempre pueda reforzarlos. */

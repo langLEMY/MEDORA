@@ -464,7 +464,7 @@ function NuevaEntrada({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="grid grid-cols-4 gap-3"
+              className="grid grid-cols-2 gap-3 sm:grid-cols-4"
             >
               {definicion.map((c) =>
                 c.opciones ? (
@@ -484,7 +484,7 @@ function NuevaEntrada({
                   <AreaTexto
                     key={c.clave}
                     etiqueta={c.etiqueta}
-                    contenedor="col-span-4"
+                    contenedor="col-span-2 sm:col-span-4"
                     className="min-h-16"
                     value={campos[c.clave] ?? ""}
                     onChange={(e) => setCampos((s) => ({ ...s, [c.clave]: e.target.value }))}
@@ -503,7 +503,7 @@ function NuevaEntrada({
                 ),
               )}
               {indice && (
-                <div className="col-span-4 flex items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-marca-texto">
+                <div className="col-span-2 flex items-center gap-2 rounded-xl bg-marca-suave sm:col-span-4 px-3 py-2 text-sm text-marca-texto">
                   IMC calculado: <b className="tabular">{indice.valor}</b> · {indice.clase}
                 </div>
               )}
@@ -565,10 +565,10 @@ function NuevaEntrada({
             <AnimatePresence initial={false}>
               {items.map((it, i) => (
                 <motion.div key={i} layout initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} className="rounded-xl border border-borde bg-superficie-2/40 p-3">
-                  <div className="grid grid-cols-5 gap-2">
-                    <Entrada contenedor="col-span-3" placeholder="Medicamento (ej.: Amoxicilina 500 mg)" value={it.nombre} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x)))} />
-                    <Entrada contenedor="col-span-2" placeholder="Cantidad / presentación" value={it.detalle ?? ""} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, detalle: e.target.value } : x)))} />
-                    <div className="col-span-5 flex items-center gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+                    <Entrada contenedor="sm:col-span-3" placeholder="Medicamento (ej.: Amoxicilina 500 mg)" value={it.nombre} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x)))} />
+                    <Entrada contenedor="sm:col-span-2" placeholder="Cantidad / presentación" value={it.detalle ?? ""} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, detalle: e.target.value } : x)))} />
+                    <div className="flex items-center gap-2 sm:col-span-5">
                       <Entrada contenedor="flex-1" placeholder="Indicaciones (ej.: 1 cada 8 horas por 7 días)" value={it.indicaciones ?? ""} onChange={(e) => setItems((a) => a.map((x, j) => (j === i ? { ...x, indicaciones: e.target.value } : x)))} />
                       {items.length > 1 && (
                         <button type="button" onClick={() => setItems((a) => a.filter((_, j) => j !== i))} className="shrink-0 text-texto-3 hover:text-peligro" title="Quitar">
