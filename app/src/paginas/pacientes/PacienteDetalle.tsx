@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, ArrowLeft, CalendarDays, Droplet, FileText, Pencil, Phone, Receipt, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Boton } from "@/components/ui/boton";
 import { Segmentado } from "@/components/ui/campos";
@@ -17,6 +17,7 @@ import { FotoDocumento } from "@/components/FotoDocumento";
 import { ResultadosLaboratorio } from "@/components/ResultadosLaboratorio";
 import { FormPaciente } from "./FormPaciente";
 import { HistorialClinico } from "./HistorialClinico";
+import { BarraPacienteFija, ResumenPaciente } from "./ResumenPaciente";
 
 type Pestana = "historial" | "laboratorio" | "citas" | "cobros" | "datos";
 
@@ -27,6 +28,7 @@ export default function PacienteDetalle() {
   const verCobros = puede(roles, "caja", false, permisos);
   const [pestana, setPestana] = useState<Pestana>(verHistorial ? "historial" : "citas");
   const [editar, setEditar] = useState(false);
+  const tarjeta = useRef<HTMLDivElement>(null);
   // Queda en la auditoría quién abrió el expediente y, aparte, la historia clínica.
   useRegistrarAcceso(id, pestana === "historial" || pestana === "laboratorio" ? "historia clínica" : "expediente");
 
@@ -90,6 +92,8 @@ export default function PacienteDetalle() {
         <ArrowLeft className="size-4" /> Pacientes
       </Link>
 
+      <BarraPacienteFija ancla={tarjeta} nombre={nombre} expediente={p.expediente} alergias={p.alergias} />
+      <div ref={tarjeta}>
       <Tarjeta className="relative overflow-hidden p-6">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-marca-suave to-transparent" />
         <div className="relative flex flex-wrap items-start gap-5">
@@ -114,6 +118,7 @@ export default function PacienteDetalle() {
               {p.aseguradora && (
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck className="size-3.5" /> {p.aseguradora.nombre}
+                  {p.numero_afiliado && <span className="text-texto-3 tabular">· {p.numero_afiliado}</span>}
                 </span>
               )}
             </div>
@@ -124,10 +129,11 @@ export default function PacienteDetalle() {
                 </Insignia>
               )}
               {p.alergias && (
-                <Insignia tono="aviso">
+                <Insignia tono="peligro">
                   <AlertTriangle className="size-3" /> Alergias: {p.alergias}
                 </Insignia>
               )}
+              {p.condiciones_cronicas && <Insignia tono="aviso">{p.condiciones_cronicas}</Insignia>}
             </div>
           </div>
           <FotoDocumento pacienteId={p.id} ruta={p.foto_documento} editable={puedeEscribir.pacientes(roles)} />
@@ -140,7 +146,9 @@ export default function PacienteDetalle() {
             <AccesosExpediente pacienteId={p.id} />
           </div>
         </div>
+        <ResumenPaciente pacienteId={p.id} verCobros={verCobros} verHistorial={verHistorial} />
       </Tarjeta>
+      </div>
 
       <div className="mt-6 mb-4">
         <Segmentado id="paciente" opciones={opciones} valor={pestana} onChange={setPestana} />
