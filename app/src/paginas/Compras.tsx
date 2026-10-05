@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Ban, Eye, Pencil, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Ban, Eye, Pencil, Plus, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
 import { SelectorCuenta } from "@/components/SelectorCuenta";
@@ -9,6 +9,7 @@ import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
+import { Paginacion, SelectorOrden, useListado, type OrdenListado } from "@/components/ui/listado";
 import { EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { claves, useProveedores } from "@/lib/consultas";
 import { puedeEscribir } from "@/lib/permisos";
@@ -53,6 +54,12 @@ const COLUMNAS_COMPRAS: ColumnaDatos<CompraFila>[] = [
   { titulo: "ITBIS", valor: (c) => c.itbis, tipo: "moneda" },
   { titulo: "Total", valor: (c) => c.total, tipo: "moneda" },
   { titulo: "Estado", valor: (c) => (c.anulacion?.length ? "Anulada" : "Vigente") },
+];
+
+const ORDENES_GASTOS: OrdenListado<CompraFila>[] = [
+  { clave: "fecha", etiqueta: "Más recientes", valor: (c) => `${c.fecha} ${c.numero}`, descendente: true },
+  { clave: "monto", etiqueta: "Monto", valor: (c) => Number(c.total), descendente: true },
+  { clave: "proveedor", etiqueta: "Proveedor", valor: (c) => c.proveedor?.nombre ?? "" },
 ];
 
 export default function Compras() {
@@ -114,9 +121,16 @@ function ListaCompras() {
           .eq("sistema_id", sistemaId)
           .order("fecha", { ascending: false })
           .order("numero", { ascending: false })
-          .limit(200),
+          .limit(1000),
       ) as unknown as CompraFila[],
   });
+
+  const [texto, setTexto] = useState("");
+  const filtradas = useMemo(() => {
+    const t = texto.trim().toLowerCase();
+    return t ? (q.data ?? []).filter((c) => `${c.numero} ${c.ncf_proveedor ?? ""} ${c.proveedor?.nombre ?? ""} ${c.proveedor?.rnc ?? ""}`.toLowerCase().includes(t)) : (q.data ?? []);
+  }, [q.data, texto]);
+  const listado = useListado(filtradas, ORDENES_GASTOS, { reiniciar: [texto] });
 
   const m = useMutation({
     mutationFn: async () => datos(await supabase.rpc("anular_compra", { p_compra: anular!.id, p_motivo: motivo })),
@@ -132,16 +146,22 @@ function ListaCompras() {
 
   return (
     <Tarjeta className="overflow-hidden">
-      <div className="flex justify-end border-b border-borde p-3">
-        <AccionesDatos titulo="Gastos" columnas={COLUMNAS_COMPRAS} obtener={async () => q.data ?? []} />
+      <div className="flex flex-wrap items-center gap-3 border-b border-borde p-3">
+        <Entrada icono={<Search />} placeholder="Número, NCF o proveedor…" value={texto} onChange={(e) => setTexto(e.target.value)} contenedor="w-64" />
+        <SelectorOrden listado={listado} />
+        <div className="ml-auto">
+          <AccionesDatos titulo="Gastos" columnas={COLUMNAS_COMPRAS} obtener={async () => filtradas} />
+        </div>
       </div>
       {q.isLoading ? (
         <FilasEsqueleto />
       ) : (q.data?.length ?? 0) === 0 ? (
         <Vacio icono={<ShoppingCart />} titulo="Sin gastos registrados" />
+      ) : listado.total === 0 ? (
+        <Vacio icono={<Search />} titulo="Sin coincidencias" />
       ) : (
-        <motion.ul variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
-          {q.data!.map((c) => {
+        <motion.ul key={`${listado.pagina}-${listado.orden}`} variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
+          {listado.visibles.map((c) => {
             const anulada = !!c.anulacion?.length;
             return (
               <motion.li key={c.id} variants={itemEscalonado} className="group flex items-center gap-4 px-5 py-3 text-sm">
@@ -169,6 +189,7 @@ function ListaCompras() {
           })}
         </motion.ul>
       )}
+      <Paginacion listado={listado} />
 
       <Documento abierto={!!ver} onCerrar={() => setVer(null)} titulo={`Gasto ${ver?.numero ?? ""}`} nombreArchivo={`Gasto ${ver?.numero ?? ""}`}>
         {ver && (

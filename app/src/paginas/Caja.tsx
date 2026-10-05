@@ -14,6 +14,7 @@ import {
   Printer,
   Receipt,
   RotateCcw,
+  Search,
   Trash2,
   Unlock,
   UserCheck,
@@ -34,6 +35,7 @@ import { AreaTexto, Campo, Entrada, Interruptor, Segmentado, Selector } from "@/
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
+import { Paginacion, SelectorOrden, useListado, type OrdenListado } from "@/components/ui/listado";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, Kbd, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
 import {
   CATEGORIAS_SERVICIO,
@@ -94,6 +96,13 @@ const SELECT_COBRO =
   "paciente:pacientes!cobros_sistema_id_paciente_id_fkey(nombres, apellidos, expediente, documento), cajero:perfiles!cobros_cajero_perfil_fk(nombre_completo), " +
   "profesional:perfiles!cobros_profesional_perfil_fk(nombre_completo), aseguradora:aseguradoras!cobros_sistema_id_aseguradora_id_fkey(nombre), " +
   "anulacion:anulaciones_cobro(motivo), cita:citas!cobros_sistema_id_cita_id_fkey(turno, especialidad, medico_id, medico:perfiles!citas_medico_perfil_fk(nombre_completo)), pagos:cobro_pagos(metodo, monto, referencia, recibido), detalles:cobro_detalles(descripcion, categoria, cantidad, precio_unitario, cobertura, total)";
+
+const ORDENES_COBROS: OrdenListado<CobroFila>[] = [
+  { clave: "hora", etiqueta: "Más recientes", valor: (c) => c.creado_en, descendente: true },
+  { clave: "monto", etiqueta: "Monto", valor: (c) => Number(c.total), descendente: true },
+  { clave: "paciente", etiqueta: "Paciente", valor: (c) => `${c.paciente?.nombres ?? ""} ${c.paciente?.apellidos ?? ""}` },
+  { clave: "recibo", etiqueta: "Recibo", valor: (c) => c.numero },
+];
 
 type Vista = "cobrar" | "anticipos" | "cxc" | "movimientos" | "turnos";
 
@@ -199,6 +208,15 @@ export default function Caja() {
   const efectivo = (tipo: string) => delTurno.filter((m) => m.tipo === tipo && m.metodo === "efectivo").reduce((s, m) => s + Number(m.monto), 0);
   const esperado = Number(t?.monto_apertura ?? 0) + efectivo("ingreso") - efectivo("egreso");
   const totalHoy = (cobros.data ?? []).filter((c) => !c.anulacion?.length).reduce((s, c) => s + Number(c.total), 0);
+  const [buscarCobro, setBuscarCobro] = useState("");
+  const filtrados = useMemo(() => {
+    const t = buscarCobro.trim().toLowerCase();
+    if (!t) return cobros.data ?? [];
+    return (cobros.data ?? []).filter((c) =>
+      `${c.numero} ${c.ncf ?? ""} ${c.paciente?.nombres ?? ""} ${c.paciente?.apellidos ?? ""} ${c.paciente?.expediente ?? ""}`.toLowerCase().includes(t),
+    );
+  }, [cobros.data, buscarCobro]);
+  const listado = useListado(filtrados, ORDENES_COBROS, { reiniciar: [buscarCobro] });
   const invalidar = () => void qc.invalidateQueries({ queryKey: claves.caja(sistemaId) });
 
   return (
@@ -328,10 +346,16 @@ export default function Caja() {
             )}
             <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-3">
               <p className="text-[0.9375rem] font-semibold">Cobrados hoy</p>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <p className="text-sm text-texto-2">
                   Facturado hoy: <span className="font-semibold text-texto tabular">{moneda(totalHoy)}</span>
                 </p>
+                {(cobros.data?.length ?? 0) > 5 && (
+                  <>
+                    <Entrada icono={<Search />} placeholder="Recibo, NCF o paciente…" value={buscarCobro} onChange={(e) => setBuscarCobro(e.target.value)} contenedor="w-56" />
+                    <SelectorOrden listado={listado} />
+                  </>
+                )}
                 <AccionesDatos titulo="Cobros del día" columnas={COLUMNAS_COBROS} obtener={async () => cobros.data ?? []} />
               </div>
             </div>
@@ -340,9 +364,11 @@ export default function Caja() {
                 <Esqueleto className="m-5 h-40" />
               ) : (cobros.data?.length ?? 0) === 0 ? (
                 <Vacio icono={<Receipt />} titulo="Aún no hay cobros hoy" />
+              ) : listado.total === 0 ? (
+                <Vacio icono={<Search />} titulo="Sin coincidencias" />
               ) : (
-                <motion.ul variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
-                  {cobros.data!.map((c) => {
+                <motion.ul key={`${listado.pagina}-${listado.orden}`} variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
+                  {listado.visibles.map((c) => {
                     const anulado = !!c.anulacion?.length;
                     return (
                       <motion.li key={c.id} variants={itemEscalonado} className="group flex items-center gap-4 px-5 py-3 text-sm">
@@ -378,6 +404,7 @@ export default function Caja() {
                   })}
                 </motion.ul>
               )}
+              <Paginacion listado={listado} />
             </Tarjeta>
             </>
           )}

@@ -8,6 +8,7 @@ import { AreaTexto, Entrada, Interruptor, Segmentado, Selector } from "@/compone
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
+import { Paginacion, SelectorOrden, useListado, type OrdenListado } from "@/components/ui/listado";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 import { claves } from "@/lib/consultas";
 import { IMPORTACIONES } from "@/lib/importaciones";
@@ -58,6 +59,14 @@ const CATEGORIAS = [
   ["otro", "Otros"],
 ] as const;
 
+const ORDENES_INVENTARIO: OrdenListado<Item>[] = [
+  { clave: "nombre", etiqueta: "Nombre", valor: (i) => i.nombre },
+  { clave: "faltante", etiqueta: "Más cerca del mínimo", valor: (i) => Number(i.stock_actual) - Number(i.stock_minimo) },
+  { clave: "existencia", etiqueta: "Existencia", valor: (i) => Number(i.stock_actual), descendente: true },
+  { clave: "valor", etiqueta: "Valor en inventario", valor: (i) => Number(i.stock_actual) * Number(i.costo_unitario ?? 0), descendente: true },
+  { clave: "codigo", etiqueta: "Código", valor: (i) => i.codigo },
+];
+
 type TipoMov = "entrada" | "salida" | "ajuste";
 
 /** Botón de acción por fila: icono + texto, compacto, visible siempre. */
@@ -104,6 +113,7 @@ export default function Inventario() {
       (!texto || `${i.nombre} ${i.codigo ?? ""}`.toLowerCase().includes(texto.toLowerCase())),
   );
   const bajos = (q.data ?? []).filter((i) => i.activo && Number(i.stock_actual) <= Number(i.stock_minimo)).length;
+  const listado = useListado(items, ORDENES_INVENTARIO, { reiniciar: [filtro, categoria, texto] });
 
   return (
     <>
@@ -139,7 +149,8 @@ export default function Inventario() {
               </option>
             ))}
           </Selector>
-          <div className="ml-auto">
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            <SelectorOrden listado={listado} />
             <Segmentado
               id="inv"
               valor={filtro}
@@ -164,8 +175,8 @@ export default function Inventario() {
         ) : items.length === 0 ? (
           <Vacio icono={<Package />} titulo={q.data?.length ? "Sin coincidencias" : "Inventario vacío"} descripcion={q.data?.length ? undefined : "Registra medicamentos, insumos y equipos."} />
         ) : (
-          <motion.ul variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
-            {items.map((i) => {
+          <motion.ul key={`${listado.pagina}-${listado.orden}`} variants={contenedorEscalonado} initial="inicial" animate="visible" className="divide-y divide-borde">
+            {listado.visibles.map((i) => {
               const stock = Number(i.stock_actual);
               const minimo = Number(i.stock_minimo);
               const bajo = stock <= minimo;
@@ -214,6 +225,7 @@ export default function Inventario() {
             })}
           </motion.ul>
         )}
+        <Paginacion listado={listado} />
       </Tarjeta>
 
       <FormItem item={editar} onCerrar={() => setEditar(null)} />
