@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Forward } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { claves, useMedicos, useSedes, useServicios } from "@/lib/consultas";
+import { claves, ESTADO_CITA, useMedicos, useSedes, useServicios } from "@/lib/consultas";
 import { OpcionesMedicos } from "./OpcionesMedicos";
 import { mensajeError, supabase, type EstadoCita, type Tablas } from "@/lib/supabase";
 import { isoDia } from "@/lib/utils";
@@ -243,13 +243,25 @@ export function FormCita({
   );
 }
 
+/**
+ * Cambios de estado que se pueden deshacer desde el aviso: no tocan dinero, turnos ni
+ * la historia clínica (llegar a sala numera el turno; esos no se deshacen así).
+ */
+const DESHACIBLES: Partial<Record<EstadoCita, EstadoCita[]>> = {
+  confirmada: ["programada"],
+  cancelada: ["programada", "confirmada"],
+  no_asistio: ["programada", "confirmada"],
+  completada: ["en_consulta"],
+};
+
 /** Cambia el estado de una cita, con los sellos de tiempo que correspondan. */
 export function useCambiarEstadoCita() {
   const { sistemaId } = useSistema();
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, estado, motivo }: { id: string; estado: EstadoCita; motivo?: string }) => {
+  const m = useMutation({
+    mutationFn: async ({ id, estado, motivo, deshaciendo }: { id: string; estado: EstadoCita; motivo?: string; deshaciendo?: boolean }) => {
       const cambios: Tablas["citas"]["Update"] = { estado };
+      if (deshaciendo) cambios.motivo_cancelacion = null;
       if (estado === "en_espera") cambios.llegada_en = new Date().toISOString();
       if (estado === "en_consulta") cambios.atendida_en = new Date().toISOString();
       if (estado === "cancelada") cambios.motivo_cancelacion = motivo ?? null;
@@ -260,10 +272,23 @@ export function useCambiarEstadoCita() {
     onMutate: async ({ id, estado }) => {
       await qc.cancelQueries({ queryKey: claves.citas(sistemaId) });
       const previas = qc.getQueriesData({ queryKey: claves.citas(sistemaId) });
+      let anterior: EstadoCita | undefined;
+      previas.forEach(([, d]) => {
+        if (Array.isArray(d)) anterior ??= (d as { id: string; estado: EstadoCita }[]).find((c) => c.id === id)?.estado;
+      });
       qc.setQueriesData({ queryKey: claves.citas(sistemaId) }, (d: unknown) =>
         Array.isArray(d) ? d.map((c) => (c.id === id ? { ...c, estado, llegada_en: estado === "en_espera" ? new Date().toISOString() : c.llegada_en } : c)) : d,
       );
-      return { previas };
+      return { previas, anterior };
+    },
+    onSuccess: (_r, { id, estado, deshaciendo }, ctx) => {
+      if (deshaciendo) return void toast.success("Cambio deshecho");
+      const anterior = ctx?.anterior;
+      if (!anterior || !DESHACIBLES[estado]?.includes(anterior)) return;
+      toast.success(`Cita: ${ESTADO_CITA[estado].etiqueta.toLowerCase()}`, {
+        duration: 6000,
+        action: { label: "Deshacer", onClick: () => m.mutate({ id, estado: anterior, deshaciendo: true }) },
+      });
     },
     onError: (e, _v, ctx) => {
       ctx?.previas.forEach(([k, d]) => qc.setQueryData(k, d));
@@ -274,4 +299,5 @@ export function useCambiarEstadoCita() {
       void qc.invalidateQueries({ queryKey: ["dashboard", sistemaId] });
     },
   });
+  return m;
 }
