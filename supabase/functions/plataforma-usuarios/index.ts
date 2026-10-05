@@ -4,11 +4,12 @@
 //   { accion: "desactivar" | "activar", usuario_id }
 //   { accion: "restablecer_password", usuario_id }                      → temporal aleatoria
 //   { accion: "establecer_password", usuario_id, password, debe_cambiar? } → la que elija el superadmin
+//   { accion: "restablecer_sistema", sistema_id, confirmacion: "RESTABLECER" } → temporal distinta a todo el personal (exige 2FA)
 //   { accion: "ping" }  (diagnóstico: comprueba que las Edge Functions responden)
 //   { accion: "limpiar_archivos_sistema", sistema_id }  (tras eliminar un sistema)
 // Las membresías (sistemas y roles) se editan directo por PostgREST: el RLS ya
 // permite al superadmin gestionarlas.
-import { clienteServicio, cors, credencialesNuevas, cumpleMfa, EMAIL_RE, error, json, MFA_REQUERIDO, normalizarUsuario, passwordTemporal, USUARIO_RE } from "../_shared/comun.ts";
+import { aalDeToken, clienteServicio, cors, credencialesNuevas, cumpleMfa, EMAIL_RE, error, json, MFA_REQUERIDO, normalizarUsuario, passwordTemporal, USUARIO_RE } from "../_shared/comun.ts";
 
 // Bloqueo en Auth por ~100 años: no puede iniciar sesión ni renovar su token.
 const BLOQUEO = "876000h";
@@ -130,6 +131,50 @@ Deno.serve(async (req) => {
       if (e) return error(e.message);
       await admin.from("perfiles").update({ debe_cambiar_password: c.debe_cambiar === true }).eq("id", usuarioId);
       return json({ ok: true });
+    }
+
+    // Restablece la contraseña de todo el personal de un sistema: una temporal distinta
+    // por persona (deben cambiarla al entrar). Exige 2FA en esta sesión y la frase
+    // "RESTABLECER". Fuera: superadmins, cuentas solo de quiosco e inactivas.
+    case "restablecer_sistema": {
+      if (aalDeToken(token) !== "aal2") {
+        return error("Para restablecer contraseñas en bloque activa la verificación en dos pasos (Mi perfil) y entra con tu código.", 403);
+      }
+      if (String(c.confirmacion ?? "").trim().toUpperCase() !== "RESTABLECER") return error('Escribe "RESTABLECER" para confirmar.');
+      const sistemaId = String(c.sistema_id ?? "");
+      const { data: sistema } = await admin.from("sistemas").select("id, nombre").eq("id", sistemaId).maybeSingle();
+      if (!sistema) return error("Sistema no encontrado.", 404);
+
+      const { data: miembros, error: eM } = await admin
+        .from("membresias")
+        .select("usuario_id, roles, perfil:perfiles!membresias_usuario_id_fkey!inner(nombre_completo, nombre_usuario, es_superadmin, activo)")
+        .eq("sistema_id", sistemaId)
+        .eq("activo", true)
+        .is("eliminado_en", null);
+      if (eM) return error(eM.message, 500);
+      const personas = (miembros ?? []).filter((m) => {
+        const p = m.perfil as unknown as { es_superadmin: boolean; activo: boolean };
+        const roles = m.roles as string[];
+        return !p.es_superadmin && p.activo && m.usuario_id !== yo && !(roles.length === 1 && roles[0] === "quiosco");
+      });
+
+      const lista: { nombre: string; usuario: string | null; password: string | null; error?: string }[] = [];
+      const hechos: string[] = [];
+      for (const m of personas) {
+        const p = m.perfil as unknown as { nombre_completo: string; nombre_usuario: string | null };
+        const password = passwordTemporal(10);
+        const { error: e } = await admin.auth.admin.updateUserById(m.usuario_id, { password });
+        if (e) {
+          lista.push({ nombre: p.nombre_completo, usuario: p.nombre_usuario, password: null, error: e.message });
+          continue;
+        }
+        await admin.from("perfiles").update({ debe_cambiar_password: true }).eq("id", m.usuario_id);
+        hechos.push(m.usuario_id);
+        lista.push({ nombre: p.nombre_completo, usuario: p.nombre_usuario, password });
+      }
+      const { data: sesiones } = await admin.rpc("cerrar_acceso_restablecido", { p_sistema: sistemaId, p_usuarios: hechos, p_autor: yo });
+      lista.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+      return json({ ok: true, sistema: sistema.nombre, restablecidas: hechos.length, sesiones_cerradas: sesiones ?? 0, lista });
     }
 
     case "ping":

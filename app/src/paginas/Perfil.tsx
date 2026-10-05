@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DosPasos } from "@/components/DosPasos";
 import { Impresion } from "@/components/Impresion";
 import { Personalizacion } from "@/components/Personalizacion";
+import { RestablecerContrasenas } from "@/components/RestablecerContrasenas";
 import { Soporte } from "@/components/Soporte";
 import { Boton } from "@/components/ui/boton";
 import { Entrada } from "@/components/ui/campos";
@@ -89,7 +90,7 @@ export default function Perfil() {
 
   return (
     <>
-      <EncabezadoPagina titulo="Mi perfil" />
+      <EncabezadoPagina titulo="Mi perfil" acciones={esSuperadmin ? <RestablecerContrasenas /> : undefined} />
       <div className="grid gap-4 xl:grid-cols-2">
         <Tarjeta className="p-6">
           <div className="mb-6 flex items-center gap-4">
