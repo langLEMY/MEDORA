@@ -38,7 +38,21 @@ export function mensajeError(e: unknown): string {
   if (err.message === "Invalid login credentials") return "Correo o contraseña incorrectos.";
   if (err.message?.toLowerCase().includes("banned")) return "Tu cuenta está desactivada. Contacta a la administración de MEDORA.";
   if (err.message?.includes("Failed to fetch")) return "Sin conexión con el servidor. Revisa tu internet.";
+  if (err.code === "same_password") return "La nueva contraseña debe ser distinta de la actual.";
+  if (err.code === "weak_password") return "Esa contraseña es muy fácil de adivinar. Elige otra más larga o menos común.";
   return err.message ?? "Ocurrió un error inesperado.";
+}
+
+/** Error de una Edge Function: el mensaje del servidor, su código HTTP y el cuerpo completo. */
+export class ErrorFuncion extends Error {
+  constructor(
+    mensaje: string,
+    readonly estado: number | null,
+    readonly cuerpo: Record<string, unknown> | null,
+    readonly sinConexion = false,
+  ) {
+    super(mensaje);
+  }
 }
 
 /** Invoca una Edge Function y lanza con el mensaje del servidor si falla. */
@@ -46,15 +60,20 @@ export async function invocar<T>(nombre: string, cuerpo: Record<string, unknown>
   const { data, error } = await supabase.functions.invoke(nombre, { body: cuerpo });
   if (error) {
     let mensaje = error.message;
+    let datosError: Record<string, unknown> | null = null;
     const ctx = (error as { context?: Response }).context;
     if (ctx && typeof ctx.json === "function") {
       try {
-        mensaje = (await ctx.json()).error ?? mensaje;
+        datosError = await ctx.json();
+        mensaje = (datosError?.error as string) ?? mensaje;
       } catch {
         /* cuerpo no JSON */
       }
     }
-    throw new Error(mensaje);
+    // FunctionsFetchError: la petición ni siquiera salió (sin internet, DNS, servidor caído).
+    const sinConexion = error.name === "FunctionsFetchError";
+    if (sinConexion) mensaje = "No hay conexión con el servidor. Revisa tu internet.";
+    throw new ErrorFuncion(mensaje, ctx instanceof Response ? ctx.status : null, datosError, sinConexion);
   }
   return data as T;
 }

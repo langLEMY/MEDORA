@@ -11,14 +11,14 @@ import { Personalizacion } from "@/components/Personalizacion";
 import { RestablecerContrasenas } from "@/components/RestablecerContrasenas";
 import { Soporte } from "@/components/Soporte";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { Entrada, EntradaClave } from "@/components/ui/campos";
 import { Avatar, EncabezadoPagina, Insignia, Tarjeta } from "@/components/ui/superficies";
 import { enEscritorio, enviar, escuchar } from "@/lib/escritorio";
 import { ETIQUETA_ROL } from "@/lib/permisos";
 import { mensajeError, supabase } from "@/lib/supabase";
 import { cn, CORREO_RE, correoVisible, telefonoRd } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
-import { actualizarPassword, esquemaPassword } from "./acceso/CambiarPassword";
+import { actualizarPassword, esquemaPassword, RequisitosClave } from "./acceso/CambiarPassword";
 
 export default function Perfil() {
   const { perfil, sistema, roles, esSuperadmin, recargar } = useSesion();
@@ -157,8 +157,9 @@ export default function Perfil() {
           <Tarjeta className="p-6">
             <h2 className="mb-4 text-[0.9375rem] font-semibold">Cambiar contraseña</h2>
             <form onSubmit={cambiar} className="space-y-4" noValidate>
-              <Entrada etiqueta="Nueva contraseña" type="password" autoComplete="new-password" error={pwd.formState.errors.password?.message as string} {...pwd.register("password")} />
-              <Entrada etiqueta="Confirmar" type="password" autoComplete="new-password" error={pwd.formState.errors.confirmar?.message as string} {...pwd.register("confirmar")} />
+              <EntradaClave etiqueta="Nueva contraseña" autoComplete="new-password" error={pwd.formState.errors.password?.message as string} {...pwd.register("password")} />
+              <EntradaClave etiqueta="Confirmar" autoComplete="new-password" error={pwd.formState.errors.confirmar?.message as string} {...pwd.register("confirmar")} />
+              {pwd.watch("password") && <RequisitosClave password={pwd.watch("password")} confirmar={pwd.watch("confirmar") ?? ""} usuario={perfil?.nombre_usuario} />}
               <div className="flex justify-end">
                 <Boton type="submit" variante="secundario" cargando={pwd.formState.isSubmitting}>
                   Actualizar contraseña

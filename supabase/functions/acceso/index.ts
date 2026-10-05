@@ -29,7 +29,12 @@ Deno.serve(async (req) => {
   const ip = ipCliente(req);
   const okIp = await limitar(admin, `acceso:ip:${ip}`, 30, 300); // 30 / 5 min por IP
   const okUsuario = await limitar(admin, `acceso:u:${usuario}`, 10, 600); // 10 / 10 min por usuario
-  if (!okIp || !okUsuario) return error("Demasiados intentos. Espera unos minutos e inténtalo de nuevo.", 429);
+  if (!okIp || !okUsuario) {
+    // Cuánto falta (para la cuenta regresiva del login); si no se puede saber, la ventana completa.
+    const espera = async (clave: string, ventana: number) => Number((await admin.rpc("espera_limite", { p_clave: clave, p_ventana_seg: ventana })).data ?? ventana);
+    const espera_seg = Math.max(okIp ? 0 : await espera(`acceso:ip:${ip}`, 300), okUsuario ? 0 : await espera(`acceso:u:${usuario}`, 600));
+    return json({ error: "Demasiados intentos seguidos.", espera_seg }, 429);
+  }
 
   // usuario → correo de Auth (acepta también un correo escrito directamente).
   const { data: email } = await admin.rpc("correo_de_acceso", { p_usuario: usuario });

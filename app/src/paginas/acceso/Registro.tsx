@@ -3,7 +3,8 @@ import { ArrowLeft, Building2, ShieldCheck, Ticket } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { Entrada, EntradaClave } from "@/components/ui/campos";
+import { RequisitosClave } from "./CambiarPassword";
 import { Insignia } from "@/components/ui/superficies";
 import { ETIQUETA_ROL } from "@/lib/permisos";
 import { invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
@@ -138,8 +139,9 @@ export function Registro({ onVolver }: { onVolver: () => void }) {
               ayuda="Con él iniciarás sesión."
             />
             <Entrada etiqueta="Correo (opcional)" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Entrada etiqueta="Contraseña" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} ayuda="Mínimo 10 caracteres." />
-            <Entrada etiqueta="Confirmar contraseña" type="password" autoComplete="new-password" value={confirmar} onChange={(e) => setConfirmar(e.target.value)} />
+            <EntradaClave etiqueta="Contraseña" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <EntradaClave etiqueta="Confirmar contraseña" autoComplete="new-password" value={confirmar} onChange={(e) => setConfirmar(e.target.value)} />
+            <RequisitosClave password={password} confirmar={confirmar} usuario={usuario} />
             {error && <p className="rounded-lg bg-[color-mix(in_oklab,var(--peligro)_8%,transparent)] px-3 py-2 text-sm text-peligro">{error}</p>}
             <Boton type="submit" tamano="lg" className="w-full justify-center" cargando={cargando} disabled={nombre.trim().length < 3 || !USUARIO_RE.test(usuario)}>
               Crear mi cuenta

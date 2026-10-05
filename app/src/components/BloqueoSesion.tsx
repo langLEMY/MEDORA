@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Lock, LogOut } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { EntradaClave } from "@/components/ui/campos";
 import { usePreferencias } from "@/lib/preferencias";
 import { mensajeError, supabase } from "@/lib/supabase";
 import { Avatar } from "@/components/ui/superficies";
@@ -148,9 +148,8 @@ function PantallaBloqueo({ correo, nombre, onDesbloquear, onSalir }: { correo: s
           {nombre ? `Hola, ${nombre.split(" ")[0]}. ` : ""}Escribe tu contraseña para seguir trabajando.
         </p>
         <div className="mt-5 space-y-3 text-left">
-          <Entrada
+          <EntradaClave
             ref={input}
-            type="password"
             autoComplete="current-password"
             placeholder="Tu contraseña"
             value={clave}

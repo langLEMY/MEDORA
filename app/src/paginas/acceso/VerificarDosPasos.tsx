@@ -2,7 +2,7 @@ import { motion, useAnimation } from "motion/react";
 import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { CodigoDigitos } from "@/components/ui/codigo";
 import { mensajeError, supabase } from "@/lib/supabase";
 import { useSesion } from "@/sesion/SesionProvider";
 import { PantallaAcceso } from "./PantallaAcceso";
@@ -19,9 +19,10 @@ export function VerificarDosPasos() {
   const [cargando, setCargando] = useState(false);
   const sacudir = useAnimation();
 
-  const verificar = async (e?: React.FormEvent) => {
+  const verificar = async (e?: React.FormEvent, valor = codigo) => {
     e?.preventDefault();
-    if (!/^\d{6}$/.test(codigo)) return setError("El código tiene 6 números.");
+    if (cargando) return;
+    if (!/^\d{6}$/.test(valor)) return setError("El código tiene 6 números.");
     setError(null);
     setCargando(true);
     try {
@@ -29,7 +30,7 @@ export function VerificarDosPasos() {
       if (errF) throw errF;
       const factor = factores.totp[0];
       if (!factor) throw new Error("Tu cuenta no tiene un autenticador activo. Contacta a soporte.");
-      const { error: errV } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: codigo });
+      const { error: errV } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: valor });
       if (errV) throw new Error("Código incorrecto o vencido. Usa el que muestra ahora tu aplicación.");
       await actualizarVerificacion();
       void supabase.rpc("registrar_evento", { p_accion: "LOGIN_2FA" });
@@ -48,22 +49,23 @@ export function VerificarDosPasos() {
         <ShieldCheck className="size-5" />
       </div>
       <h2 className="text-2xl font-semibold tracking-[-0.02em]">Verificación en dos pasos</h2>
-      <p className="mt-1.5 text-sm text-texto-2">Abre tu aplicación de autenticación y escribe el código de 6 números de MEDORA.</p>
+      <p className="mt-1.5 text-sm text-texto-2">Abre tu aplicación de autenticación y escribe el código de 6 números de MEDORA. Se verifica solo al completarlo.</p>
 
       <motion.form animate={sacudir} onSubmit={verificar} className="mt-8 space-y-4" noValidate>
-        <Entrada
-          etiqueta="Código"
+        <CodigoDigitos
           autoFocus
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          placeholder="000000"
-          className="text-center font-mono text-lg tracking-[0.5em]"
-          value={codigo}
-          onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
+          valor={codigo}
+          onChange={(v) => {
+            setCodigo(v);
+            if (error) setError(null);
+          }}
+          onCompleto={(v) => void verificar(undefined, v)}
+          deshabilitado={cargando}
+          error={!!error}
         />
         {error && (
           <motion.p
+            role="alert"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-lg bg-[color-mix(in_oklab,var(--peligro)_8%,transparent)] px-3 py-2 text-sm text-peligro"

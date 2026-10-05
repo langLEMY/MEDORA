@@ -1,5 +1,15 @@
 import { AnimatePresence, motion } from "motion/react";
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { ArrowBigUp, Eye, EyeOff } from "lucide-react";
+import {
+  forwardRef,
+  useId,
+  useState,
+  type InputHTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from "react";
 import { cn } from "@/lib/utils";
 
 const BASE =
@@ -7,20 +17,27 @@ const BASE =
 
 interface CampoProps {
   etiqueta?: ReactNode;
+  /** Algo a la derecha de la etiqueta (p. ej. "¿Olvidaste tu contraseña?"); va fuera del <label>. */
+  extraEtiqueta?: ReactNode;
   ayuda?: ReactNode;
   error?: string;
   className?: string;
   children: (id: string) => ReactNode;
 }
 
-export function Campo({ etiqueta, ayuda, error, className, children }: CampoProps) {
+export function Campo({ etiqueta, extraEtiqueta, ayuda, error, className, children }: CampoProps) {
   const id = useId();
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      {etiqueta && (
-        <label htmlFor={id} className="text-[0.8125rem] font-medium text-texto-2">
-          {etiqueta}
-        </label>
+      {(etiqueta || extraEtiqueta) && (
+        <div className="flex items-baseline justify-between gap-3">
+          {etiqueta && (
+            <label htmlFor={id} className="text-[0.8125rem] font-medium text-texto-2">
+              {etiqueta}
+            </label>
+          )}
+          {extraEtiqueta}
+        </div>
       )}
       {children(id)}
       <AnimatePresence initial={false}>
@@ -45,18 +62,21 @@ export function Campo({ etiqueta, ayuda, error, className, children }: CampoProp
 
 type EntradaProps = InputHTMLAttributes<HTMLInputElement> & {
   etiqueta?: ReactNode;
+  extraEtiqueta?: ReactNode;
   ayuda?: ReactNode;
   error?: string;
   icono?: ReactNode;
+  /** Botón dentro del campo, a la derecha (p. ej. mostrar la contraseña). */
+  accion?: ReactNode;
   contenedor?: string;
 };
 
 export const Entrada = forwardRef<HTMLInputElement, EntradaProps>(function Entrada(
-  { etiqueta, ayuda, error, icono, className, contenedor, ...resto },
+  { etiqueta, extraEtiqueta, ayuda, error, icono, accion, className, contenedor, ...resto },
   ref,
 ) {
   return (
-    <Campo etiqueta={etiqueta} ayuda={ayuda} error={error} className={contenedor}>
+    <Campo etiqueta={etiqueta} extraEtiqueta={extraEtiqueta} ayuda={ayuda} error={error} className={contenedor}>
       {(id) => (
         <div className="relative">
           {icono && (
@@ -68,12 +88,66 @@ export const Entrada = forwardRef<HTMLInputElement, EntradaProps>(function Entra
             ref={ref}
             id={id}
             aria-invalid={!!error}
-            className={cn(BASE, "h-9", icono && "pl-9", className)}
+            className={cn(BASE, "h-9", icono && "pl-9", accion && "pr-10", className)}
             {...resto}
           />
+          {accion && <span className="absolute top-1/2 right-1 -translate-y-1/2">{accion}</span>}
         </div>
       )}
     </Campo>
+  );
+});
+
+/**
+ * Contraseña con botón para verla y aviso de Bloq Mayús (la mitad de los "contraseña
+ * incorrecta" son eso). Acepta lo mismo que Entrada, incluido register() de react-hook-form.
+ */
+export const EntradaClave = forwardRef<HTMLInputElement, Omit<EntradaProps, "type" | "accion">>(function EntradaClave(
+  { ayuda, onKeyDown, onKeyUp, onBlur, ...resto },
+  ref,
+) {
+  const [ver, setVer] = useState(false);
+  const [mayus, setMayus] = useState(false);
+  const revisar = (e: KeyboardEvent<HTMLInputElement>) => setMayus(e.getModifierState("CapsLock"));
+  return (
+    <Entrada
+      ref={ref}
+      {...resto}
+      type={ver ? "text" : "password"}
+      ayuda={
+        mayus ? (
+          <span className="inline-flex items-center gap-1 text-aviso">
+            <ArrowBigUp className="size-3.5" /> Bloq Mayús está activado
+          </span>
+        ) : (
+          ayuda
+        )
+      }
+      onKeyDown={(e) => {
+        revisar(e);
+        onKeyDown?.(e);
+      }}
+      onKeyUp={(e) => {
+        revisar(e);
+        onKeyUp?.(e);
+      }}
+      onBlur={(e) => {
+        setMayus(false);
+        onBlur?.(e);
+      }}
+      accion={
+        <button
+          type="button"
+          onClick={() => setVer((v) => !v)}
+          aria-label={ver ? "Ocultar contraseña" : "Mostrar contraseña"}
+          aria-pressed={ver}
+          title={ver ? "Ocultar" : "Mostrar"}
+          className="grid size-7 place-items-center rounded-md text-texto-3 transition-colors hover:bg-superficie-2 hover:text-texto"
+        >
+          {ver ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      }
+    />
   );
 });
 

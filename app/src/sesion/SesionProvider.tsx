@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { borrarCacheOperativa } from "@/lib/sinConexion";
 import type { Session } from "@supabase/supabase-js";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { marcarSalidaInvoluntaria, recordarHospital } from "@/lib/equipo";
 import { datos, supabase, type Fila, type Rol } from "@/lib/supabase";
 import type { Permisos } from "@/lib/permisos";
 import { sincronizarDesdePerfil } from "@/lib/preferencias";
@@ -59,6 +60,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<Session | null>(null);
   const [sesionLista, setSesionLista] = useState(false);
   const [sistemaId, setSistemaId] = useState<string | null>(leerSistemaGuardado);
+  const saliendo = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -67,7 +69,13 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     });
     const { data } = supabase.auth.onAuthStateChange((evento, s) => {
       setSesion(s);
-      if (evento === "SIGNED_OUT") qc.clear();
+      if (evento === "SIGNED_OUT") {
+        qc.clear();
+        // Cerrada sin pedirlo (vencida, cerrada por soporte o al restablecer contraseñas):
+        // el login lo explica en vez de aparecer sin más.
+        if (!saliendo.current) marcarSalidaInvoluntaria();
+        saliendo.current = false;
+      }
     });
     return () => data.subscription.unsubscribe();
   }, [qc]);
@@ -115,6 +123,11 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     aplicarColorMarca(sistema?.color_marca);
   }, [sistema?.color_marca]);
 
+  // El login de esta computadora se verá como el del hospital donde se trabaja.
+  useEffect(() => {
+    if (sistema) recordarHospital({ nombre: sistema.nombre, logo: sistema.logo_url, color: sistema.color_marca });
+  }, [sistema]);
+
   useEffect(() => {
     contextoMonitoreo(usuarioId ?? null, sistema?.id ?? null);
   }, [usuarioId, sistema?.id]);
@@ -141,6 +154,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   );
 
   const cerrarSesion = useCallback(async () => {
+    saliendo.current = true;
     await supabase.rpc("registrar_evento", { p_accion: "LOGOUT", p_sistema: sistema?.id });
     await supabase.auth.signOut();
     await borrarCacheOperativa();

@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { Entrada, EntradaClave } from "@/components/ui/campos";
 import { invocar, supabase } from "@/lib/supabase";
 import { slugificar } from "@/lib/utils";
 import { PantallaAcceso } from "./PantallaAcceso";
@@ -98,16 +98,14 @@ export function ConfiguracionInicial() {
               />
               <Entrada etiqueta="Nombre completo" error={e.nombre_completo?.message} {...register("nombre_completo")} />
               <Entrada etiqueta="Correo electrónico" type="email" error={e.email?.message} {...register("email")} />
-              <Entrada
+              <EntradaClave
                 etiqueta="Contraseña"
-                type="password"
                 autoComplete="new-password"
                 error={e.password?.message}
                 {...register("password")}
               />
-              <Entrada
+              <EntradaClave
                 etiqueta="Confirmar contraseña"
-                type="password"
                 autoComplete="new-password"
                 error={e.confirmar?.message}
                 {...register("confirmar")}

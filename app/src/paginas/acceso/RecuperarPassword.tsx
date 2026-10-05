@@ -1,9 +1,11 @@
 import { AnimatePresence, motion } from "motion/react";
-import { KeyRound, Lock, Mail, User } from "lucide-react";
+import { Lock, Mail, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { Entrada, EntradaClave } from "@/components/ui/campos";
+import { CodigoDigitos } from "@/components/ui/codigo";
+import { RequisitosClave } from "./CambiarPassword";
 import { Modal } from "@/components/ui/modal";
 import { invocar, mensajeError, supabase } from "@/lib/supabase";
 
@@ -132,27 +134,20 @@ export function RecuperarPassword({ abierto, onCerrar }: { abierto: boolean; onC
                   Enviamos un código a <b>{correo}</b>. Revisa también la carpeta de spam.
                 </span>
               </div>
-              <Entrada
-                etiqueta="Código"
-                icono={<KeyRound />}
-                autoFocus
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="000000"
-                className="font-mono tracking-[0.4em]"
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
-              />
-              <Entrada etiqueta="Nueva contraseña" icono={<Lock />} type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} />
-              <Entrada
+              <div>
+                <p className="mb-1.5 text-[0.8125rem] font-medium text-texto-2">Código del correo</p>
+                <CodigoDigitos autoFocus valor={codigo} onChange={setCodigo} onCompleto={() => document.getElementById("recuperar-clave")?.focus()} />
+              </div>
+              <EntradaClave id="recuperar-clave" etiqueta="Nueva contraseña" icono={<Lock />} autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} />
+              <EntradaClave
                 etiqueta="Repítela"
                 icono={<Lock />}
-                type="password"
                 autoComplete="new-password"
                 value={clave2}
                 onChange={(e) => setClave2(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void cambiar()}
               />
+              {clave && <RequisitosClave password={clave} confirmar={clave2} usuario={usuario.trim()} />}
             </>
           )}
           {paso === "sin-correo" && (
