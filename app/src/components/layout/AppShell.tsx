@@ -24,6 +24,7 @@ import { Avatar, Kbd } from "../ui/superficies";
 import { AvisoActualizacion } from "./AvisoActualizacion";
 import { Isotipo } from "./Logo";
 import { NAVEGACION, inicioPorRol, puedeVer } from "./navegacion";
+import { NovedadesAlActualizar } from "../Novedades";
 import { CentroAvisos } from "./CentroAvisos";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
@@ -200,6 +201,7 @@ export function AppShell() {
       <AvisoActualizacion />
       <AvisoLlamados />
       <BloqueoSesion />
+      <NovedadesAlActualizar />
     </div>
   );
 }
@@ -289,7 +291,7 @@ function SelectorSistema({ colapsada }: { colapsada: boolean }) {
 function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
   const { perfil, cerrarSesion } = useSesion();
   const navigate = useNavigate();
-  const { tema } = usePreferencias();
+  const { tema, texto } = usePreferencias();
 
   const cambiarTema = (t: Tema) => {
     if (t !== tema) cambiarPreferencias({ tema: t }, perfil?.id);
@@ -366,6 +368,29 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
                     />
                   )}
                   <Icono className="relative size-4" />
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 px-2.5 py-1.5">
+              <span className="flex-1 text-sm text-texto-2">Letra</span>
+              {(
+                [
+                  ["normal", "text-[0.75rem]", "Normal"],
+                  ["grande", "text-[0.875rem]", "Grande"],
+                  ["muy-grande", "text-[1rem]", "Muy grande"],
+                ] as const
+              ).map(([t, tam, nombre]) => (
+                <button
+                  key={t}
+                  onClick={() => cambiarPreferencias({ texto: t }, perfil?.id)}
+                  title={nombre}
+                  aria-pressed={texto === t}
+                  className={cn("relative grid size-7 place-items-center rounded-md font-semibold transition-colors", texto === t ? "text-texto" : "text-texto-3 hover:text-texto")}
+                >
+                  {texto === t && (
+                    <motion.span layoutId="indicador-letra" className="absolute inset-0 rounded-md bg-superficie-2" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+                  )}
+                  <span className={cn("relative", tam)}>A</span>
                 </button>
               ))}
             </div>

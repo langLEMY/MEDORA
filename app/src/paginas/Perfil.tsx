@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { DosPasos } from "@/components/DosPasos";
 import { Impresion } from "@/components/Impresion";
+import { notasDeVersion, VentanaNovedades } from "@/components/Novedades";
 import { Personalizacion } from "@/components/Personalizacion";
 import { RestablecerContrasenas } from "@/components/RestablecerContrasenas";
 import { Soporte } from "@/components/Soporte";
@@ -27,6 +28,7 @@ export default function Perfil() {
   const [whatsapp, setWhatsapp] = useState(false);
   const [version, setVersion] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
+  const [novedades, setNovedades] = useState(false);
 
   useEffect(() => {
     setNombre(perfil?.nombre_completo ?? "");
@@ -175,6 +177,11 @@ export default function Perfil() {
               <p className="text-sm font-semibold">MEDORA para Windows</p>
               <p className="text-xs text-texto-3">{enEscritorio ? `Versión ${version ?? __VERSION_APP__}` : `Versión ${__VERSION_APP__} · modo navegador`}</p>
             </div>
+            {notasDeVersion(__VERSION_APP__) && (
+              <Boton variante="fantasma" onClick={() => setNovedades(true)}>
+                Novedades
+              </Boton>
+            )}
             {enEscritorio && (
               <Boton
                 variante="secundario"
@@ -193,6 +200,7 @@ export default function Perfil() {
       <div className="mt-4">
         <Soporte />
       </div>
+      {notasDeVersion(__VERSION_APP__) && <VentanaNovedades abierto={novedades} onCerrar={() => setNovedades(false)} notas={notasDeVersion(__VERSION_APP__)!} />}
     </>
   );
 }

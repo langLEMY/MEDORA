@@ -13,6 +13,8 @@ export default defineConfig({
   define: { __VERSION_APP__: JSON.stringify(readFileSync(path.resolve(__dirname, "../version.txt"), "utf8").trim()) },
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
+  // Las notas de versión (../notas-version) se incluyen en la app ("Qué hay de nuevo").
+  server: { fs: { allow: [".."] } },
   build: {
     target: "es2022",
     chunkSizeWarningLimit: 900,
