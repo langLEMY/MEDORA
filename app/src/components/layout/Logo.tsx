@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
 
 export function Isotipo({ className }: { className?: string }) {
+  // cn no fusiona clases de Tailwind: el tamaño por defecto solo si no se pidió otro.
   return (
-    <svg viewBox="0 0 64 64" className={cn("size-8", className)} aria-hidden>
+    <svg viewBox="0 0 64 64" className={cn(!/\bsize-/.test(className ?? "") && "size-8", className)} aria-hidden>
       <defs>
         <linearGradient id="medora-g" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#14B8A6" />

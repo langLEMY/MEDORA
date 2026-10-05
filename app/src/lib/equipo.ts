@@ -41,6 +41,7 @@ export const recordarCuenta = (c: CuentaRecordada | null) => escribir(CUENTA, c)
 
 export const hospitalDelEquipo = () => leer<HospitalEquipo>(HOSPITAL);
 export const recordarHospital = (h: HospitalEquipo) => escribir(HOSPITAL, h);
+export const olvidarHospital = () => escribir(HOSPITAL, null);
 
 /** La sesión se cerró sin que la persona lo pidiera: el login lo explica una vez. */
 export const marcarSalidaInvoluntaria = () => escribir(SALIDA, true);
