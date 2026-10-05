@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpenCheck, ChevronDown, FileDown, Landmark, Pencil, PiggyBank, Plus, Receipt, Search, Trash2, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
 import { FacturacionElectronica } from "@/components/FacturacionElectronica";
@@ -20,8 +21,13 @@ import { IMPORTACIONES } from "@/lib/importaciones";
 
 type Vista = "diario" | "balanza" | "catalogo" | "configuracion" | "ncf";
 
+const VISTAS: Vista[] = ["diario", "balanza", "catalogo", "configuracion", "ncf"];
+
 export default function Contabilidad() {
-  const [vista, setVista] = useState<Vista>("diario");
+  // ?vista=ncf abre directo una pestaña (enlaces del centro de avisos).
+  const [params] = useSearchParams();
+  const inicial = params.get("vista") as Vista | null;
+  const [vista, setVista] = useState<Vista>(inicial && VISTAS.includes(inicial) ? inicial : "diario");
   return (
     <>
       <EncabezadoPagina

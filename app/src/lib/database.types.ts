@@ -4164,6 +4164,7 @@ export type Database = {
       llamar_siguiente: { Args: { p_sistema: string }; Returns: Json }
       llamar_turno: { Args: { p_cita: string }; Returns: Json }
       marcar_password_actualizada: { Args: never; Returns: undefined }
+      mis_avisos: { Args: { p_sistema: string }; Returns: Json }
       mis_sistemas_detalle: {
         Args: never
         Returns: {

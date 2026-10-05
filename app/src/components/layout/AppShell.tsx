@@ -24,6 +24,7 @@ import { Avatar, Kbd } from "../ui/superficies";
 import { AvisoActualizacion } from "./AvisoActualizacion";
 import { Isotipo } from "./Logo";
 import { NAVEGACION, inicioPorRol, puedeVer } from "./navegacion";
+import { CentroAvisos } from "./CentroAvisos";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
 import { FranjaSinConexion } from "@/components/FranjaSinConexion";
@@ -309,6 +310,7 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
         <Kbd>K</Kbd>
       </button>
       <div className="flex-1" />
+      <CentroAvisos />
       <Menu
         alinear="derecha"
         ancho={248}
