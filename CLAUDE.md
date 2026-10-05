@@ -1,4 +1,4 @@
-﻿# MEDORA â€” reglas de trabajo
+# MEDORA â€” reglas de trabajo
 
 Sistema de gestiÃ³n hospitalaria **multiâ€‘sistema** (multiâ€‘tenant). Todo en espaÃ±ol: cÃ³digo de dominio, tablas, columnas, comentarios y UI.
 
