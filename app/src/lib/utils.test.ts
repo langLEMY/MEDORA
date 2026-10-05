@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cedula, cedulaVerificada, correoVisible, edad, horaCorta, iniciales, isoDia, moneda, rnc, sugerirUsuario, telefonoRd, USUARIO_RE } from "./utils";
+import { cedula, cedulaVerificada, correoVisible, edad, horaCorta, iniciales, isoDia, moneda, rnc, sugerenciasEfectivo, sugerirUsuario, telefonoRd, USUARIO_RE } from "./utils";
+
+describe("billetes rápidos de caja", () => {
+  it("ofrece el exacto y los redondeos a billetes por encima", () => {
+    expect(sugerenciasEfectivo(850)).toEqual([850, 900, 1000, 2000]);
+    expect(sugerenciasEfectivo(1500)).toEqual([1500, 1600, 2000]);
+    expect(sugerenciasEfectivo(2000)).toEqual([2000]);
+    expect(sugerenciasEfectivo(312.5)).toEqual([312.5, 400, 500, 1000, 2000]);
+  });
+});
 
 describe("identificación dominicana (espejo de privado.tg_identificacion_rd)", () => {
   it("formatea la cédula con guiones solo si tiene 11 dígitos", () => {

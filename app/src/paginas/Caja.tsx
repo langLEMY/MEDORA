@@ -13,6 +13,7 @@ import {
   Plus,
   Printer,
   Receipt,
+  RotateCcw,
   Trash2,
   Unlock,
   UserCheck,
@@ -33,7 +34,7 @@ import { AreaTexto, Campo, Entrada, Interruptor, Segmentado, Selector } from "@/
 import { ItemMenu, Menu, SeparadorMenu } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
-import { Avatar, EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
+import { Avatar, EncabezadoPagina, Esqueleto, Insignia, Kbd, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
 import {
   CATEGORIAS_SERVICIO,
   claves,
@@ -51,10 +52,11 @@ import {
 import { BloqueTurno, destinoTurno, TicketTurno } from "@/components/TicketTurno";
 import { useTiempoReal } from "@/lib/tiempoReal";
 import { useAccionUrl } from "@/lib/accionUrl";
+import { irA, useAtajos } from "@/lib/atajos";
 import { OpcionesMedicos } from "@/components/OpcionesMedicos";
 import { puedeEscribir } from "@/lib/permisos";
 import { datos, invocar, mensajeError, supabase, type Fila, type MetodoPago } from "@/lib/supabase";
-import { cn, fecha, fechaHora, hora, isoDia, moneda } from "@/lib/utils";
+import { cn, fecha, fechaHora, hora, isoDia, moneda, sugerenciasEfectivo } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 import { FranjaLlamados } from "@/components/LlamadosEnVivo";
@@ -148,6 +150,10 @@ export default function Caja() {
   const [recibo, setRecibo] = useState<CobroFila | null>(null);
   const [anular, setAnular] = useState<CobroFila | null>(null);
   const [comprobante, setComprobante] = useState<Comprobante | null>(null);
+
+  // F2: nuevo cobro (si no hay otra ventana abierta encima).
+  const hayVentana = cobrar || cerrar || anticipo || movimiento || !!recibo || !!anular || !!comprobante || !!exonerar || !!ticket;
+  useAtajos({ F2: () => operar && setCobrar(true) }, !hayVentana);
 
   const turno = useQuery({
     queryKey: [...claves.caja(sistemaId), "turno", yo],
@@ -243,8 +249,9 @@ export default function Caja() {
               )}
             </Menu>
             {operar && (
-              <Boton icono={<Plus className="size-4" />} onClick={() => setCobrar(true)}>
+              <Boton icono={<Plus className="size-4" />} onClick={() => setCobrar(true)} title="Atajo: F2">
                 Cobro sin turno
+                <kbd className="ml-1 rounded bg-white/20 px-1 font-sans text-[0.6875rem]">F2</kbd>
               </Boton>
             )}
           </>
@@ -958,6 +965,47 @@ function NuevoCobro({
   const hayNcf = (tipo: string) => !!secuencias.data?.some((s) => s.tipo === tipo || s.tipo === EQUIVALENTE_ECF[tipo]);
   const haySecuencias = (secuencias.data?.length ?? 0) > 0;
 
+  // Último cobro vigente del paciente: para repetir los mismos servicios con un clic.
+  const ultimo = useQuery({
+    queryKey: ["ultimo-cobro", sistemaId, paciente?.id],
+    enabled: abierto && !!paciente,
+    queryFn: async () => {
+      const filas = datos(
+        await supabase
+          .from("cobros")
+          .select("creado_en, anulacion:anulaciones_cobro(id), detalles:cobro_detalles(servicio_id, descripcion, categoria, cantidad, precio_unitario)")
+          .eq("sistema_id", sistemaId)
+          .eq("paciente_id", paciente!.id)
+          .order("creado_en", { ascending: false })
+          .limit(5),
+      );
+      return filas?.find((c) => !c.anulacion?.length && c.detalles?.length) ?? null;
+    },
+  });
+  const repetirUltimo = () => {
+    const u = ultimo.data;
+    if (!u) return;
+    setLineas(
+      u.detalles.map((d, i) => {
+        const s = d.servicio_id ? servicios.data?.find((x) => x.id === d.servicio_id && x.activo) : undefined;
+        return s
+          ? { ...lineaDe(s)[0], clave: Date.now() + i, cantidad: d.cantidad }
+          : { clave: Date.now() + i, servicio_id: "", descripcion: d.descripcion, categoria: d.categoria, cantidad: d.cantidad, precio: Number(d.precio_unitario) };
+      }),
+    );
+  };
+
+  const puedeCobrar = !!paciente && lineas.length > 0 && !excede;
+  useAtajos(
+    {
+      F4: () => irA("cobro-paciente"),
+      F6: () => irA("cobro-servicio", "pulsar"),
+      F9: () => puedeCobrar && !m.isPending && m.mutate(),
+      "Mod+Enter": () => puedeCobrar && !m.isPending && m.mutate(),
+    },
+    abierto,
+  );
+
   const m = useMutation({
     mutationFn: async () =>
       datos(
@@ -1011,15 +1059,32 @@ function NuevoCobro({
           <Boton variante="secundario" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton cargando={m.isPending} disabled={!paciente || lineas.length === 0 || excede} onClick={() => m.mutate()}>
+          <Boton cargando={m.isPending} disabled={!puedeCobrar} onClick={() => m.mutate()} title="Atajo: F9 o Ctrl+Enter">
             Registrar cobro
+            <kbd className="ml-1 rounded bg-white/20 px-1 font-sans text-[0.6875rem]">F9</kbd>
           </Boton>
         </>
       }
     >
       <div className="space-y-6">
         {/* Turno del quiosco sin registrar: llega con su cédula ya buscada (o se registra aquí). */}
-        <SelectorPaciente valor={paciente} onChange={setPaciente} textoInicial={cita && !cita.paciente ? (cita.cedula_llegada ?? undefined) : undefined} />
+        <div data-atajo="cobro-paciente">
+          <SelectorPaciente valor={paciente} onChange={setPaciente} textoInicial={cita && !cita.paciente ? (cita.cedula_llegada ?? undefined) : undefined} />
+        </div>
+        <p className="-mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[0.6875rem] text-texto-3">
+          <span>
+            <Kbd>F4</Kbd> paciente
+          </span>
+          <span>
+            <Kbd>F6</Kbd> agregar servicio
+          </span>
+          <span>
+            <Kbd>F9</Kbd> registrar
+          </span>
+          <span>
+            <Kbd>Esc</Kbd> cerrar
+          </span>
+        </p>
 
         {/* El seguro va antes que los servicios: define precios pactados y cobertura. */}
         <section className="grid grid-cols-2 gap-4">
@@ -1040,7 +1105,19 @@ function NuevoCobro({
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[0.8125rem] font-medium text-texto-2">Servicios</span>
             <div className="flex gap-2">
-              <SelectorServicio servicios={servicios.data ?? []} pactados={pactados} area={area} onArea={setArea} onElegir={(s) => agregarLinea(s.id)} />
+              {ultimo.data && lineas.length === 0 && (
+                <Boton
+                  variante="fantasma"
+                  icono={<RotateCcw className="size-4" />}
+                  onClick={repetirUltimo}
+                  title={`${fecha(ultimo.data.creado_en)}: ${ultimo.data.detalles.map((d) => d.descripcion).join(", ")}`}
+                >
+                  Repetir último
+                </Boton>
+              )}
+              <div data-atajo="cobro-servicio">
+                <SelectorServicio servicios={servicios.data ?? []} pactados={pactados} area={area} onArea={setArea} onElegir={(s) => agregarLinea(s.id)} />
+              </div>
               <Boton variante="secundario" onClick={() => agregarLinea("")} title="Cobrar algo que no está en el catálogo">
                 Otro concepto
               </Boton>
@@ -1262,6 +1339,25 @@ function NuevoCobro({
                       <Trash2 className="size-4" />
                     </button>
                   </div>
+                  {p.metodo === "efectivo" && Number(p.monto) > 0 && (
+                    // Billetes rápidos: lo que entrega el paciente, para la devuelta.
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[10.5rem]">
+                      <span className="text-[0.6875rem] text-texto-3">Entrega:</span>
+                      {sugerenciasEfectivo(Number(p.monto)).map((v, i) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setPagos((x) => x.map((y) => (y.clave === p.clave ? { ...y, recibido: v.toFixed(2) } : y)))}
+                          className={cn(
+                            "h-7 rounded-lg border px-2.5 text-xs font-medium tabular transition-colors",
+                            Number(p.recibido) === v ? "border-marca bg-marca-suave text-marca-texto" : "border-borde bg-superficie hover:bg-superficie-2",
+                          )}
+                        >
+                          {i === 0 ? "Exacto" : moneda(v).replace(/\.00$/, "")}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>

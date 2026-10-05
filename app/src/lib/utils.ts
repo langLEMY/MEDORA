@@ -9,6 +9,19 @@ export function moneda(valor: number | string | null | undefined) {
   return fmtMoneda.format(Number(valor ?? 0));
 }
 
+/**
+ * Lo que suele entregar el paciente en efectivo: el monto exacto y los redondeos a
+ * billetes dominicanos (100, 200, 500, 1,000, 2,000) por encima de él.
+ */
+export function sugerenciasEfectivo(monto: number): number[] {
+  const salida = [Math.round(monto * 100) / 100];
+  for (const b of [100, 200, 500, 1000, 2000]) {
+    const v = Math.ceil(monto / b) * b;
+    if (v > monto && !salida.includes(v)) salida.push(v);
+  }
+  return salida;
+}
+
 // Identificación dominicana (JCE / DGII). Espejo de privado.tg_identificacion_rd.
 const digitos = (v?: string | null) => (v ?? "").replace(/\D/g, "");
 
