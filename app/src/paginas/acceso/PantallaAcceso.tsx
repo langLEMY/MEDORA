@@ -1,8 +1,7 @@
 import { motion } from "motion/react";
 import { ShieldCheck, Stethoscope, Wallet } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Isotipo, Logotipo } from "@/components/layout/Logo";
-import { hospitalDelEquipo } from "@/lib/equipo";
 import { cn } from "@/lib/utils";
 
 const PUNTOS = [
@@ -28,11 +27,10 @@ function useEnLinea() {
 }
 
 /**
- * Diseño partido: panel de marca a la izquierda, formulario a la derecha. Si esta
- * computadora ya trabajó en un hospital, el panel muestra su logo y su nombre.
+ * Diseño partido: panel de marca a la izquierda, formulario a la derecha. Solo la
+ * marca MEDORA: el login no muestra el nombre de ningún hospital.
  */
 export function PantallaAcceso({ children }: { children: ReactNode }) {
-  const hospital = useMemo(hospitalDelEquipo, []);
   const enLinea = useEnLinea();
   return (
     <div className="grid h-full lg:grid-cols-[1.05fr_1fr]">
@@ -44,38 +42,17 @@ export function PantallaAcceso({ children }: { children: ReactNode }) {
           transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute -right-32 -bottom-48 size-[560px] rounded-full opacity-60 blur-2xl"
-          style={{ background: `radial-gradient(circle, ${hospital?.color ?? "#0e7490"} 0%, transparent 65%)` }}
+          className="absolute -right-32 -bottom-48 size-[560px] rounded-full bg-[radial-gradient(circle,#0e7490_0%,transparent_65%)] opacity-60 blur-2xl"
           animate={{ x: [0, -50, 0], y: [0, -30, 0] }}
           transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
         />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgb(255_255_255/0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.04)_1px,transparent_1px)] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)] bg-[size:44px_44px]" />
 
         <div className="relative flex h-full flex-col justify-between p-12 text-white">
-          {hospital ? (
-            <div className="flex items-center gap-3">
-              {hospital.logo ? (
-                <span className="grid size-11 place-items-center overflow-hidden rounded-xl bg-white p-1.5 shadow-lg">
-                  <img src={hospital.logo} alt="" className="max-h-full max-w-full object-contain" />
-                </span>
-              ) : (
-                <span className="grid size-11 place-items-center rounded-xl text-sm font-semibold shadow-lg" style={{ background: hospital.color }}>
-                  {hospital.nombre.slice(0, 2).toUpperCase()}
-                </span>
-              )}
-              <div className="min-w-0">
-                <p className="truncate text-lg leading-tight font-semibold">{hospital.nombre}</p>
-                <p className="flex items-center gap-1.5 text-xs text-white/55">
-                  <Isotipo className="size-3.5" /> con MEDORA
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Isotipo className="size-9" />
-              <span className="text-lg font-semibold tracking-[0.1em]">MEDORA</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <Isotipo className="size-9" />
+            <span className="text-lg font-semibold tracking-[0.1em]">MEDORA</span>
+          </div>
 
           <div className="max-w-md">
             <motion.h1
@@ -123,14 +100,7 @@ export function PantallaAcceso({ children }: { children: ReactNode }) {
             transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
             className="w-full max-w-[380px]"
           >
-            {hospital ? (
-              <p className="mb-10 flex items-center gap-2.5 text-[0.9375rem] font-semibold lg:hidden">
-                {hospital.logo ? <img src={hospital.logo} alt="" className="size-8 rounded-lg object-contain" /> : <Isotipo className="size-8" />}
-                {hospital.nombre}
-              </p>
-            ) : (
-              <Logotipo className="mb-10 lg:hidden" />
-            )}
+            <Logotipo className="mb-10 lg:hidden" />
             {children}
           </motion.div>
         </div>

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { borrarCacheOperativa } from "@/lib/sinConexion";
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { hospitalDelEquipo, marcarSalidaInvoluntaria, olvidarHospital, recordarHospital } from "@/lib/equipo";
+import { marcarSalidaInvoluntaria } from "@/lib/equipo";
 import { datos, supabase, type Fila, type Rol } from "@/lib/supabase";
 import type { Permisos } from "@/lib/permisos";
 import { sincronizarDesdePerfil } from "@/lib/preferencias";
@@ -123,25 +123,6 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     aplicarColorMarca(sistema?.color_marca);
   }, [sistema?.color_marca]);
 
-  // El login de esta computadora se verá como el del hospital donde se trabaja. El
-  // entorno de pruebas nunca se recuerda (y si quedó guardado, se quita).
-  useEffect(() => {
-    if (!sistema) return;
-    let vigente = true;
-    void supabase
-      .from("sistemas")
-      .select("es_pruebas")
-      .eq("id", sistema.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!vigente || !data) return;
-        if (!data.es_pruebas) recordarHospital({ nombre: sistema.nombre, logo: sistema.logo_url, color: sistema.color_marca });
-        else if (hospitalDelEquipo()?.nombre === sistema.nombre) olvidarHospital();
-      });
-    return () => {
-      vigente = false;
-    };
-  }, [sistema]);
 
   useEffect(() => {
     contextoMonitoreo(usuarioId ?? null, sistema?.id ?? null);

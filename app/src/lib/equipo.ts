@@ -1,24 +1,24 @@
 /**
  * Lo que una computadora recuerda para el login (localStorage, nunca contraseñas):
  *   · la cuenta, solo si la persona marcó "Recordar mi usuario en este equipo";
- *   · el hospital donde se trabajó por última vez (logo y color), para que el login
- *     se vea como el del hospital;
  *   · si la sesión se cerró sola (vencida o cerrada por soporte), para avisarlo.
+ * El login no muestra el nombre de ningún hospital.
  */
 export interface CuentaRecordada {
   usuario: string;
   nombre: string;
   foto: string | null;
 }
-export interface HospitalEquipo {
-  nombre: string;
-  logo: string | null;
-  color: string;
-}
 
 const CUENTA = "medora.cuenta-recordada";
-const HOSPITAL = "medora.hospital-equipo";
 const SALIDA = "medora.aviso-salida";
+
+// Una beta guardó aquí el último hospital (logo y nombre) para el login: se borra.
+try {
+  localStorage.removeItem("medora.hospital-equipo");
+} catch {
+  /* sin almacenamiento */
+}
 
 function leer<T>(clave: string): T | null {
   try {
@@ -39,9 +39,6 @@ function escribir(clave: string, valor: unknown) {
 export const cuentaRecordada = () => leer<CuentaRecordada>(CUENTA);
 export const recordarCuenta = (c: CuentaRecordada | null) => escribir(CUENTA, c);
 
-export const hospitalDelEquipo = () => leer<HospitalEquipo>(HOSPITAL);
-export const recordarHospital = (h: HospitalEquipo) => escribir(HOSPITAL, h);
-export const olvidarHospital = () => escribir(HOSPITAL, null);
 
 /** La sesión se cerró sin que la persona lo pidiera: el login lo explica una vez. */
 export const marcarSalidaInvoluntaria = () => escribir(SALIDA, true);
