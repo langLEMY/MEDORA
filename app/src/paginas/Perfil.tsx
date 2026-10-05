@@ -93,7 +93,10 @@ export default function Perfil() {
   return (
     <>
       <EncabezadoPagina titulo="Mi perfil" acciones={esSuperadmin ? <RestablecerContrasenas /> : undefined} />
-      <div className="grid gap-4 xl:grid-cols-2">
+      {/* Dos columnas que crecen por separado (items-start): izquierda la cuenta y su
+          seguridad; derecha cómo se ve y se imprime. Así ninguna queda con huecos. */}
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <div className="space-y-4">
         <Tarjeta className="p-6">
           <div className="mb-6 flex items-center gap-4">
             <FotoPerfil />
@@ -151,9 +154,6 @@ export default function Perfil() {
           </div>
         </Tarjeta>
 
-        <div className="space-y-4">
-          <Personalizacion />
-          <Impresion />
           <Tarjeta className="p-6">
             <h2 className="mb-4 text-[0.9375rem] font-semibold">Cambiar contraseña</h2>
             <form onSubmit={cambiar} className="space-y-4" noValidate>
@@ -196,6 +196,11 @@ export default function Perfil() {
               </Boton>
             )}
           </Tarjeta>
+        </div>
+
+        <div className="space-y-4">
+          <Personalizacion />
+          <Impresion />
         </div>
       </div>
       <div className="mt-4">
