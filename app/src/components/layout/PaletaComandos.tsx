@@ -10,6 +10,7 @@ import {
   Receipt,
   Search,
   ShoppingCart,
+  Sparkles,
   Sun,
   Ticket,
   Tv,
@@ -27,6 +28,7 @@ import { mensajeError, supabase } from "@/lib/supabase";
 import { patronBusqueda } from "@/lib/utils";
 import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
 import { NAVEGACION, puedeVer } from "./navegacion";
+import { parecePregunta, PreguntaMedora, useIaDisponible } from "./PreguntaMedora";
 
 function useDebounce<T>(valor: T, ms = 200) {
   const [v, setV] = useState(valor);
@@ -43,8 +45,14 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
   const [texto, setTexto] = useState("");
   const busqueda = useDebounce(texto);
 
+  // Pregúntale a MEDORA (IA): solo si el hospital la tiene activa.
+  const [pregunta, setPregunta] = useState<string | null>(null);
+  const ia = useIaDisponible(sistema?.id, abierta);
   useEffect(() => {
-    if (!abierta) setTexto("");
+    if (!abierta) {
+      setTexto("");
+      setPregunta(null);
+    }
   }, [abierta]);
 
   const pacientes = useQuery({
@@ -107,6 +115,17 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
   ];
   const q = busqueda.trim().toLowerCase();
   const accionesVisibles = acciones.filter((a) => a.ver && (!q || a.etiqueta.toLowerCase().includes(q) || a.claves.includes(q)));
+  const puedePreguntar = !!ia.data && !!sistema && texto.trim().length >= 4;
+  const grupoPreguntar = puedePreguntar && (
+    <Command.Group heading="Pregúntale a MEDORA">
+      <Item onSelect={() => setPregunta(texto.trim())} icono={<Sparkles className="!text-marca" />}>
+        <span className="flex-1 truncate">
+          Preguntar: <span className="text-texto-2">«{texto.trim()}»</span>
+        </span>
+      </Item>
+    </Command.Group>
+  );
+  const preguntaPrimero = puedePreguntar && parecePregunta(texto);
 
   return createPortal(
     <AnimatePresence>
@@ -132,13 +151,17 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
               onKeyDown={(e) => e.key === "Escape" && onCerrar()}
               className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-[0.6875rem] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-texto-3 [&_[cmdk-group-heading]]:uppercase"
             >
+              {pregunta && sistema ? (
+                <PreguntaMedora sistemaId={sistema.id} pregunta={pregunta} onVolver={() => setPregunta(null)} onIr={ir} />
+              ) : (
+              <>
               <div className="flex items-center gap-3 border-b border-borde px-4">
                 <Search className="size-4 text-texto-3" />
                 <Command.Input
                   autoFocus
                   value={texto}
                   onValueChange={setTexto}
-                  placeholder="Busca un paciente, una acción o una pantalla…"
+                  placeholder={ia.data ? "Busca un paciente, una pantalla o pregúntale a MEDORA…" : "Busca un paciente, una acción o una pantalla…"}
                   className="h-13 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-texto-3"
                 />
               </div>
@@ -146,6 +169,7 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
                 <Command.Empty className="px-3 py-8 text-center text-sm text-texto-3">
                   {pacientes.isFetching ? "Buscando…" : "Sin resultados."}
                 </Command.Empty>
+                {preguntaPrimero && grupoPreguntar}
                 {(pacientes.data?.length ?? 0) > 0 && (
                   <Command.Group heading="Pacientes">
                     {pacientes.data!.map((p) => (
@@ -176,7 +200,10 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
                       </Item>
                     ))}
                 </Command.Group>
+                {!preguntaPrimero && grupoPreguntar}
               </Command.List>
+              </>
+              )}
             </Command>
           </motion.div>
         </div>

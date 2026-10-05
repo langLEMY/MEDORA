@@ -53,7 +53,8 @@ export default function Agenda() {
   const { sistemaId, roles, soloPropio } = useSistema();
   const yo = useSesion().sesion!.user.id;
   const [params, setParams] = useSearchParams();
-  const [dia, setDia] = useState(isoDia());
+  // ?fecha=YYYY-MM-DD abre ese día (enlaces de "Pregúntale a MEDORA").
+  const [dia, setDia] = useState(() => (/^\d{4}-\d{2}-\d{2}$/.test(params.get("fecha") ?? "") ? params.get("fecha")! : isoDia()));
   const [direccion, setDireccion] = useState(0);
   const [px, setPx] = useState(() => {
     try {

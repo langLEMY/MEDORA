@@ -2,14 +2,17 @@
 //
 //   { accion: "estado", sistema_id }   → si está disponible (y el gasto del mes para admin/superadmin)
 //   { accion: "probar", sistema_id }   → llamada mínima para comprobar la conexión (superadmin)
+//   { accion: "preguntar", sistema_id, pregunta } → Pregúntale a MEDORA (ver preguntar.ts)
 //
 // Reglas:
 //   · Solo para hospitales con sistemas.ia_activa, y sin pasar del tope mensual.
 //   · La IA propone; nunca escribe datos. Lo que devuelve se muestra para confirmar.
 //   · Cada uso queda en ia_eventos (tokens y costo; nunca el contenido).
 //   · Nada de pacientes ni datos clínicos va a la IA en estas funciones.
-import { cumpleMfa, clienteServicio, cors, error, json, MFA_REQUERIDO } from "../_shared/comun.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { cumpleMfa, clienteServicio, cors, error, json, limitar, MFA_REQUERIDO } from "../_shared/comun.ts";
 import { costoMaximo, ErrorIa, MODELOS, pedirClaude, type Herramienta, type Uso } from "../_shared/claude.ts";
+import { CONSULTAS, ejecutar, HERRAMIENTA_CONSULTA, instrucciones, type Interpretacion } from "./preguntar.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -101,6 +104,39 @@ Deno.serve(async (req) => {
           maxTokens: 100,
         });
         return json({ ok: true, saludo: r.saludo, usado_usd: await consumo(), tope_usd: tope });
+      }
+
+      // Pregúntale a MEDORA: la IA elige la consulta; se ejecuta con la sesión del usuario (RLS).
+      case "preguntar": {
+        if (!roles.length) return error("Para preguntar necesitas ser parte del personal de este hospital.", 403);
+        const pregunta = String(c.pregunta ?? "").trim();
+        if (pregunta.length < 3) return error("Escribe la pregunta.");
+        if (pregunta.length > 500) return error("La pregunta es muy larga (máx. 500 caracteres).");
+        if (!(await limitar(admin, `ia-preguntar:${usuarioId}`, 30, 600))) return error("Demasiadas preguntas seguidas. Espera unos minutos.", 429);
+
+        const ahora = new Date();
+        const hoy = ahora.toLocaleDateString("en-CA", { timeZone: "America/Santo_Domingo" });
+        const dia = ahora.toLocaleDateString("es-DO", { timeZone: "America/Santo_Domingo", weekday: "long" });
+        const pedir = (modelo: string) =>
+          usar<Interpretacion>("preguntar", { modelo, sistema: instrucciones(hoy, dia), mensaje: pregunta, herramienta: HERRAMIENTA_CONSULTA,
+            // Sonnet piensa antes de responder (adaptativo): necesita más margen de salida.
+            maxTokens: modelo === MODELOS.rapido ? 400 : 2048 });
+
+        // Primero Haiku (barato); si no la entiende, una vez Sonnet.
+        let q = await pedir(MODELOS.rapido);
+        if (q.consulta === "ninguna") q = await pedir(MODELOS.completo).catch(() => q);
+        if (!CONSULTAS.includes(q.consulta)) q = { consulta: "ninguna", titulo: "" };
+
+        const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+        try {
+          return json({ consulta: q.consulta, respuesta: await ejecutar(db, sistemaId, q, hoy) });
+        } catch (e) {
+          console.error("preguntar", q.consulta, (e as Error).message);
+          return error("No se pudo obtener ese dato. Intenta con otra pregunta.", 500);
+        }
       }
 
       default:

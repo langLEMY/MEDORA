@@ -16,8 +16,8 @@ const PRECIOS: Record<string, [number, number]> = {
   [MODELOS.completo]: [2, 10],
 };
 
-// Sonnet 5.5 rechaza tool_choice forzado ("tool"/"any"): ahí va "auto" con strict y la
-// instrucción en el mensaje. Haiku 4.5 sí lo acepta.
+// Sonnet 5.5 rechaza tool_choice forzado ("tool"/"any"): ahí va "auto" con la
+// instrucción en el sistema (y la salida se valida igual). Haiku 4.5 sí lo acepta.
 const ACEPTA_FORZADO = new Set<string>([MODELOS.rapido]);
 
 export interface Herramienta {
@@ -72,7 +72,7 @@ export async function pedirClaude<T = unknown>(op: {
       ...(op.herramienta
         ? ACEPTA_FORZADO.has(op.modelo)
           ? { tools: [op.herramienta], tool_choice: { type: "tool", name: op.herramienta.name } }
-          : { tools: [{ ...op.herramienta, strict: true }], tool_choice: { type: "auto" } }
+          : { tools: [op.herramienta], tool_choice: { type: "auto" } }
         : {}),
     }),
   });
