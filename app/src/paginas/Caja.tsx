@@ -433,7 +433,7 @@ export default function Caja() {
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">{m.concepto}</span>
                         <span className="block text-xs text-texto-3">
-                          {hora(m.creado_en)} · {m.autor?.nombre_completo} · {m.categoria}
+                          {hora(m.creado_en)} · {m.autor?.nombre_completo} · {CATEGORIAS_MOVIMIENTO[m.categoria] ?? m.categoria}
                         </span>
                       </span>
                       <span className="text-texto-2">{METODOS_PAGO[m.metodo]}</span>
@@ -1602,6 +1602,21 @@ function AnularCobro({ cobro, onCerrar, onListo }: { cobro: CobroFila | null; on
   );
 }
 
+// Cada categoría va a su cuenta contable (privado.asentar_movimiento); el depósito pasa la caja al banco.
+const CATEGORIAS_MOVIMIENTO: Record<string, string> = {
+  general: "General",
+  suministros: "Suministros",
+  servicios: "Servicios",
+  mantenimiento: "Mantenimiento",
+  deposito: "Depósito al banco",
+  reembolso: "Reembolso",
+  otro: "Otro",
+};
+const CATEGORIAS_POR_TIPO = {
+  egreso: ["general", "suministros", "servicios", "mantenimiento", "deposito", "otro"],
+  ingreso: ["general", "reembolso", "otro"],
+};
+
 function NuevoMovimiento({ abierto, onCerrar, onListo }: { abierto: boolean; onCerrar: () => void; onListo: () => void }) {
   const { sistemaId } = useSistema();
   const [tipo, setTipo] = useState<"ingreso" | "egreso">("egreso");
@@ -1609,6 +1624,7 @@ function NuevoMovimiento({ abierto, onCerrar, onListo }: { abierto: boolean; onC
   const [categoria, setCategoria] = useState("general");
   const [monto, setMonto] = useState("");
   const [metodo, setMetodo] = useState<MetodoPago>("efectivo");
+  const deposito = categoria === "deposito";
 
   useEffect(() => {
     if (abierto) {
@@ -1616,6 +1632,14 @@ function NuevoMovimiento({ abierto, onCerrar, onListo }: { abierto: boolean; onC
       setMonto("");
     }
   }, [abierto]);
+
+  useEffect(() => {
+    if (!CATEGORIAS_POR_TIPO[tipo].includes(categoria)) setCategoria("general");
+  }, [tipo, categoria]);
+
+  useEffect(() => {
+    if (deposito) setMetodo("efectivo");
+  }, [deposito]);
 
   const m = useMutation({
     mutationFn: async () =>
@@ -1664,10 +1688,15 @@ function NuevoMovimiento({ abierto, onCerrar, onListo }: { abierto: boolean; onC
             { valor: "ingreso", etiqueta: "Ingreso" },
           ]}
         />
-        <Entrada etiqueta="Concepto" value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Ej. Pago de mensajería" />
+        <Entrada
+          etiqueta="Concepto"
+          value={concepto}
+          onChange={(e) => setConcepto(e.target.value)}
+          placeholder={deposito ? "Ej. Depósito en Banreservas" : "Ej. Pago de mensajería"}
+        />
         <div className="grid grid-cols-2 gap-4">
           <Entrada etiqueta="Monto" type="number" min={0} step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} />
-          <Selector etiqueta="Método" value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
+          <Selector etiqueta="Método" value={metodo} disabled={deposito} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
             {METODOS_DINERO.map((x) => (
               <option key={x} value={x}>
                 {METODOS_PAGO[x]}
@@ -1676,12 +1705,15 @@ function NuevoMovimiento({ abierto, onCerrar, onListo }: { abierto: boolean; onC
           </Selector>
         </div>
         <Selector etiqueta="Categoría" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-          {["general", "suministros", "servicios", "mantenimiento", "reembolso", "otro"].map((c) => (
-            <option key={c} value={c} className="capitalize">
-              {c}
+          {CATEGORIAS_POR_TIPO[tipo].map((c) => (
+            <option key={c} value={c}>
+              {CATEGORIAS_MOVIMIENTO[c]}
             </option>
           ))}
         </Selector>
+        {deposito && (
+          <p className="text-xs text-texto-3">Sale el efectivo de la caja y entra al banco. No cuenta como gasto.</p>
+        )}
       </div>
     </Modal>
   );

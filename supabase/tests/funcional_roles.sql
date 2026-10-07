@@ -180,14 +180,32 @@ begin
   end;
 
   -- Gasto de caja (egreso) y cierre de turno
-  perform public.registrar_movimiento(v_s, 'egreso', 'Mensajería', 200, 'efectivo', 'general');
+  perform pg_temp.set('mov', (public.registrar_movimiento(v_s, 'egreso', 'Mensajería', 200, 'efectivo', 'general')).id::text);
+  perform pg_temp.set('dep', (public.registrar_movimiento(v_s, 'egreso', 'Depósito QA', 300, 'efectivo', 'deposito')).id::text);
+  begin
+    perform public.registrar_movimiento(v_s, 'egreso', 'Depósito con tarjeta', 100, 'tarjeta', 'deposito');
+    perform pg_temp.ok('Caja', 'Depósito solo en efectivo', false, 'aceptado');
+  exception when others then perform pg_temp.ok('Caja', 'Depósito solo en efectivo', true, sqlerrm);
+  end;
+  perform pg_temp.yo_postgres();
+  select count(*) into n from public.asientos a join public.asiento_lineas l on l.asiento_id = a.id
+   where a.origen = 'movimiento' and a.origen_id = pg_temp.c('mov')::uuid
+     and ((l.cuenta_codigo = privado.cuenta(v_s, 'gasto_general') and l.debe = 200)
+       or (l.cuenta_codigo = privado.cuenta(v_s, 'caja') and l.haber = 200));
+  perform pg_temp.ok('Caja', 'Egreso de caja: asiento gasto contra caja', n = 2, n::text);
+  select count(*) into n from public.asientos a join public.asiento_lineas l on l.asiento_id = a.id
+   where a.origen = 'movimiento' and a.origen_id = pg_temp.c('dep')::uuid
+     and ((l.cuenta_codigo = privado.cuenta(v_s, 'banco') and l.debe = 300)
+       or (l.cuenta_codigo = privado.cuenta(v_s, 'caja') and l.haber = 300));
+  perform pg_temp.ok('Caja', 'Depósito: asiento banco contra caja', n = 2, n::text);
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
   v_t := privado.turno_abierto(v_s);
   select monto_apertura into m from public.turnos_caja where id = v_t;
-  -- efectivo: 950 + 500 + 450 (abono) + 1000 (anticipo) − 200
+  -- efectivo: 950 + 500 + 450 (abono) + 1000 (anticipo) − 200 (mensajería) − 300 (depósito)
   perform pg_temp.set('turno', v_t::text);
-  perform public.cerrar_turno_caja(v_t, m + 2700, 'cuadre de prueba');
+  perform public.cerrar_turno_caja(v_t, m + 2400, 'cuadre de prueba');
   select monto_esperado into n from public.turnos_caja where id = v_t;
-  perform pg_temp.ok('Caja', 'Cierre de turno: efectivo esperado = fondo + 2,700', n = m + 2700, format('esperado %s, fondo %s', n, m));
+  perform pg_temp.ok('Caja', 'Cierre de turno: efectivo esperado = fondo + 2,400', n = m + 2400, format('esperado %s, fondo %s', n, m));
 end $$;
 
 -- ---------------------------------------------------------------- médico
@@ -219,7 +237,9 @@ begin
     perform pg_temp.ok('Médico', 'La nota clínica no se puede editar (append-only)', n = 0, n || ' filas');
   exception when others then perform pg_temp.ok('Médico', 'La nota clínica no se puede editar (append-only)', true, sqlerrm);
   end;
-  e := public.estadisticas_medico(v_s, pg_temp.c('medico')::uuid, current_date, current_date);
+  -- Fecha de Santo Domingo: después de las 8 p. m. current_date (UTC) ya es mañana.
+  e := public.estadisticas_medico(v_s, pg_temp.c('medico')::uuid, (now() at time zone 'America/Santo_Domingo')::date,
+                                  (now() at time zone 'America/Santo_Domingo')::date);
   perform pg_temp.ok('Médico', 'Mis estadísticas: 1 cobrado, neto 427.50', (e ->> 'cobrados')::int = 1 and (e ->> 'neto')::numeric = 427.5, e::text);
   begin
     perform public.estadisticas_medico(v_s, pg_temp.c('odonto')::uuid, current_date, current_date);
