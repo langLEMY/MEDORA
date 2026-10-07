@@ -225,6 +225,15 @@ begin
   select jsonb_build_object('monto', sum(monto), 'ret', sum(retencion), 'filas', count(*)) into e
     from public.comisiones where cobro_id = pg_temp.c('cobro1')::uuid;
   perform pg_temp.ok('Médico', 'Comisión 50% de 950 = 475, retención 47.50', (e ->> 'monto')::numeric = 475 and (e ->> 'ret')::numeric = 47.5, e::text);
+  -- Devengo: la deuda con el médico entra a los libros al cobrar (gasto 475 = por pagar 427.50 + ISR 47.50).
+  select jsonb_build_object(
+           'gasto', sum(l.debe) filter (where l.cuenta_codigo = privado.cuenta(v_s, 'gasto_comisiones')),
+           'por_pagar', sum(l.haber) filter (where l.cuenta_codigo = privado.cuenta(v_s, 'comisiones_por_pagar')),
+           'isr', sum(l.haber) filter (where l.cuenta_codigo = privado.cuenta(v_s, 'isr_por_pagar'))) into e
+    from public.asientos a join public.asiento_lineas l on l.asiento_id = a.id
+   where a.origen = 'comision' and a.origen_id in (select id from public.comisiones where cobro_id = pg_temp.c('cobro1')::uuid);
+  perform pg_temp.ok('Médico', 'Comisión devengada al cobrar: 475 = 427.50 por pagar + 47.50 ISR',
+    (e ->> 'gasto')::numeric = 475 and (e ->> 'por_pagar')::numeric = 427.5 and (e ->> 'isr')::numeric = 47.5, e::text);
 
   perform pg_temp.como(pg_temp.c('medico')::uuid);
   insert into public.historial_clinico (sistema_id, paciente_id, cita_id, autor_id, tipo, titulo, contenido)
@@ -276,6 +285,11 @@ begin
   perform pg_temp.ok('Anulación', 'Asientos del cobro anulado quedan en cero (por cuenta)', n = 0, n || ' cuentas con saldo');
   select jsonb_build_object('monto', sum(monto), 'ret', sum(retencion)) into e from public.comisiones where cobro_id = pg_temp.c('cobro1')::uuid;
   perform pg_temp.ok('Anulación', 'Comisión del médico revertida a 0', (e ->> 'monto')::numeric = 0 and (e ->> 'ret')::numeric = 0, e::text);
+  select count(*) into n from (
+    select l.cuenta_codigo from public.asiento_lineas l join public.asientos a on a.id = l.asiento_id
+     where a.origen = 'comision' and a.origen_id in (select id from public.comisiones where cobro_id = pg_temp.c('cobro1')::uuid)
+     group by l.cuenta_codigo having sum(l.debe) <> sum(l.haber)) x;
+  perform pg_temp.ok('Anulación', 'Deuda con el médico revertida en los libros', n = 0, n || ' cuentas con saldo');
   perform pg_temp.como(pg_temp.c('admin')::uuid);
   begin
     perform public.anular_cobro(pg_temp.c('cobro1')::uuid, 'otra vez');

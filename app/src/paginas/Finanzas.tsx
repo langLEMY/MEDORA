@@ -168,6 +168,8 @@ export function ResumenFinanciero() {
     queryFn: async () =>
       datos(await supabase.rpc("resumen_financiero", { p_sistema: sistemaId, p_desde: desde, p_hasta: hasta, p_agrupar: agrupar })) as unknown as Resumen,
     placeholderData: (prev) => prev,
+    // Caja cobra mientras esta pantalla está abierta: se pone al día sola cada minuto.
+    refetchInterval: 60_000,
   });
   const f = q.data;
   const ganancia = (f?.ingresos ?? 0) - (f?.gastos ?? 0);
