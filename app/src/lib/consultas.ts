@@ -51,6 +51,12 @@ export function usePersonal(sistemaId: string) {
 const ROLES_CLINICOS: Rol[] = ["medico", "psicologia", "nutricion", "terapia"];
 export const SIN_ESPECIALIDAD = "Sin especialidad";
 
+/** Clave para comparar especialidades escritas a mano: sin mayúsculas, tildes ni espacios de más
+ *  (espejo de privado.clave_especialidad). */
+export const claveEspecialidad = (e?: string | null) =>
+  (e ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/\s+/g, " ").trim().toLowerCase();
+export const mismaEspecialidad = (a?: string | null, b?: string | null) => !!claveEspecialidad(a) && claveEspecialidad(a) === claveEspecialidad(b);
+
 /** Profesionales con agenda propia, ordenados por especialidad y nombre. */
 export function useMedicos(sistemaId: string) {
   const q = usePersonal(sistemaId);
@@ -66,12 +72,16 @@ export function useMedicos(sistemaId: string) {
 
 /** Médicos agrupados por especialidad (para <optgroup> y filtros). */
 export function porEspecialidad(medicos: Miembro[]) {
-  const grupos = new Map<string, Miembro[]>();
+  // Agrupa por la clave (sin tildes ni espacios de más) y muestra la primera escritura encontrada.
+  const grupos = new Map<string, [string, Miembro[]]>();
   for (const m of medicos) {
-    const k = m.especialidad?.trim() || SIN_ESPECIALIDAD;
-    grupos.set(k, [...(grupos.get(k) ?? []), m]);
+    const nombre = m.especialidad?.replace(/\s+/g, " ").trim() || SIN_ESPECIALIDAD;
+    const k = claveEspecialidad(nombre);
+    const g = grupos.get(k);
+    if (g) g[1].push(m);
+    else grupos.set(k, [nombre, [m]]);
   }
-  return [...grupos.entries()];
+  return [...grupos.values()];
 }
 
 export interface CuentaContable {

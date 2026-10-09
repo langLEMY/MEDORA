@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Forward } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { claves, ESTADO_CITA, useMedicos, useSedes, useServicios } from "@/lib/consultas";
+import { claves, ESTADO_CITA, mismaEspecialidad, useMedicos, useSedes, useServicios } from "@/lib/consultas";
 import { OpcionesMedicos } from "./OpcionesMedicos";
 import { mensajeError, supabase, type EstadoCita, type Tablas } from "@/lib/supabase";
 import { isoDia } from "@/lib/utils";
@@ -115,7 +115,7 @@ export function FormCita({
   const especialidad = medicos.data?.find((m) => m.usuario_id === medico)?.especialidad?.trim() || null;
   const opciones = useMemo(() => {
     const activos = (servicios.data ?? []).filter((s) => s.activo && !["laboratorio", "farmacia"].includes(s.categoria));
-    const delArea = especialidad ? activos.filter((s) => s.especialidad === especialidad) : [];
+    const delArea = especialidad ? activos.filter((s) => mismaEspecialidad(s.especialidad, especialidad)) : [];
     const consultasArea = delArea.filter((s) => s.categoria === "consulta");
     if (consultasArea.length) return consultasArea;
     if (delArea.length) return delArea;
@@ -196,7 +196,7 @@ export function FormCita({
             }}
           >
             <option value="">Sin especificar</option>
-            {especialidad && opciones.every((s) => s.especialidad === especialidad)
+            {especialidad && opciones.every((s) => mismaEspecialidad(s.especialidad, especialidad))
               ? opciones.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre}

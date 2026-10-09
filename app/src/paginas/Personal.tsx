@@ -11,7 +11,7 @@ import { ItemMenu, Menu } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { Avatar, EncabezadoPagina, FilasEsqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { claves, usePersonal, useSedes, type Miembro } from "@/lib/consultas";
+import { claveEspecialidad, claves, usePersonal, useSedes, useServicios, type Miembro } from "@/lib/consultas";
 import { ETIQUETA_MODULO, ETIQUETA_ROL, MODULOS_AJUSTABLES, puedeEscribir, ROLES, ROLES_PROFESIONALES, type Permisos } from "@/lib/permisos";
 import { datos, invocar, mensajeError, supabase, type Rol } from "@/lib/supabase";
 import { cn, correoVisible, sugerirUsuario, USUARIO_RE } from "@/lib/utils";
@@ -257,6 +257,29 @@ export default function Personal() {
 
 const norm = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
+/** Especialidades que ya existen (servicios y personal), para elegir la misma escritura
+ *  y que Caja y la agenda encuentren al médico al filtrar por área. */
+function SugerenciasEspecialidad({ id }: { id: string }) {
+  const { sistemaId } = useSistema();
+  const personal = usePersonal(sistemaId);
+  const servicios = useServicios(sistemaId);
+  const opciones = useMemo(() => {
+    const vistas = new Map<string, string>();
+    for (const e of [...(servicios.data ?? []).map((s) => s.especialidad), ...(personal.data ?? []).map((m) => m.especialidad)]) {
+      const limpia = e?.replace(/\s+/g, " ").trim();
+      if (limpia && !vistas.has(claveEspecialidad(limpia))) vistas.set(claveEspecialidad(limpia), limpia);
+    }
+    return [...vistas.values()].sort((a, b) => a.localeCompare(b, "es"));
+  }, [servicios.data, personal.data]);
+  return (
+    <datalist id={id}>
+      {opciones.map((e) => (
+        <option key={e} value={e} />
+      ))}
+    </datalist>
+  );
+}
+
 function ChipRol({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -415,7 +438,8 @@ function NuevoMiembro({
           {roles.some((x) => ROLES_PROFESIONALES.includes(x)) && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
               <div className="grid grid-cols-2 gap-4 pb-1">
-                <Entrada etiqueta="Especialidad" value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} />
+                <Entrada etiqueta="Especialidad" list="especialidades-nuevo" value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} />
+                <SugerenciasEspecialidad id="especialidades-nuevo" />
                 <Entrada etiqueta="Exequátur" value={exequatur} onChange={(e) => setExequatur(e.target.value)} />
               </div>
             </motion.div>
@@ -557,7 +581,8 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
           <p className="text-xs text-aviso">Atención: te estás quitando el rol de administración en este sistema.</p>
         )}
         <div className="grid grid-cols-2 gap-4">
-          <Entrada etiqueta="Especialidad" value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} />
+          <Entrada etiqueta="Especialidad" list="especialidades-editar" value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} />
+          <SugerenciasEspecialidad id="especialidades-editar" />
           <Entrada etiqueta="Exequátur" value={exequatur} onChange={(e) => setExequatur(e.target.value)} />
         </div>
         {(sedes.data?.length ?? 0) > 0 && (

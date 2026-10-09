@@ -35,6 +35,7 @@ import { Avatar, EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@
 import {
   claves,
   ESTADO_CITA,
+  mismaEspecialidad,
   MOTIVOS_PRIORIDAD,
   nombrePaciente,
   SELECT_CITA,
@@ -112,7 +113,7 @@ function TableroRecepcion() {
     !medico
       ? true
       : esp
-        ? c.especialidad === esp || medicos.data?.find((m) => m.usuario_id === c.medico_id)?.especialidad === esp
+        ? mismaEspecialidad(c.especialidad, esp) || mismaEspecialidad(medicos.data?.find((m) => m.usuario_id === c.medico_id)?.especialidad, esp)
         : c.medico_id === medico,
   );
   const escribir = puedeEscribir.citas(roles);

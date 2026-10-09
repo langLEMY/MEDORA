@@ -41,6 +41,7 @@ import {
   CATEGORIAS_SERVICIO,
   claves,
   METODOS_PAGO,
+  mismaEspecialidad,
   nombrePaciente,
   SELECT_CITA,
   EQUIVALENTE_ECF,
@@ -985,7 +986,7 @@ function NuevoCobro({
 
   // Médicos del área elegida (si hay alguno); si no, todos, agrupados por especialidad.
   const todosMedicos = personal.data ?? [];
-  const delArea = area ? todosMedicos.filter((m) => m.especialidad === area) : [];
+  const delArea = area ? todosMedicos.filter((m) => mismaEspecialidad(m.especialidad, area)) : [];
   const medicos = delArea.length ? delArea : todosMedicos;
   // La cajera elige el tipo tradicional (B…); con facturación electrónica activa el servidor
   // emite su equivalente E… (B01→E31, B02→E32, B14→E44, B15→E45).

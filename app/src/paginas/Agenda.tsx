@@ -7,7 +7,7 @@ import { Boton } from "@/components/ui/boton";
 import { Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { claves, ESTADO_CITA, nombrePaciente, SIN_ESPECIALIDAD, useCitas, useMedicos, type CitaConRelaciones } from "@/lib/consultas";
+import { claveEspecialidad, claves, ESTADO_CITA, nombrePaciente, SIN_ESPECIALIDAD, useCitas, useMedicos, type CitaConRelaciones } from "@/lib/consultas";
 import { OpcionesMedicos } from "@/components/OpcionesMedicos";
 import { puedeEscribir } from "@/lib/permisos";
 import type { EstadoCita } from "@/lib/supabase";
@@ -81,7 +81,7 @@ export default function Agenda() {
 
   const esp = medico.startsWith("esp:") ? medico.slice(4) : null;
   const columnas = (medicos.data ?? []).filter((m) =>
-    !medico ? true : esp ? (m.especialidad?.trim() || SIN_ESPECIALIDAD) === esp : m.usuario_id === medico,
+    !medico ? true : esp ? claveEspecialidad(m.especialidad?.trim() || SIN_ESPECIALIDAD) === claveEspecialidad(esp) : m.usuario_id === medico,
   );
   const idsVisibles = new Set(columnas.map((m) => m.usuario_id));
   const escribir = puedeEscribir.citas(roles);
