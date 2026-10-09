@@ -1909,6 +1909,62 @@ export type Database = {
           },
         ]
       }
+      errores_cliente: {
+        Row: {
+          creado_en: string
+          entorno: string | null
+          id: string
+          mensaje: string
+          pantalla: string | null
+          resuelto: boolean
+          rol: string | null
+          sistema_id: string | null
+          stack: string | null
+          tipo: string | null
+          user_agent: string | null
+          usuario_id: string | null
+          version: string | null
+        }
+        Insert: {
+          creado_en?: string
+          entorno?: string | null
+          id?: string
+          mensaje: string
+          pantalla?: string | null
+          resuelto?: boolean
+          rol?: string | null
+          sistema_id?: string | null
+          stack?: string | null
+          tipo?: string | null
+          user_agent?: string | null
+          usuario_id?: string | null
+          version?: string | null
+        }
+        Update: {
+          creado_en?: string
+          entorno?: string | null
+          id?: string
+          mensaje?: string
+          pantalla?: string | null
+          resuelto?: boolean
+          rol?: string | null
+          sistema_id?: string | null
+          stack?: string | null
+          tipo?: string | null
+          user_agent?: string | null
+          usuario_id?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "errores_cliente_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historial_clinico: {
         Row: {
           autor_id: string
@@ -3994,6 +4050,16 @@ export type Database = {
         Args: { p_movimiento: string; p_sistema: string }
         Returns: undefined
       }
+      detalle_financiero: {
+        Args: {
+          p_cuentas?: string[]
+          p_desde: string
+          p_hasta: string
+          p_sistema: string
+          p_vista: string
+        }
+        Returns: Json
+      }
       diagnostico_plataforma: { Args: never; Returns: Json }
       directorio_medicos: {
         Args: { p_sistema: string }
@@ -4025,6 +4091,10 @@ export type Database = {
       eliminar_nomina_borrador: {
         Args: { p_nomina: string }
         Returns: undefined
+      }
+      espera_limite: {
+        Args: { p_clave: string; p_ventana_seg: number }
+        Returns: number
       }
       estadisticas_medico: {
         Args: {
@@ -4202,6 +4272,22 @@ export type Database = {
           tipo: string
         }[]
       }
+      plataforma_cajas_abiertas: {
+        Args: never
+        Returns: {
+          abierto_en: string
+          cajero: string
+          movimientos: number
+          sede: string
+          sistema: string
+          sistema_id: string
+          turno_id: string
+        }[]
+      }
+      plataforma_cerrar_caja: {
+        Args: { p_notas?: string; p_turno: string }
+        Returns: undefined
+      }
       plataforma_cerrar_sesiones: { Args: never; Returns: number }
       plataforma_crear_sistema_pruebas: {
         Args: { p_miembros?: string[]; p_origen: string }
@@ -4211,6 +4297,7 @@ export type Database = {
         Args: { p_confirmacion: string; p_sistema: string }
         Returns: Json
       }
+      plataforma_limpiar_errores: { Args: { p_dias?: number }; Returns: number }
       plataforma_limpiar_operaciones: {
         Args: {
           p_alcance: string[]
@@ -4346,6 +4433,20 @@ export type Database = {
           p_sistema: string
         }
         Returns: Json
+      }
+      registrar_error_cliente: {
+        Args: {
+          p_entorno: string
+          p_mensaje: string
+          p_pantalla: string
+          p_rol?: string
+          p_sistema?: string
+          p_stack?: string
+          p_tipo: string
+          p_user_agent?: string
+          p_version: string
+        }
+        Returns: undefined
       }
       registrar_evento: {
         Args: { p_accion: string; p_detalle?: Json; p_sistema?: string }

@@ -188,6 +188,11 @@ export function ResumenFinanciero() {
   const promedio = serie.length ? serie.reduce((s, p) => s + p.ganancia, 0) / serie.length : 0;
   const ticket = f?.cobros ? Number(f.ingresos) / f.cobros : 0;
   const cargando = q.isLoading;
+  const [detalle, setDetalle] = useState<PedidoDetalle | null>(null);
+  const hoy = isoDia(new Date());
+  const delPeriodo = (p: Omit<PedidoDetalle, "desde" | "hasta">) => setDetalle({ ...p, desde, hasta });
+  const deSaldo = (titulo: string, cuentas: string[], descripcion?: string) =>
+    setDetalle({ titulo, descripcion, vista: "saldo", hasta: hoy, cuentas, agrupar: cuentas.includes("comisiones_por_pagar") ? "medico" : "tercero" });
 
   return (
     <>
@@ -225,10 +230,46 @@ export function ResumenFinanciero() {
       </motion.section>
 
       <motion.div variants={contenedorEscalonado} initial="inicial" animate="visible" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi etiqueta="Lo que entró" valor={Number(f?.ingresos ?? 0)} cambio={variacion(Number(f?.ingresos ?? 0), Number(f?.ingresos_anterior ?? 0))} icono={TrendingUp} tono="exito" cargando={cargando} dinero />
-        <Kpi etiqueta="Lo que salió" valor={Number(f?.gastos ?? 0)} cambio={variacion(Number(f?.gastos ?? 0), Number(f?.gastos_anterior ?? 0))} icono={TrendingDown} tono="peligro" cargando={cargando} dinero inverso />
-        <Kpi etiqueta="Pacientes que pagaron" valor={f?.pacientes ?? 0} extra={ticket ? `${moneda(ticket)} por cobro en promedio` : "Sin cobros en el período"} icono={Users} tono="marca" cargando={cargando} />
-        <Kpi etiqueta="Donaciones" valor={Number(f?.donaciones ?? 0)} extra="Incluidas en lo que entró" icono={HandHeart} tono="violeta" cargando={cargando} dinero />
+        <Kpi
+          etiqueta="Lo que entró"
+          valor={Number(f?.ingresos ?? 0)}
+          cambio={variacion(Number(f?.ingresos ?? 0), Number(f?.ingresos_anterior ?? 0))}
+          icono={TrendingUp}
+          tono="exito"
+          cargando={cargando}
+          dinero
+          onClick={() => delPeriodo({ titulo: "Lo que entró", vista: "ingresos", agrupar: "cuenta", alternar: true })}
+        />
+        <Kpi
+          etiqueta="Lo que salió"
+          valor={Number(f?.gastos ?? 0)}
+          cambio={variacion(Number(f?.gastos ?? 0), Number(f?.gastos_anterior ?? 0))}
+          icono={TrendingDown}
+          tono="peligro"
+          cargando={cargando}
+          dinero
+          inverso
+          onClick={() => delPeriodo({ titulo: "Lo que salió", descripcion: "En qué se fue el dinero y por qué", vista: "gastos", agrupar: "cuenta", alternar: true })}
+        />
+        <Kpi
+          etiqueta="Pacientes que pagaron"
+          valor={f?.pacientes ?? 0}
+          extra={ticket ? `${moneda(ticket)} por cobro en promedio` : "Sin cobros en el período"}
+          icono={Users}
+          tono="marca"
+          cargando={cargando}
+          onClick={() => delPeriodo({ titulo: "Lo que pagó cada paciente", descripcion: "Incluye lo que cubre la ARS", vista: "ingresos", agrupar: "tercero" })}
+        />
+        <Kpi
+          etiqueta="Donaciones"
+          valor={Number(f?.donaciones ?? 0)}
+          extra="Incluidas en lo que entró"
+          icono={HandHeart}
+          tono="violeta"
+          cargando={cargando}
+          dinero
+          onClick={() => delPeriodo({ titulo: "Donaciones", vista: "ingresos", cuentas: ["ingreso_donaciones"], agrupar: "dia" })}
+        />
       </motion.div>
 
       {/* Entradas y salidas por período */}
@@ -237,7 +278,8 @@ export function ResumenFinanciero() {
           <div>
             <h2 className="text-[0.9375rem] font-semibold">Entradas y salidas</h2>
             <p className="text-xs text-texto-3">
-              Por {agrupar === "dia" ? "día" : agrupar === "semana" ? "semana" : "mes"}. La línea es lo que quedó; la raya punteada, el promedio.
+              Por {agrupar === "dia" ? "día" : agrupar === "semana" ? "semana" : "mes"}. La línea es lo que quedó; la raya punteada, el promedio. Toca un{" "}
+              {agrupar === "dia" ? "día" : agrupar === "semana" ? "semana" : "mes"} para ver el detalle.
             </p>
           </div>
           <Leyenda items={[["Entró", "var(--exito)"], ["Salió", "color-mix(in oklab, var(--peligro) 70%, var(--superficie))"], ["Quedó", "var(--marca)"]]} />
@@ -249,7 +291,18 @@ export function ResumenFinanciero() {
             <Vacio icono={<Scale />} titulo="Sin movimientos en este período" descripcion="Cuando haya cobros o gastos, aquí verás cómo se comparan." />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={serie} margin={{ left: -6, right: 8, top: 8 }} barGap={2}>
+              <ComposedChart
+                data={serie}
+                margin={{ left: -6, right: 8, top: 8 }}
+                barGap={2}
+                style={{ cursor: "pointer" }}
+                onClick={(e) => {
+                  const punto = serie[Number(e?.activeTooltipIndex)];
+                  if (!punto) return;
+                  const [d, h] = limitesPeriodo(punto.periodo, agrupar);
+                  setDetalle({ titulo: `Movimiento del ${punto.etiqueta}`, vista: punto.ingresos || !punto.gastos ? "ingresos" : "gastos", desde: d, hasta: h, agrupar: "cuenta", alternar: true });
+                }}
+              >
                 <CartesianGrid vertical={false} stroke="var(--borde)" strokeDasharray="3 4" />
                 <XAxis dataKey="etiqueta" tick={{ fontSize: 11, fill: "var(--texto-3)" }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={12} />
                 <YAxis tickFormatter={compacto} tick={{ fontSize: 11, fill: "var(--texto-3)" }} axisLine={false} tickLine={false} width={52} />
@@ -272,15 +325,17 @@ export function ResumenFinanciero() {
         <Reparto
           titulo="¿De dónde viene el dinero?"
           descripcion="Lo que entró, por tipo de servicio"
-          filas={(f?.por_ingreso ?? []).map((x) => ({ nombre: limpiarNombre(x.nombre), monto: Number(x.monto) }))}
+          filas={(f?.por_ingreso ?? []).map((x) => ({ nombre: limpiarNombre(x.nombre), monto: Number(x.monto), cuentas: [x.cuenta] }))}
           cargando={cargando}
+          onElegir={(x) => delPeriodo({ titulo: `Ingresos · ${x.nombre}`, vista: "ingresos", cuentas: x.cuentas, agrupar: "medico" })}
         />
         <Reparto
           titulo="¿En qué se va?"
           descripcion="Lo que salió, por tipo de gasto"
-          filas={(f?.por_gasto ?? []).map((x) => ({ nombre: limpiarNombre(x.nombre), monto: Number(x.monto) }))}
+          filas={(f?.por_gasto ?? []).map((x) => ({ nombre: limpiarNombre(x.nombre), monto: Number(x.monto), cuentas: [x.cuenta] }))}
           cargando={cargando}
           barras
+          onElegir={(x) => delPeriodo({ titulo: `Gastos · ${x.nombre}`, descripcion: "Cada salida con su motivo", vista: "gastos", cuentas: x.cuentas, agrupar: x.cuentas.length === 1 ? "medico" : "cuenta" })}
         />
       </div>
 
@@ -298,23 +353,48 @@ export function ResumenFinanciero() {
         </Tarjeta>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Saldo icono={Wallet} titulo="Dinero disponible" monto={disponible} tono="exito" cargando={cargando} detalle={[["En caja", n("caja")], ["En el banco", n("banco")]]} />
-          <Saldo icono={HandCoins} titulo="Nos deben" monto={porCobrar} tono="aviso" cargando={cargando} detalle={[["Pacientes", n("cxc_pacientes")], ["Aseguradoras (ARS)", n("cxc_aseguradoras")]]} />
+          <Saldo
+            icono={Wallet}
+            titulo="Dinero disponible"
+            monto={disponible}
+            tono="exito"
+            cargando={cargando}
+            onElegir={deSaldo}
+            detalle={[
+              ["En caja", n("caja"), ["caja"]],
+              ["En el banco", n("banco"), ["banco"]],
+            ]}
+          />
+          <Saldo
+            icono={HandCoins}
+            titulo="Nos deben"
+            monto={porCobrar}
+            tono="aviso"
+            cargando={cargando}
+            onElegir={deSaldo}
+            detalle={[
+              ["Pacientes", n("cxc_pacientes"), ["cxc_pacientes"]],
+              ["Aseguradoras (ARS)", n("cxc_aseguradoras"), ["cxc_aseguradoras"]],
+            ]}
+          />
           <Saldo
             icono={Landmark}
             titulo="Debemos"
             monto={porPagar}
             tono="peligro"
             cargando={cargando}
+            onElegir={deSaldo}
             detalle={[
-              ["Proveedores", n("cxp")],
-              ["Sueldos", n("sueldos_por_pagar")],
-              ["Médicos", n("comisiones_por_pagar")],
-              ["TSS, ISR y aportes", n("retenciones_tss") + n("isr_por_pagar") + n("aportes_por_pagar")],
+              ["Proveedores", n("cxp"), ["cxp"]],
+              ["Sueldos", n("sueldos_por_pagar"), ["sueldos_por_pagar"]],
+              ["Médicos", n("comisiones_por_pagar"), ["comisiones_por_pagar"]],
+              ["TSS, ISR y aportes", n("retenciones_tss") + n("isr_por_pagar") + n("aportes_por_pagar"), ["retenciones_tss", "isr_por_pagar", "aportes_por_pagar"]],
             ]}
           />
         </div>
       </div>
+
+      <DetalleFinanciero pedido={detalle} onCerrar={() => setDetalle(null)} />
     </>
   );
 }
@@ -380,6 +460,7 @@ function Kpi({
   cargando,
   dinero,
   inverso,
+  onClick,
 }: {
   etiqueta: string;
   valor: number;
@@ -391,14 +472,18 @@ function Kpi({
   dinero?: boolean;
   /** En gastos, subir es malo. */
   inverso?: boolean;
+  /** Abre el detalle del número. */
+  onClick?: () => void;
 }) {
   const color = tono === "violeta" ? "#7a5af8" : `var(--${tono})`;
   const bueno = cambio == null ? null : inverso ? cambio <= 0 : cambio >= 0;
-  return (
-    <motion.div variants={itemEscalonado}>
-      <Tarjeta className="h-full p-5">
+  const tarjeta = (
+    <Tarjeta className={cn("h-full p-5", onClick && "transition-colors group-hover:border-[color-mix(in_oklab,var(--marca)_35%,var(--borde))]")}>
         <div className="flex items-center justify-between">
-          <span className="text-[0.8125rem] font-medium text-texto-2">{etiqueta}</span>
+          <span className="flex items-center gap-1 text-[0.8125rem] font-medium text-texto-2">
+            {etiqueta}
+            {onClick && <ArrowRight className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />}
+          </span>
           <span className="grid size-8 place-items-center rounded-lg" style={{ background: `color-mix(in oklab, ${color} 13%, var(--superficie))`, color }}>
             <Icono className="size-4" />
           </span>
@@ -420,6 +505,16 @@ function Kpi({
           )}
         </p>
       </Tarjeta>
+  );
+  return (
+    <motion.div variants={itemEscalonado}>
+      {onClick ? (
+        <button type="button" onClick={onClick} className="group block h-full w-full rounded-2xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca">
+          {tarjeta}
+        </button>
+      ) : (
+        tarjeta
+      )}
     </motion.div>
   );
 }
@@ -438,9 +533,31 @@ function Leyenda({ items }: { items: [string, string][] }) {
 }
 
 /** Reparto por categoría: dona con porcentajes o barras horizontales. */
-function Reparto({ titulo, descripcion, filas, cargando, barras }: { titulo: string; descripcion: string; filas: { nombre: string; monto: number }[]; cargando: boolean; barras?: boolean }) {
+interface FilaReparto {
+  nombre: string;
+  monto: number;
+  cuentas: string[];
+}
+function Reparto({
+  titulo,
+  descripcion,
+  filas,
+  cargando,
+  barras,
+  onElegir,
+}: {
+  titulo: string;
+  descripcion: string;
+  filas: FilaReparto[];
+  cargando: boolean;
+  barras?: boolean;
+  onElegir?: (f: FilaReparto) => void;
+}) {
   const total = filas.reduce((s, f) => s + f.monto, 0);
-  const top = filas.length > 7 ? [...filas.slice(0, 6), { nombre: "Otros", monto: filas.slice(6).reduce((s, f) => s + f.monto, 0) }] : filas;
+  const top: FilaReparto[] =
+    filas.length > 7
+      ? [...filas.slice(0, 6), { nombre: "Otros", monto: filas.slice(6).reduce((s, f) => s + f.monto, 0), cuentas: filas.slice(6).flatMap((f) => f.cuentas) }]
+      : filas;
   return (
     <Tarjeta className="p-5">
       <h2 className="text-[0.9375rem] font-semibold">{titulo}</h2>
@@ -450,24 +567,31 @@ function Reparto({ titulo, descripcion, filas, cargando, barras }: { titulo: str
       ) : !top.length ? (
         <p className="py-12 text-center text-sm text-texto-3">Nada en este período</p>
       ) : barras ? (
-        <ul className="space-y-3">
+        <ul className="-mx-2 space-y-1">
           {top.map((f, i) => (
             <li key={f.nombre}>
-              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-                <span className="truncate">{f.nombre}</span>
-                <span className="shrink-0 tabular">
-                  <b className="font-semibold">{moneda(f.monto)}</b> <span className="text-xs text-texto-3">{((f.monto / total) * 100).toFixed(0)} %</span>
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-superficie-2">
-                <motion.div
-                  className="h-full origin-left rounded-full"
-                  style={{ width: `${(f.monto / top[0].monto) * 100}%`, background: PALETA[i % PALETA.length] }}
-                  initial={{ scaleX: 0.02 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ duration: 0.6, delay: i * 0.05, ease: EASE_SALIDA }}
-                />
-              </div>
+              <button
+                type="button"
+                disabled={!onElegir}
+                onClick={() => onElegir?.(f)}
+                className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors enabled:hover:bg-superficie-2"
+              >
+                <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                  <span className="truncate">{f.nombre}</span>
+                  <span className="shrink-0 tabular">
+                    <b className="font-semibold">{moneda(f.monto)}</b> <span className="text-xs text-texto-3">{((f.monto / total) * 100).toFixed(0)} %</span>
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-superficie-2">
+                  <motion.div
+                    className="h-full origin-left rounded-full"
+                    style={{ width: `${(f.monto / top[0].monto) * 100}%`, background: PALETA[i % PALETA.length] }}
+                    initial={{ scaleX: 0.02 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 0.6, delay: i * 0.05, ease: EASE_SALIDA }}
+                  />
+                </div>
+              </button>
             </li>
           ))}
         </ul>
@@ -476,7 +600,18 @@ function Reparto({ titulo, descripcion, filas, cargando, barras }: { titulo: str
           <div className="relative size-44 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={top} dataKey="monto" nameKey="nombre" innerRadius="62%" outerRadius="100%" paddingAngle={2} stroke="none" animationDuration={800}>
+                <Pie
+                  data={top}
+                  dataKey="monto"
+                  nameKey="nombre"
+                  innerRadius="62%"
+                  outerRadius="100%"
+                  paddingAngle={2}
+                  stroke="none"
+                  animationDuration={800}
+                  style={onElegir ? { cursor: "pointer" } : undefined}
+                  onClick={(_, i) => top[i] && onElegir?.(top[i])}
+                >
                   {top.map((_, i) => (
                     <Cell key={i} fill={PALETA[i % PALETA.length]} />
                   ))}
@@ -491,12 +626,19 @@ function Reparto({ titulo, descripcion, filas, cargando, barras }: { titulo: str
               </div>
             </div>
           </div>
-          <ul className="min-w-44 flex-1 space-y-2">
+          <ul className="min-w-44 flex-1 space-y-0.5">
             {top.map((f, i) => (
-              <li key={f.nombre} className="flex items-center gap-2 text-sm">
-                <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: PALETA[i % PALETA.length] }} />
-                <span className="min-w-0 flex-1 truncate text-texto-2">{f.nombre}</span>
-                <span className="font-semibold tabular">{((f.monto / total) * 100).toFixed(0)} %</span>
+              <li key={f.nombre}>
+                <button
+                  type="button"
+                  disabled={!onElegir}
+                  onClick={() => onElegir?.(f)}
+                  className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm transition-colors enabled:hover:bg-superficie-2"
+                >
+                  <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: PALETA[i % PALETA.length] }} />
+                  <span className="min-w-0 flex-1 truncate text-texto-2">{f.nombre}</span>
+                  <span className="font-semibold tabular">{((f.monto / total) * 100).toFixed(0)} %</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -535,26 +677,327 @@ function MetodosPago({ filas }: { filas: { metodo: string; monto: number }[] }) 
   );
 }
 
-function Saldo({ icono: Icono, titulo, monto, tono, detalle, cargando }: { icono: LucideIcon; titulo: string; monto: number; tono: string; detalle: [string, number][]; cargando: boolean }) {
+function Saldo({
+  icono: Icono,
+  titulo,
+  monto,
+  tono,
+  detalle,
+  cargando,
+  onElegir,
+}: {
+  icono: LucideIcon;
+  titulo: string;
+  monto: number;
+  tono: string;
+  /** Renglón: etiqueta, saldo y las claves de cuenta que lo forman. */
+  detalle: [string, number, string[]][];
+  cargando: boolean;
+  onElegir?: (titulo: string, cuentas: string[], descripcion?: string) => void;
+}) {
   const color = `var(--${tono})`;
   return (
     <Tarjeta className="p-5">
-      <span className="grid size-9 place-items-center rounded-xl" style={{ background: `color-mix(in oklab, ${color} 13%, var(--superficie))`, color }}>
-        <Icono className="size-[1.125rem]" />
-      </span>
-      <p className="mt-3 text-[0.8125rem] font-medium text-texto-2">{titulo}</p>
-      <p className="text-xl font-semibold tracking-tight tabular">{cargando ? <Esqueleto className="h-6 w-24" /> : moneda(monto)}</p>
-      <p className="mb-2 text-[0.6875rem] text-texto-3">Hoy, con todo lo registrado</p>
-      <ul className="space-y-1 border-t border-borde pt-2">
-        {detalle.map(([t, v]) => (
-          <li key={t} className="flex justify-between gap-2 text-xs">
-            <span className="text-texto-3">{t}</span>
-            <span className="tabular">{moneda(v)}</span>
+      <button
+        type="button"
+        disabled={!onElegir}
+        onClick={() => onElegir?.(titulo, detalle.flatMap(([, , c]) => c))}
+        className="group -m-2 block w-[calc(100%+1rem)] rounded-xl p-2 text-left transition-colors enabled:hover:bg-superficie-2"
+      >
+        <span className="grid size-9 place-items-center rounded-xl" style={{ background: `color-mix(in oklab, ${color} 13%, var(--superficie))`, color }}>
+          <Icono className="size-[1.125rem]" />
+        </span>
+        <p className="mt-3 flex items-center gap-1 text-[0.8125rem] font-medium text-texto-2">
+          {titulo}
+          {onElegir && <ArrowRight className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />}
+        </p>
+        <p className="text-xl font-semibold tracking-tight tabular">{cargando ? <Esqueleto className="h-6 w-24" /> : moneda(monto)}</p>
+        <p className="text-[0.6875rem] text-texto-3">Hoy, con todo lo registrado</p>
+      </button>
+      <ul className="mt-2 space-y-0.5 border-t border-borde pt-2">
+        {detalle.map(([t, v, cuentas]) => (
+          <li key={t}>
+            <button
+              type="button"
+              disabled={!onElegir}
+              onClick={() => onElegir?.(`${titulo} · ${t}`, cuentas)}
+              className="-mx-1.5 flex w-[calc(100%+0.75rem)] justify-between gap-2 rounded-md px-1.5 py-0.5 text-xs transition-colors enabled:hover:bg-superficie-2"
+            >
+              <span className="text-texto-3">{t}</span>
+              <span className="tabular">{moneda(v)}</span>
+            </button>
           </li>
         ))}
       </ul>
     </Tarjeta>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Detalle de cada número (se abre al tocar una tarjeta, una barra o un renglón)
+// ---------------------------------------------------------------------------
+type VistaDetalle = "ingresos" | "gastos" | "saldo";
+type Agrupacion = "cuenta" | "medico" | "tercero" | "dia";
+export interface PedidoDetalle {
+  titulo: string;
+  descripcion?: string;
+  vista: VistaDetalle;
+  desde?: string;
+  hasta: string;
+  /** Códigos de cuenta o claves de cuentas_predeterminadas. */
+  cuentas?: string[];
+  agrupar?: Agrupacion;
+  /** Permite pasar entre lo que entró y lo que salió del mismo período. */
+  alternar?: boolean;
+}
+interface LineaDetalle {
+  fecha: string;
+  numero: string;
+  concepto: string;
+  origen: string;
+  cuenta: string;
+  cuenta_nombre: string;
+  monto: number;
+  paciente: string | null;
+  medico: string | null;
+  aseguradora: string | null;
+  tercero: string | null;
+}
+const ORIGEN_DETALLE: Record<string, string> = {
+  cobro: "Cobro",
+  reverso: "Anulación",
+  comision: "Comisión",
+  movimiento: "Caja",
+  compra: "Gasto",
+  nomina: "Nómina",
+  donacion: "Donación",
+  abono: "Abono",
+  anticipo: "Anticipo",
+  manual: "Asiento manual",
+};
+const COLUMNAS_DETALLE: ColumnaDatos<LineaDetalle>[] = [
+  { titulo: "Fecha", valor: (l) => l.fecha, tipo: "fecha" },
+  { titulo: "Asiento", valor: (l) => l.numero },
+  { titulo: "Origen", valor: (l) => ORIGEN_DETALLE[l.origen] ?? l.origen },
+  { titulo: "Concepto", valor: (l) => l.concepto },
+  { titulo: "Cuenta", valor: (l) => `${l.cuenta} ${l.cuenta_nombre}` },
+  { titulo: "Paciente / ARS", valor: (l) => l.tercero },
+  { titulo: "Médico", valor: (l) => l.medico },
+  { titulo: "Monto", valor: (l) => Number(l.monto), tipo: "moneda" },
+];
+const etiquetaDia = (d: string) => new Intl.DateTimeFormat("es-DO", { weekday: "short", day: "numeric", month: "short" }).format(new Date(d + "T12:00:00"));
+
+function DetalleFinanciero({ pedido, onCerrar }: { pedido: PedidoDetalle | null; onCerrar: () => void }) {
+  const { sistemaId } = useSistema();
+  const [vista, setVista] = useState<VistaDetalle>("ingresos");
+  const [agrupar, setAgrupar] = useState<Agrupacion>("cuenta");
+  const [grupo, setGrupo] = useState<string | null>(null);
+  const [todas, setTodas] = useState(false);
+  const [abiertoPara, setAbiertoPara] = useState<PedidoDetalle | null>(null);
+  // Cada pedido nuevo arranca con su vista y agrupación.
+  if (pedido && pedido !== abiertoPara) {
+    setAbiertoPara(pedido);
+    setVista(pedido.vista);
+    setAgrupar(pedido.agrupar ?? "cuenta");
+    setGrupo(null);
+    setTodas(false);
+  }
+  const p = pedido ?? abiertoPara;
+  const q = useQuery({
+    queryKey: ["detalle-financiero", sistemaId, vista, p?.desde, p?.hasta, p?.cuentas],
+    enabled: !!pedido,
+    queryFn: async () =>
+      datos(
+        await supabase.rpc("detalle_financiero", {
+          p_sistema: sistemaId,
+          p_vista: vista,
+          p_desde: p!.desde ?? p!.hasta,
+          p_hasta: p!.hasta,
+          p_cuentas: vista === p!.vista ? p!.cuentas : undefined,
+        }),
+      ) as unknown as { total: number; lineas: LineaDetalle[] },
+  });
+  const lineas = useMemo(() => q.data?.lineas ?? [], [q.data]);
+  const claveDe = useMemo(
+    () =>
+      ({
+        cuenta: (l: LineaDetalle) => limpiarNombre(l.cuenta_nombre),
+        medico: (l: LineaDetalle) => l.medico ?? "Sin médico",
+        tercero: (l: LineaDetalle) => l.tercero ?? (l.origen === "movimiento" || l.origen === "compra" ? "Gastos de la institución" : "Sin paciente"),
+        dia: (l: LineaDetalle) => l.fecha,
+      })[agrupar],
+    [agrupar],
+  );
+  const grupos = useMemo(() => {
+    const m = new Map<string, { nombre: string; monto: number; n: number }>();
+    for (const l of lineas) {
+      const k = claveDe(l);
+      const g = m.get(k) ?? { nombre: k, monto: 0, n: 0 };
+      g.monto += Number(l.monto);
+      g.n += 1;
+      m.set(k, g);
+    }
+    const lista = [...m.values()];
+    return agrupar === "dia" ? lista.sort((a, b) => b.nombre.localeCompare(a.nombre)) : lista.sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto));
+  }, [lineas, claveDe, agrupar]);
+  const maximo = Math.max(...grupos.map((g) => Math.abs(g.monto)), 1);
+  const visibles = grupo ? lineas.filter((l) => claveDe(l) === grupo) : lineas;
+  const mostradas = todas ? visibles : visibles.slice(0, 80);
+  const total = Number(q.data?.total ?? 0);
+  const etiquetasAgrupar: [Agrupacion, string][] = [
+    ["cuenta", vista === "gastos" ? "Por motivo" : vista === "ingresos" ? "Por servicio" : "Por cuenta"],
+    ["medico", "Por médico"],
+    ["tercero", "Por paciente o ARS"],
+    ["dia", "Por día"],
+  ];
+  const periodo = p?.vista === "saldo" ? "Todo lo registrado hasta hoy" : p?.desde === p?.hasta ? etiquetaDia(p?.hasta ?? "") : `Del ${fecha((p?.desde ?? "") + "T12:00:00")} al ${fecha((p?.hasta ?? "") + "T12:00:00")}`;
+
+  return (
+    <Modal
+      abierto={!!pedido}
+      onCerrar={onCerrar}
+      ancho="xl"
+      titulo={vista === p?.vista ? (p?.titulo ?? "") : vista === "ingresos" ? "Lo que entró" : "Lo que salió"}
+      descripcion={`${periodo}${p?.descripcion && vista === p.vista ? ` · ${p.descripcion}` : ""}`}
+      pie={
+        <>
+          <AccionesDatos titulo={p?.titulo ?? "Detalle"} columnas={COLUMNAS_DETALLE} obtener={async () => visibles} />
+          <Boton variante="secundario" onClick={onCerrar}>
+            Cerrar
+          </Boton>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs text-texto-3">{grupo ? grupo : "Total"}</p>
+            <p className={cn("text-2xl font-semibold tracking-tight tabular", vista === "gastos" ? "text-peligro" : vista === "ingresos" ? "text-exito" : "")}>
+              {q.isLoading ? <Esqueleto className="h-7 w-32" /> : moneda(grupo ? visibles.reduce((s, l) => s + Number(l.monto), 0) : total)}
+            </p>
+            <p className="text-xs text-texto-3">{q.isLoading ? "" : `${visibles.length} registros`}</p>
+          </div>
+          {p?.alternar && (
+            <div className="flex rounded-lg bg-superficie-2 p-0.5 text-xs font-medium">
+              {(
+                [
+                  ["ingresos", "Entró"],
+                  ["gastos", "Salió"],
+                ] as const
+              ).map(([v, t]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setVista(v);
+                    setGrupo(null);
+                  }}
+                  className={cn("rounded-md px-3 py-1.5 transition-colors", vista === v ? "bg-superficie text-texto shadow-sm" : "text-texto-3 hover:text-texto-2")}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {etiquetasAgrupar.map(([a, t]) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => {
+                setAgrupar(a);
+                setGrupo(null);
+              }}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[0.8125rem] font-medium transition-colors",
+                agrupar === a ? "bg-marca-suave text-marca-texto" : "text-texto-2 hover:bg-superficie-2 hover:text-texto",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {q.isLoading ? (
+          <div className="space-y-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Esqueleto key={i} className="h-9" />
+            ))}
+          </div>
+        ) : !lineas.length ? (
+          <p className="py-10 text-center text-sm text-texto-3">No hay registros en este período.</p>
+        ) : (
+          <>
+            <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+              {grupos.map((g) => (
+                <li key={g.nombre}>
+                  <button
+                    type="button"
+                    onClick={() => setGrupo(grupo === g.nombre ? null : g.nombre)}
+                    className={cn(
+                      "w-full rounded-lg px-3 py-2 text-left transition-colors",
+                      grupo === g.nombre ? "bg-marca-suave" : "hover:bg-superficie-2",
+                    )}
+                  >
+                    <span className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate">
+                        {agrupar === "dia" ? <span className="capitalize">{etiquetaDia(g.nombre)}</span> : g.nombre}
+                        <span className="ml-1.5 text-xs text-texto-3">{g.n}</span>
+                      </span>
+                      <b className="shrink-0 font-semibold tabular">{moneda(g.monto)}</b>
+                    </span>
+                    <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-superficie-2">
+                      <span
+                        className="block h-full rounded-full"
+                        style={{
+                          width: `${(Math.abs(g.monto) / maximo) * 100}%`,
+                          background: vista === "gastos" ? "color-mix(in oklab, var(--peligro) 70%, var(--superficie))" : vista === "ingresos" ? "var(--exito)" : "var(--marca)",
+                        }}
+                      />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div className="overflow-hidden rounded-xl border border-borde">
+              <ul className="max-h-80 divide-y divide-borde overflow-y-auto">
+                {mostradas.map((l, i) => (
+                  <li key={`${l.numero}-${l.cuenta}-${i}`} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                    <span className="w-20 shrink-0 pt-0.5 text-xs text-texto-3 capitalize">{etiquetaDia(l.fecha)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{l.concepto}</span>
+                      <span className="block truncate text-xs text-texto-3">
+                        {[ORIGEN_DETALLE[l.origen] ?? l.origen, limpiarNombre(l.cuenta_nombre), l.tercero, l.medico && l.medico !== l.tercero ? `Dr(a). ${l.medico}` : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </span>
+                    <span className={cn("shrink-0 font-semibold tabular", Number(l.monto) < 0 && "text-peligro")}>{moneda(l.monto)}</span>
+                  </li>
+                ))}
+              </ul>
+              {visibles.length > mostradas.length && (
+                <button type="button" onClick={() => setTodas(true)} className="w-full border-t border-borde py-2 text-xs font-medium text-marca-texto hover:bg-superficie-2">
+                  Ver los {visibles.length} registros
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+/** Desde y hasta de un punto de la gráfica (día, semana o mes). */
+function limitesPeriodo(periodo: string, agrupar: string): [string, string] {
+  const d = new Date(periodo.slice(0, 10) + "T12:00:00");
+  if (agrupar === "dia") return [isoDia(d), isoDia(d)];
+  if (agrupar === "semana") return [isoDia(d), isoDia(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6))];
+  return [isoDia(d), isoDia(new Date(d.getFullYear(), d.getMonth() + 1, 0))];
 }
 
 // ---------------------------------------------------------------------------
