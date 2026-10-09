@@ -1,15 +1,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { Camera, Check, MonitorDown, RefreshCw, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { DosPasos } from "@/components/DosPasos";
 import { Impresion } from "@/components/Impresion";
 import { notasDeVersion, VentanaNovedades } from "@/components/Novedades";
 import { Personalizacion } from "@/components/Personalizacion";
 import { RestablecerContrasenas } from "@/components/RestablecerContrasenas";
-import { Soporte } from "@/components/Soporte";
+import { CerrarSesiones, Soporte } from "@/components/Soporte";
 import { Boton } from "@/components/ui/boton";
 import { Entrada, EntradaClave } from "@/components/ui/campos";
 import { Avatar, EncabezadoPagina, Insignia, Tarjeta } from "@/components/ui/superficies";
@@ -20,8 +22,12 @@ import { cn, CORREO_RE, correoVisible, telefonoRd } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 import { actualizarPassword, esquemaPassword, RequisitosClave } from "./acceso/CambiarPassword";
 
+type Pestana = "perfil" | "preferencias" | "seguridad" | "dispositivo" | "soporte";
+
 export default function Perfil() {
   const { perfil, sistema, roles, esSuperadmin, recargar } = useSesion();
+  // La pestaña vive en ?vista= para que los enlaces y el botón «atrás» la respeten.
+  const [params, setParams] = useSearchParams();
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [correo, setCorreo] = useState("");
@@ -90,30 +96,69 @@ export default function Perfil() {
     }
   });
 
+  const pestanas: [Pestana, string][] = [
+    ["perfil", "Perfil"],
+    ["preferencias", "Preferencias"],
+    ["seguridad", "Seguridad"],
+    ["dispositivo", "Dispositivo"],
+    ...(esSuperadmin ? ([["soporte", "Soporte"]] as [Pestana, string][]) : []),
+  ];
+  const actual = pestanas.find(([p]) => p === params.get("vista"))?.[0] ?? "perfil";
+
   return (
     <>
       <EncabezadoPagina titulo="Mi perfil" acciones={esSuperadmin ? <RestablecerContrasenas /> : undefined} />
-      {/* Dos columnas que crecen por separado (items-start): izquierda la cuenta y su
-          seguridad; derecha cómo se ve y se imprime. Así ninguna queda con huecos. */}
-      <div className="grid items-start gap-4 xl:grid-cols-2">
-        <div className="space-y-4">
-        <Tarjeta className="p-6">
-          <div className="mb-6 flex items-center gap-4">
-            <FotoPerfil />
-            <div>
-              <p className="text-lg font-semibold">{perfil?.nombre_completo}</p>
-              <p className="text-sm text-texto-3">
-                {[perfil?.nombre_usuario && `Usuario: ${perfil.nombre_usuario}`, correoVisible(perfil?.email)].filter(Boolean).join(" · ")}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {esSuperadmin && <Insignia tono="marca">Superadministración</Insignia>}
-                {roles.map((r) => (
-                  <Insignia key={r}>{ETIQUETA_ROL[r]}</Insignia>
-                ))}
-                {sistema && <Insignia tono="info">{sistema.nombre}</Insignia>}
-              </div>
+
+      {/* Encabezado con la franja del color del hospital, la foto y los accesos. */}
+      <Tarjeta className="mb-5 overflow-hidden">
+        <div className="h-16 bg-[linear-gradient(110deg,var(--marca),color-mix(in_oklab,var(--marca)_45%,var(--superficie)))]" />
+        <div className="-mt-8 flex flex-wrap items-end gap-4 px-6 pb-5">
+          <FotoPerfil />
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold">{perfil?.nombre_completo}</p>
+            <p className="truncate text-sm text-texto-3">
+              {[perfil?.nombre_usuario && `Usuario: ${perfil.nombre_usuario}`, correoVisible(perfil?.email)].filter(Boolean).join(" · ")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {esSuperadmin && <Insignia tono="marca">Superadministración</Insignia>}
+              {roles.map((r) => (
+                <Insignia key={r}>{ETIQUETA_ROL[r]}</Insignia>
+              ))}
+              {sistema && <Insignia tono="info">{sistema.nombre}</Insignia>}
             </div>
           </div>
+        </div>
+      </Tarjeta>
+
+      <nav className="mb-5 flex gap-1 overflow-x-auto border-b border-borde" role="tablist">
+        {pestanas.map(([p, etiqueta]) => (
+          <button
+            key={p}
+            type="button"
+            role="tab"
+            aria-selected={actual === p}
+            onClick={() => setParams(new URLSearchParams({ vista: p }), { replace: true })}
+            className={cn(
+              "relative shrink-0 px-3 pt-1 pb-2.5 text-sm font-medium transition-colors",
+              actual === p ? "text-texto" : "text-texto-3 hover:text-texto-2",
+            )}
+          >
+            {etiqueta}
+            {actual === p && <motion.span layoutId="pestana-perfil" className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-marca" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />}
+          </button>
+        ))}
+      </nav>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={actual}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.08 } }}
+          transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+        >
+      {actual === "perfil" && (
+        <Tarjeta className="max-w-3xl p-6">
           <div className="space-y-4">
             <Entrada etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
             <div className="grid gap-4 sm:grid-cols-2">
@@ -153,7 +198,16 @@ export default function Perfil() {
             </div>
           </div>
         </Tarjeta>
+      )}
 
+      {actual === "preferencias" && (
+        <div className="max-w-3xl">
+          <Personalizacion />
+        </div>
+      )}
+
+      {actual === "seguridad" && (
+        <div className="max-w-3xl space-y-4">
           <Tarjeta className="p-6">
             <h2 className="mb-4 text-[0.9375rem] font-semibold">Cambiar contraseña</h2>
             <form onSubmit={cambiar} className="space-y-4" noValidate>
@@ -169,7 +223,13 @@ export default function Perfil() {
           </Tarjeta>
 
           <DosPasos />
+          <CerrarSesiones />
+        </div>
+      )}
 
+      {actual === "dispositivo" && (
+        <div className="max-w-3xl space-y-4">
+          <Impresion />
           <Tarjeta className="flex items-center gap-4 p-6">
             <span className="grid size-10 place-items-center rounded-xl bg-marca-suave text-marca">
               <MonitorDown className="size-5" />
@@ -197,15 +257,11 @@ export default function Perfil() {
             )}
           </Tarjeta>
         </div>
+      )}
 
-        <div className="space-y-4">
-          <Personalizacion />
-          <Impresion />
-        </div>
-      </div>
-      <div className="mt-4">
-        <Soporte />
-      </div>
+      {actual === "soporte" && <Soporte />}
+        </motion.div>
+      </AnimatePresence>
       {notasDeVersion(__VERSION_APP__) && <VentanaNovedades abierto={novedades} onCerrar={() => setNovedades(false)} notas={notasDeVersion(__VERSION_APP__)!} />}
     </>
   );

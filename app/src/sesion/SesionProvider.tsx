@@ -124,9 +124,10 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   }, [sistema?.color_marca]);
 
 
+  const rolPrincipal = sistema?.roles[0] ?? null;
   useEffect(() => {
-    contextoMonitoreo(usuarioId ?? null, sistema?.id ?? null);
-  }, [usuarioId, sistema?.id]);
+    contextoMonitoreo(usuarioId ?? null, sistema?.id ?? null, rolPrincipal);
+  }, [usuarioId, sistema?.id, rolPrincipal]);
 
   // Las preferencias guardadas en el perfil siguen al usuario a cualquier computadora.
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Archive, Construction, DatabaseBackup, Eraser, FileClock, LogOut, Power, RefreshCw, ShieldAlert } from "lucide-react";
+import { Archive, Bug, Construction, DatabaseBackup, Eraser, FileClock, LogOut, Power, RefreshCw, ShieldAlert, Wallet } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { obtenerTodo } from "@/components/AccionesDatos";
@@ -9,7 +9,7 @@ import { AreaTexto, Interruptor } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { Tarjeta } from "@/components/ui/superficies";
 import { exportarExcel, type Celda } from "@/lib/excel";
-import { invocar, mensajeError, supabase, SUPABASE_CLAVE, SUPABASE_URL } from "@/lib/supabase";
+import { datos, invocar, mensajeError, supabase, SUPABASE_CLAVE, SUPABASE_URL } from "@/lib/supabase";
 import { useConectados } from "@/lib/presencia";
 import { borrarCacheOperativa } from "@/lib/sinConexion";
 import { cn, fechaHora, isoDia, relativo } from "@/lib/utils";
@@ -59,15 +59,16 @@ async function medir<T>(f: () => PromiseLike<T>): Promise<{ valor: T; ms: number
 /** Diagnóstico y herramientas de soporte: exclusivo de la superadministración. */
 export function Soporte() {
   const { esSuperadmin, sistema } = useSesion();
-  if (!esSuperadmin) return <ZonaRiesgo />;
+  if (!esSuperadmin) return null;
   return (
     <div className="space-y-4">
       <EstadoSistema />
       <Conectados />
+      <CajasAbiertas />
+      <ErroresRecientes />
       <Respaldos />
       <Herramientas puedeRespaldar={!!sistema} />
-      {esSuperadmin && <Avanzado />}
-      <ZonaRiesgo />
+      <Avanzado />
     </div>
   );
 }
@@ -217,6 +218,191 @@ function Conectados() {
               </motion.li>
             ))}
           </AnimatePresence>
+        </ul>
+      )}
+    </Tarjeta>
+  );
+}
+
+// ---------------------------------------------------------------------------
+interface CajaAbierta {
+  turno_id: string;
+  sistema: string;
+  sede: string | null;
+  cajero: string;
+  abierto_en: string;
+  movimientos: number;
+}
+
+/** Turnos de caja abiertos en todos los sistemas (sin montos); se puede cerrar el de un cajero que se fue. */
+function CajasAbiertas() {
+  const qc = useQueryClient();
+  const [cerrar, setCerrar] = useState<CajaAbierta | null>(null);
+  const q = useQuery({
+    queryKey: ["cajas-abiertas"],
+    refetchInterval: 15_000,
+    queryFn: async () => (datos(await supabase.rpc("plataforma_cajas_abiertas")) ?? []) as CajaAbierta[],
+  });
+  const m = useMutation({
+    mutationFn: async (turno: string) => datos(await supabase.rpc("plataforma_cerrar_caja", { p_turno: turno })),
+    onSuccess: () => {
+      toast.success("Caja cerrada", { description: "El turno quedó cerrado con la constancia de soporte." });
+      setCerrar(null);
+      void qc.invalidateQueries({ queryKey: ["cajas-abiertas"] });
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  const lista = q.data ?? [];
+  return (
+    <Tarjeta className="p-6">
+      <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold">
+        <span className="relative flex size-2">
+          <span className={cn("absolute inset-0 rounded-full", lista.length ? "animate-ping bg-aviso opacity-60" : "bg-texto-3/30")} />
+          <span className={cn("relative size-2 rounded-full", lista.length ? "bg-aviso" : "bg-texto-3/40")} />
+        </span>
+        Cajas abiertas · {lista.length}
+        <RefreshCw className={cn("size-3.5 text-texto-3", q.isFetching && "animate-spin")} />
+      </h2>
+      <p className="mb-3 text-xs text-texto-3">En vivo, de todos los sistemas. Puedes cerrar una caja que quedó abierta (p. ej. un cajero que se fue). No se muestran montos.</p>
+      {!lista.length ? (
+        <p className="py-4 text-center text-xs text-texto-3">{q.isLoading ? "Cargando…" : "No hay cajas abiertas ahora mismo."}</p>
+      ) : (
+        <ul className="space-y-2">
+          {lista.map((c) => (
+            <li key={c.turno_id} className="flex items-center gap-3 rounded-xl border border-borde p-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[color-mix(in_oklab,var(--aviso)_12%,transparent)] text-aviso">
+                <Wallet className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">
+                  {c.cajero}
+                  <span className="font-normal text-texto-3">
+                    {" "}
+                    · {c.sistema}
+                    {c.sede ? ` · ${c.sede}` : ""}
+                  </span>
+                </span>
+                <span className="block truncate text-xs text-texto-3">
+                  Abierta {relativo(c.abierto_en)} · {c.movimientos} movimiento{c.movimientos === 1 ? "" : "s"}
+                </span>
+              </span>
+              <Boton tamano="sm" variante="secundario" onClick={() => setCerrar(c)}>
+                Cerrar
+              </Boton>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Modal
+        abierto={!!cerrar}
+        onCerrar={() => setCerrar(null)}
+        ancho="sm"
+        titulo="¿Cerrar esta caja?"
+        descripcion={
+          cerrar
+            ? `Se cerrará el turno de ${cerrar.cajero} en ${cerrar.sistema}${cerrar.sede ? ` · ${cerrar.sede}` : ""}. El efectivo declarado será el esperado; queda registrado como cierre de soporte y no se puede reabrir.`
+            : undefined
+        }
+        pie={
+          <>
+            <Boton variante="secundario" onClick={() => setCerrar(null)}>
+              Cancelar
+            </Boton>
+            <Boton variante="peligro" cargando={m.isPending} onClick={() => cerrar && m.mutate(cerrar.turno_id)}>
+              Cerrar caja
+            </Boton>
+          </>
+        }
+      />
+    </Tarjeta>
+  );
+}
+
+interface ErrorCliente {
+  id: string;
+  creado_en: string;
+  rol: string | null;
+  entorno: string | null;
+  version: string | null;
+  pantalla: string | null;
+  tipo: string | null;
+  mensaje: string;
+  stack: string | null;
+}
+
+/** Fallos de la app reportados por los equipos (lib/monitoreo.ts), sin datos de pacientes. */
+function ErroresRecientes() {
+  const qc = useQueryClient();
+  const [abierto, setAbierto] = useState<string | null>(null);
+  const q = useQuery({
+    queryKey: ["errores-cliente"],
+    refetchInterval: 60_000,
+    queryFn: async () =>
+      (datos(
+        await supabase
+          .from("errores_cliente")
+          .select("id, creado_en, rol, entorno, version, pantalla, tipo, mensaje, stack")
+          .eq("resuelto", false)
+          .order("creado_en", { ascending: false })
+          .limit(50),
+      ) ?? []) as ErrorCliente[],
+  });
+  const resolver = useMutation({
+    mutationFn: async (id: string) => datos(await supabase.from("errores_cliente").update({ resuelto: true }).eq("id", id)),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["errores-cliente"] }),
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  const limpiarViejos = useMutation({
+    mutationFn: async () => datos(await supabase.rpc("plataforma_limpiar_errores", { p_dias: 30 })) as number,
+    onSuccess: (n) => {
+      toast.success(n ? `Se borraron ${n} errores de más de 30 días` : "No había errores de más de 30 días");
+      void qc.invalidateQueries({ queryKey: ["errores-cliente"] });
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  const lista = q.data ?? [];
+  return (
+    <Tarjeta className="p-6">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold">
+          <Bug className={cn("size-4", lista.length ? "text-peligro" : "text-texto-3")} />
+          Errores recientes · {lista.length}
+          <RefreshCw className={cn("size-3.5 text-texto-3", q.isFetching && "animate-spin")} />
+        </h2>
+        <Boton tamano="sm" variante="fantasma" cargando={limpiarViejos.isPending} onClick={() => limpiarViejos.mutate()}>
+          Limpiar &gt; 30 días
+        </Boton>
+      </div>
+      <p className="mb-3 text-xs text-texto-3">Fallos de la app de todos los sistemas. No incluye datos de pacientes (se limpian antes de guardar).</p>
+      {!lista.length ? (
+        <p className="py-4 text-center text-xs text-texto-3">{q.isLoading ? "Cargando…" : "Sin errores pendientes."}</p>
+      ) : (
+        <ul className="max-h-[28rem] space-y-2 overflow-y-auto">
+          {lista.map((e) => (
+            <li key={e.id} className="rounded-xl border border-borde">
+              <div className="flex items-center gap-3 p-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[color-mix(in_oklab,var(--peligro)_10%,transparent)] text-peligro">
+                  <Bug className="size-4" />
+                </span>
+                <button type="button" onClick={() => setAbierto(abierto === e.id ? null : e.id)} className="min-w-0 flex-1 text-left">
+                  <span className="block truncate text-sm font-medium">
+                    {e.tipo && <span className="text-peligro">{e.tipo}: </span>}
+                    {e.mensaje}
+                  </span>
+                  <span className="block truncate text-xs text-texto-3">
+                    {fechaHora(e.creado_en)} · {e.pantalla ?? "—"} · {e.entorno ?? "—"} · v{e.version ?? "?"}
+                    {e.rol ? ` · ${e.rol}` : ""}
+                  </span>
+                </button>
+                <Boton tamano="sm" variante="secundario" cargando={resolver.isPending && resolver.variables === e.id} onClick={() => resolver.mutate(e.id)}>
+                  Resolver
+                </Boton>
+              </div>
+              {abierto === e.id && e.stack && (
+                <pre className="mx-3 mb-3 max-h-56 overflow-auto rounded-lg bg-superficie-2 p-3 text-[0.6875rem] leading-relaxed text-texto-2">{e.stack}</pre>
+              )}
+            </li>
+          ))}
         </ul>
       )}
     </Tarjeta>
@@ -663,7 +849,8 @@ function Avanzado() {
 }
 
 // ---------------------------------------------------------------------------
-function ZonaRiesgo() {
+/** Cierra la sesión de la persona en todos sus equipos (Mi perfil → Seguridad). */
+export function CerrarSesiones() {
   const [abierto, setAbierto] = useState(false);
   const m = useMutation({
     mutationFn: async () => {
