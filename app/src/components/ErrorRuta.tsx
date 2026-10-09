@@ -1,11 +1,18 @@
 import { AlertTriangle, RotateCcw } from "lucide-react";
+import { useEffect } from "react";
 import { isRouteErrorResponse, useRouteError } from "react-router-dom";
+import { reportarError } from "@/lib/monitoreo";
 import { Boton } from "./ui/boton";
 
 /** Pantalla amable si una página falla al renderizar (en vez del error técnico del router). */
 export function ErrorRuta() {
   const error = useRouteError();
   const detalle = isRouteErrorResponse(error) ? `${error.status} ${error.statusText}` : error instanceof Error ? error.message : String(error);
+  // El router atrapa el fallo antes que window.onerror: se reporta a soporte desde aquí.
+  useEffect(() => {
+    if (error instanceof Error) void reportarError(error.message, error.name, error.stack);
+    else if (!isRouteErrorResponse(error) || error.status >= 500) void reportarError(detalle, "ErrorRuta");
+  }, [error, detalle]);
   return (
     <div className="grid h-full place-items-center bg-fondo p-6">
       <div className="max-w-md text-center">

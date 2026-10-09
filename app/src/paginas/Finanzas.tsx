@@ -787,6 +787,15 @@ const COLUMNAS_DETALLE: ColumnaDatos<LineaDetalle>[] = [
 ];
 const etiquetaDia = (d: string) => new Intl.DateTimeFormat("es-DO", { weekday: "short", day: "numeric", month: "short" }).format(new Date(d + "T12:00:00"));
 
+/** Subtítulo de la ventana de detalle. Sin pedido (ventana cerrada) no hay fechas: formatearlas
+ *  lanzaría «Invalid time value» y tumbaría Finanzas (pasó en la 1.6.0). */
+export function textoPeriodo(p: Pick<PedidoDetalle, "vista" | "desde" | "hasta"> | null): string {
+  if (!p) return "";
+  if (p.vista === "saldo") return "Todo lo registrado hasta hoy";
+  if (!p.desde || p.desde === p.hasta) return etiquetaDia(p.hasta);
+  return `Del ${fecha(p.desde + "T12:00:00")} al ${fecha(p.hasta + "T12:00:00")}`;
+}
+
 function DetalleFinanciero({ pedido, onCerrar }: { pedido: PedidoDetalle | null; onCerrar: () => void }) {
   const { sistemaId } = useSistema();
   const [vista, setVista] = useState<VistaDetalle>("ingresos");
@@ -850,7 +859,7 @@ function DetalleFinanciero({ pedido, onCerrar }: { pedido: PedidoDetalle | null;
     ["tercero", "Por paciente o ARS"],
     ["dia", "Por día"],
   ];
-  const periodo = p?.vista === "saldo" ? "Todo lo registrado hasta hoy" : p?.desde === p?.hasta ? etiquetaDia(p?.hasta ?? "") : `Del ${fecha((p?.desde ?? "") + "T12:00:00")} al ${fecha((p?.hasta ?? "") + "T12:00:00")}`;
+  const periodo = textoPeriodo(p);
 
   return (
     <Modal

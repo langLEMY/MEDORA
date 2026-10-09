@@ -35,7 +35,8 @@ const MAX_POR_SESION = 25;
 /** Pantalla actual sin parámetros (el hash puede llevar ids o búsquedas). */
 const pantallaActual = () => limpiar((location.hash || "").replace(/^#/, "").split("?")[0] || "/")!;
 
-async function reportarError(mensaje: unknown, tipo?: string, stack?: string) {
+/** También la usan las pantallas de error (ErrorRuta), porque el router atrapa los fallos de render. */
+export async function reportarError(mensaje: unknown, tipo?: string, stack?: string) {
   try {
     if (yaReportados.size >= MAX_POR_SESION) return;
     const texto = (limpiar(String(mensaje ?? "")) ?? "").slice(0, 2000);
