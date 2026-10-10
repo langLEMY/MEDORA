@@ -63,6 +63,7 @@ import { cn, fecha, fechaHora, hora, isoDia, moneda, sugerenciasEfectivo } from 
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos, type ColumnaDatos } from "@/components/AccionesDatos";
 import { FranjaLlamados } from "@/components/LlamadosEnVivo";
+import { CuadreDia } from "@/components/CuadreDia";
 
 const METODOS_DINERO: MetodoPago[] = ["efectivo", "tarjeta", "transferencia", "cheque", "otro"];
 
@@ -105,10 +106,11 @@ const ORDENES_COBROS: OrdenListado<CobroFila>[] = [
   { clave: "recibo", etiqueta: "Recibo", valor: (c) => c.numero },
 ];
 
-type Vista = "cobrar" | "anticipos" | "cxc" | "movimientos" | "turnos";
+type Vista = "cobrar" | "cuadre" | "anticipos" | "cxc" | "movimientos" | "turnos";
 
 /** Vistas secundarias (menú «Más»), con nombres del día a día. */
 const OTRAS_VISTAS: Record<Exclude<Vista, "cobrar">, { titulo: string; detalle: string }> = {
+  cuadre: { titulo: "Cuadre del día", detalle: "Como el Excel: por médico, por ARS y forma de pago, con la comisión y el 10 %." },
   anticipos: { titulo: "Dinero adelantado", detalle: "Anticipos de pacientes y su saldo disponible." },
   cxc: { titulo: "Lo que deben", detalle: "Saldos a crédito de pacientes y coberturas pendientes de las ARS (cuentas por cobrar)." },
   movimientos: { titulo: "Movimientos de hoy", detalle: "Entradas y salidas de dinero de la caja." },
@@ -410,6 +412,7 @@ export default function Caja() {
             </>
           )}
 
+          {vista === "cuadre" && <CuadreDia />}
           {vista === "anticipos" && <Anticipos onComprobante={setComprobante} />}
           {vista === "cxc" && <CuentasPorCobrar onComprobante={setComprobante} />}
 
@@ -837,6 +840,8 @@ interface Linea {
   categoria: string;
   cantidad: number;
   precio: number;
+  /** Entrega de farmacia que paga la ARS completa (monto libre). */
+  cubreArs?: boolean;
 }
 interface Pago {
   clave: number;
@@ -946,7 +951,9 @@ function NuevoCobro({
   );
   // Vista previa; el servidor recalcula con las mismas reglas (registrar_cobro).
   const precioLinea = (l: Linea) => (l.servicio_id ? (pactados?.get(l.servicio_id)?.precio ?? l.precio) : l.precio);
+  const esFarmaciaArs = (l: Linea) => !l.servicio_id && l.categoria === "farmacia" && !!l.cubreArs && !!aseguradora;
   const cubierto = (l: Linea) => {
+    if (esFarmaciaArs(l)) return l.precio * l.cantidad;
     const c = l.servicio_id ? pactados?.get(l.servicio_id) : undefined;
     return c ? Math.min(c.monto_cubierto, precioLinea(l)) * l.cantidad : 0;
   };
@@ -1023,7 +1030,38 @@ function NuevoCobro({
     );
   };
 
-  const puedeCobrar = !!paciente && lineas.length > 0 && !excede;
+  // Consultas, procedimientos y estudios siempre con su médico: sin él no se calcula la comisión
+  // (y la nómina termina saliendo del Excel).
+  const requiereMedico = lineas.some((l) => ["consulta", "procedimiento", "imagen"].includes(l.categoria));
+  const faltaMedico = requiereMedico && !profesional;
+
+  // Lo que ya se le cobró hoy al paciente: avisa si se repite el mismo servicio (cobro duplicado).
+  const cobradoHoy = useQuery({
+    queryKey: [...claves.caja(sistemaId), "cobrado-hoy", paciente?.id],
+    enabled: abierto && !!paciente,
+    queryFn: async () => {
+      const inicio = new Date();
+      inicio.setHours(0, 0, 0, 0);
+      return (
+        datos(
+          await supabase
+            .from("cobros")
+            .select("numero, anulacion:anulaciones_cobro(id), detalles:cobro_detalles(servicio_id, descripcion)")
+            .eq("sistema_id", sistemaId)
+            .eq("paciente_id", paciente!.id)
+            .gte("creado_en", inicio.toISOString()),
+        ) ?? []
+      ).filter((c) => !c.anulacion?.length);
+    },
+  });
+  const repetidos = lineas
+    .filter((l) => l.servicio_id)
+    .flatMap((l) => {
+      const c = cobradoHoy.data?.find((x) => x.detalles?.some((d) => d.servicio_id === l.servicio_id));
+      return c ? [`${l.descripcion} (${c.numero})`] : [];
+    });
+
+  const puedeCobrar = !!paciente && lineas.length > 0 && !excede && !faltaMedico;
   useAtajos(
     {
       F4: () => irA("cobro-paciente"),
@@ -1043,7 +1081,7 @@ function NuevoCobro({
           p_items: lineas.map((l) =>
             l.servicio_id
               ? { servicio_id: l.servicio_id, cantidad: l.cantidad }
-              : { descripcion: l.descripcion, categoria: l.categoria, cantidad: l.cantidad, precio_unitario: l.precio },
+              : { descripcion: l.descripcion, categoria: l.categoria, cantidad: l.cantidad, precio_unitario: l.precio, cubre_ars: esFarmaciaArs(l) },
           ),
           p_pagos: pagos
             .filter((p) => Number(p.monto) > 0)
@@ -1146,6 +1184,18 @@ function NuevoCobro({
               <div data-atajo="cobro-servicio">
                 <SelectorServicio servicios={servicios.data ?? []} pactados={pactados} area={area} onArea={setArea} onElegir={(s) => agregarLinea(s.id)} />
               </div>
+              <Boton
+                variante="secundario"
+                onClick={() =>
+                  setLineas((ls) => [
+                    ...ls,
+                    { clave: Date.now(), servicio_id: "", descripcion: "ENTREGA DE MEDICAMENTOS", categoria: "farmacia", cantidad: 1, precio: 0, cubreArs: true },
+                  ])
+                }
+                title="Medicamentos entregados: escribe el monto; si el paciente tiene ARS, la ARS lo cubre"
+              >
+                Farmacia
+              </Boton>
               <Boton variante="secundario" onClick={() => agregarLinea("")} title="Cobrar algo que no está en el catálogo">
                 Otro concepto
               </Boton>
@@ -1214,6 +1264,16 @@ function NuevoCobro({
                               className="h-8 w-24 rounded-lg border border-borde bg-superficie px-2 text-right text-sm tabular"
                             />
                           )}
+                          {!l.servicio_id && l.categoria === "farmacia" && aseguradora && (
+                            <label className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-texto-2" title="La ARS paga la entrega completa">
+                              <input
+                                type="checkbox"
+                                checked={!!l.cubreArs}
+                                onChange={(e) => setLineas((x) => x.map((y) => (y.clave === l.clave ? { ...y, cubreArs: e.target.checked } : y)))}
+                              />
+                              ARS
+                            </label>
+                          )}
                           {cubierto(l) > 0 ? (
                             <Insignia tono="info">−{moneda(cubierto(l))}</Insignia>
                           ) : (
@@ -1233,10 +1293,20 @@ function NuevoCobro({
               ))
             )}
           </div>
+          {repetidos.length > 0 && (
+            <p className="mt-2 rounded-lg bg-[color-mix(in_oklab,var(--aviso)_12%,transparent)] px-3 py-2 text-xs text-texto">
+              <b>¿Cobro repetido?</b> Hoy ya se le cobró: {repetidos.join(", ")}. Revisa antes de registrar.
+            </p>
+          )}
         </section>
 
         <section className="grid grid-cols-2 gap-4">
-          <Selector etiqueta="Médico que atendió" value={profesional} onChange={(e) => setProfesional(e.target.value)}>
+          <Selector
+            etiqueta="Médico que atendió"
+            value={profesional}
+            onChange={(e) => setProfesional(e.target.value)}
+            error={faltaMedico ? "Elige el médico: sin él no se calcula su comisión." : undefined}
+          >
             <option value="">Seleccionar…</option>
             <OpcionesMedicos medicos={medicos} />
           </Selector>

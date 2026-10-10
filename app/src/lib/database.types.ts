@@ -863,6 +863,7 @@ export type Database = {
           cobertura: number
           cobro_id: string
           descripcion: string
+          fondo: number
           id: string
           precio_unitario: number
           servicio_id: string | null
@@ -875,6 +876,7 @@ export type Database = {
           cobertura?: number
           cobro_id: string
           descripcion: string
+          fondo?: number
           id?: string
           precio_unitario: number
           servicio_id?: string | null
@@ -887,6 +889,7 @@ export type Database = {
           cobertura?: number
           cobro_id?: string
           descripcion?: string
+          fondo?: number
           id?: string
           precio_unitario?: number
           servicio_id?: string | null
@@ -4044,6 +4047,10 @@ export type Database = {
           hash: string
           usuario_id: string
         }[]
+      }
+      cuadre_dia: {
+        Args: { p_fecha: string; p_sistema: string }
+        Returns: Json
       }
       cuenta_tiene_mfa: { Args: { p_usuario: string }; Returns: boolean }
       deshacer_conciliacion: {
