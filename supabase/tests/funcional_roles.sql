@@ -132,6 +132,12 @@ begin
   select sum(debe) - sum(haber) into n from public.asiento_lineas l join public.asientos a on a.id = l.asiento_id where a.origen_id = (j ->> 'id')::uuid;
   perform pg_temp.como(pg_temp.c('caja')::uuid);
   perform pg_temp.ok('Caja', 'Asiento con ARS y fondo cuadra', n = 0, n::text);
+  -- El fondo va dentro de la cobertura: la ARS debe la cobertura, no cobertura + fondo.
+  perform pg_temp.yo_postgres();
+  select sum(l.debe) into n from public.asiento_lineas l join public.asientos a on a.id = l.asiento_id
+   where a.origen = 'cobro' and a.origen_id = (j ->> 'id')::uuid and l.cuenta_codigo = privado.cuenta(v_s, 'cxc_aseguradoras');
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  perform pg_temp.ok('Caja', 'La ARS debe solo la cobertura (el fondo no se suma aparte)', n = pg_temp.c('ars_cubre')::numeric, n::text);
 
   begin
     perform public.registrar_cobro(v_s, pg_temp.c('pac')::uuid, jsonb_build_array(jsonb_build_object('servicio_id', pg_temp.c('serv'))), '[{"metodo":"efectivo","monto":2000}]');
@@ -266,7 +272,9 @@ begin
   j := public.llamar_siguiente(v_s);
   perform pg_temp.yo_postgres();
   select jsonb_build_object('monto', sum(monto), 'ret', sum(retencion)) into e from public.comisiones where cobro_id = pg_temp.c('cobro_ars')::uuid;
-  perform pg_temp.ok('Médico', 'Odontología 45% sobre el precio ARS', (e ->> 'monto')::numeric = round(pg_temp.c('ars_precio')::numeric * 0.45, 2), e::text);
+  -- La base es el precio ARS sin el fondo interno (el fondo es de la fundación, no del médico).
+  perform pg_temp.ok('Médico', 'Odontología 45% sobre el precio ARS sin el fondo',
+    (e ->> 'monto')::numeric = round((pg_temp.c('ars_precio')::numeric - pg_temp.c('ars_fondo')::numeric) * 0.45, 2), e::text);
 end $$;
 
 -- ---------------------------------------------------------------- anulación
