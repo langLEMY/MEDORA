@@ -47,7 +47,8 @@ export function DosPasos() {
       for (const f of todos?.all ?? []) {
         if (f.factor_type === "totp" && f.status !== "verified") await supabase.auth.mfa.unenroll({ factorId: f.id });
       }
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "MEDORA" });
+      // issuer = el nombre que muestra la app autenticadora (sin él, Supabase pone la URL del sitio).
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "MEDORA", issuer: "MEDORA" });
       if (error) throw error;
       setCodigo("");
       setAlta({ factorId: data.id, qr: data.totp.qr_code, secreto: data.totp.secret });
