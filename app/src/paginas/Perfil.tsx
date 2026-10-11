@@ -10,6 +10,7 @@ import { DosPasos } from "@/components/DosPasos";
 import { Impresion } from "@/components/Impresion";
 import { notasDeVersion, VentanaNovedades } from "@/components/Novedades";
 import { Personalizacion } from "@/components/Personalizacion";
+import { RecorteFoto } from "@/components/RecorteFoto";
 import { RestablecerContrasenas } from "@/components/RestablecerContrasenas";
 import { CerrarSesiones, Soporte } from "@/components/Soporte";
 import { Boton } from "@/components/ui/boton";
@@ -307,21 +308,10 @@ function Casilla({
   );
 }
 
-/** Recorta al centro y reduce a 256×256 JPEG: la foto se guarda en el perfil (≈15-25 KB). */
-async function fotoCuadrada(archivo: File): Promise<string> {
-  const img = await createImageBitmap(archivo);
-  const lado = Math.min(img.width, img.height);
-  const lienzo = document.createElement("canvas");
-  lienzo.width = lienzo.height = 256;
-  const ctx = lienzo.getContext("2d")!;
-  ctx.drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, 256, 256);
-  img.close();
-  return lienzo.toDataURL("image/jpeg", 0.85);
-}
-
-/** Foto de perfil con botón de cámara para cambiarla y opción de quitarla. */
+/** Foto de perfil con botón de cámara para cambiarla (con recorte) y opción de quitarla. */
 function FotoPerfil() {
   const { perfil, recargar } = useSesion();
+  const [archivo, setArchivo] = useState<File | null>(null);
   const m = useMutation({
     mutationFn: async (foto: string | null) => {
       const { error } = await supabase.from("perfiles").update({ foto }).eq("id", perfil!.id);
@@ -329,12 +319,30 @@ function FotoPerfil() {
     },
     onSuccess: async (_, foto) => {
       toast.success(foto ? "Foto actualizada" : "Foto quitada");
+      setArchivo(null);
       await recargar();
     },
     onError: (e) => toast.error(mensajeError(e)),
   });
+  const elegir = (f: File | undefined) => {
+    if (!f) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(f.type)) {
+      toast.error("Elige una imagen JPG, PNG o WebP.");
+      return;
+    }
+    setArchivo(f);
+  };
   return (
-    <div className="group relative shrink-0">
+    <div
+      className="group relative shrink-0"
+      // También se puede soltar una imagen encima del avatar.
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        elegir(e.dataTransfer.files?.[0]);
+      }}
+    >
+      <RecorteFoto archivo={archivo} guardando={m.isPending} onCancelar={() => setArchivo(null)} onListo={(foto) => m.mutate(foto)} />
       <Avatar nombre={perfil?.nombre_completo} foto={perfil?.foto} tamano={64} className={cn(m.isPending && "opacity-50")} />
       <label
         title="Cambiar foto"
@@ -346,12 +354,9 @@ function FotoPerfil() {
           accept="image/png,image/jpeg,image/webp"
           className="hidden"
           onChange={(e) => {
-            const archivo = e.target.files?.[0];
+            const f = e.target.files?.[0];
             e.target.value = "";
-            if (archivo)
-              void fotoCuadrada(archivo)
-                .then((url) => m.mutate(url))
-                .catch(() => toast.error("No se pudo leer la imagen."));
+            elegir(f);
           }}
         />
       </label>
