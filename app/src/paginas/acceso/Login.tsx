@@ -1,11 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, useAnimation } from "motion/react";
-import { Lock, User } from "lucide-react";
+import { ArrowRight, Lock, TicketCheck, User } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Boton } from "@/components/ui/boton";
-import { Entrada } from "@/components/ui/campos";
+import { Entrada, EntradaClave } from "@/components/ui/campos";
 import { ErrorFuncion, invocar, mensajeError, supabase } from "@/lib/supabase";
 import { PantallaAcceso } from "./PantallaAcceso";
 import { RecuperarPassword } from "./RecuperarPassword";
@@ -57,23 +57,30 @@ export function Login() {
 
   return (
     <PantallaAcceso>
-      <h2 className="text-2xl font-semibold tracking-[-0.02em]">Bienvenido de nuevo</h2>
-      <p className="mt-1.5 text-sm text-texto-2">Inicia sesión con el usuario que te asignó la administración.</p>
+      <div className="text-center">
+        <h1 className="text-[1.375rem] font-semibold tracking-[-0.02em]">Bienvenido de nuevo</h1>
+        <p className="mt-1.5 text-sm text-texto-2">Inicia sesión con el usuario que te asignó la administración.</p>
+      </div>
 
-      <motion.form animate={sacudir} onSubmit={entrar} className="mt-8 space-y-4" noValidate>
+      <motion.form animate={sacudir} onSubmit={entrar} className="mt-7 space-y-4" noValidate>
         <Entrada
           etiqueta="Usuario"
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
+          autoFocus
           icono={<User />}
           placeholder="nombre.apellido"
           error={formState.errors.usuario?.message}
           {...register("usuario")}
         />
-        <Entrada
+        <EntradaClave
           etiqueta="Contraseña"
-          type="password"
+          extraEtiqueta={
+            <button type="button" onClick={() => setRecuperar(true)} className="text-xs font-medium text-marca-texto hover:underline">
+              ¿Olvidaste tu contraseña?
+            </button>
+          }
           autoComplete="current-password"
           icono={<Lock />}
           placeholder="••••••••••"
@@ -82,6 +89,7 @@ export function Login() {
         />
         {error && (
           <motion.p
+            role="alert"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-lg bg-[color-mix(in_oklab,var(--peligro)_8%,transparent)] px-3 py-2 text-sm text-peligro"
@@ -89,22 +97,25 @@ export function Login() {
             {error}
           </motion.p>
         )}
-        <Boton type="submit" tamano="lg" className="w-full justify-center" cargando={formState.isSubmitting}>
+        <Boton type="submit" tamano="lg" className="group w-full justify-center" cargando={formState.isSubmitting}>
           Iniciar sesión
+          <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
         </Boton>
       </motion.form>
 
-      <div className="mt-8 border-t border-borde pt-6 text-center text-sm text-texto-2">
-        ¿Tienes un código de invitación?{" "}
-        <button onClick={() => setRegistro(true)} className="font-medium text-marca-texto hover:underline">
-          Crear cuenta
-        </button>
+      <div className="mt-7 flex items-center gap-3 text-[0.6875rem] tracking-wide text-texto-3 uppercase">
+        <span className="h-px flex-1 bg-borde" />o<span className="h-px flex-1 bg-borde" />
       </div>
-      <p className="mt-3 text-center text-xs text-texto-3">
-        <button type="button" onClick={() => setRecuperar(true)} className="font-medium text-marca-texto hover:underline">
-          ¿Olvidaste tu contraseña?
-        </button>
-      </p>
+      <button
+        type="button"
+        onClick={() => setRegistro(true)}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-borde px-4 py-2.5 text-sm text-texto-2 transition-colors hover:bg-superficie-2 hover:text-texto"
+      >
+        <TicketCheck className="size-4 shrink-0 text-marca-texto" />
+        <span>
+          <span className="font-medium text-texto">Crear cuenta</span> con código de invitación
+        </span>
+      </button>
       <RecuperarPassword abierto={recuperar} onCerrar={() => setRecuperar(false)} />
     </PantallaAcceso>
   );
