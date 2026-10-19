@@ -11,9 +11,11 @@
 
 ---
 
-## Código abierto (MIT)
+## Licencia
 
-MEDORA es software libre bajo licencia [MIT](LICENSE). Puedes autoalojarlo con tu propio proyecto de Supabase:
+MEDORA es software **propietario**. © 2026 Oscar S. (Langlemy). Todos los derechos reservados. El acceso al código no concede ningún derecho de uso, copia ni distribución: se requiere una licencia por escrito del titular (ver [LICENSE](LICENSE)).
+
+### Despliegue en un proyecto nuevo (uso autorizado)
 
 1. Crea un proyecto en [Supabase](https://supabase.com) y aplica las migraciones de `supabase/migrations`.
 2. Copia `app/.env.example` a `app/.env.production` con la URL y la clave publicable de **tu** proyecto.

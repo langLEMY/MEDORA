@@ -91,11 +91,11 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 - **IA (Claude)**: Edge Function `ia` + `_shared/claude.ts` (Haiku para mapear/clasificar, Sonnet para redactar; salida estructurada con herramienta forzada). Clave `ANTHROPIC_API_KEY` como secreto de la función. La paga MEDORA: solo el superadmin la activa por hospital (`sistemas.ia_activa`, `ia_tope_mensual_usd`, en Sistema y sedes → `AjustesIa`). Cada uso va a `ia_eventos` (append-only, tokens y costo, nunca el contenido). La IA propone y una persona confirma; nunca escribe datos ni recibe historia clínica. **Pregúntale a MEDORA** (Ctrl+K, `PreguntaMedora.tsx`; acción `preguntar`, `ia/preguntar.ts`): Haiku solo elige una consulta del catálogo cerrado y sus filtros (Sonnet si Haiku no la entiende); la consulta corre con el JWT del usuario (RLS) y a la IA no llega ningún dato. Consulta nueva = agregarla al enum y a `ejecutar()`.
 - Edge Functions se despliegan con `npx supabase functions deploy <nombre> --use-api` (`--no-verify-jwt` en `acceso`, `recuperar`, `acceso-legado`, `configuracion-inicial`, `registro-invitacion`, `respaldo`, `ecf`, `laboratorio`). Migraciones grandes: `npx supabase db query --linked -f <archivo>` y registrarlas en `supabase_migrations.schema_migrations`.
 
-## Multiplataforma (open source)
+## Multiplataforma
 
 - **Windows**: launcher WinForms/WebView2 (único con auto-update, quiosco y TV).
 - **Linux/macOS**: `desktop/` (Tauri 2) envuelve la misma `app/dist` en una ventana nativa; sin bridge de impresión/quiosco (cae al comportamiento de navegador). Los binarios (.AppImage/.deb/.dmg) los compila `release.yml` en runners ubuntu/macos y se suben a la misma Release. macOS va **sin firmar**. Íconos en `desktop/src-tauri/icons` (regenerar con `npx @tauri-apps/cli icon <png-1024>`).
-- **Licencia MIT** (`LICENSE`); self-host con `app/.env.example` + migraciones.
+- **Licencia propietaria** (`LICENSE`): todos los derechos reservados. Desplegar en otro proyecto de Supabase (`app/.env.example` + migraciones) solo con licencia escrita del titular. No agregar avisos de código abierto ni dependencias copyleft (GPL/AGPL) sin consultarlo.
 
 ## Launcher / releases
 

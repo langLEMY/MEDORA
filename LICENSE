@@ -1,21 +1,47 @@
-MIT License
+MEDORA — Sistema de gestión hospitalaria
+Copyright (c) 2026 Oscar S. (Langlemy). Todos los derechos reservados.
 
-Copyright (c) 2026 MEDORA
+LICENCIA DE SOFTWARE PROPIETARIO
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Titularidad. Este software, incluidos su código fuente y objeto, migraciones y
+   esquemas de base de datos, documentación, diseños, logotipos e identidad visual
+   (en conjunto, el "Software"), es propiedad exclusiva del titular indicado arriba y
+   constituye información confidencial. Está protegido por la Ley núm. 65-00 sobre
+   Derecho de Autor de la República Dominicana y por los tratados internacionales
+   aplicables.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. Sin licencia por defecto. El acceso a este repositorio, a una copia del Software
+   o a cualquiera de sus instaladores no concede ningún derecho de uso, copia,
+   modificación ni distribución. Solo pueden usar el Software las personas y
+   organizaciones que hayan recibido del titular una licencia por escrito, y
+   únicamente en los términos, el alcance y el plazo que esa licencia establezca.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. Prohibiciones. Salvo autorización previa y por escrito del titular, queda
+   prohibido:
+   a) copiar, reproducir o almacenar el Software, total o parcialmente;
+   b) modificarlo, adaptarlo, traducirlo o crear obras derivadas;
+   c) distribuirlo, publicarlo, sublicenciarlo, venderlo, alquilarlo, prestarlo o
+      cederlo a terceros, por cualquier medio;
+   d) descompilarlo, desensamblarlo o aplicarle ingeniería inversa, salvo en la
+      medida en que la ley lo permita expresamente;
+   e) usarlo para prestar servicios a terceros o para desarrollar un producto
+      competidor;
+   f) eliminar o alterar los avisos de derechos de autor, marcas o esta licencia.
+
+4. Contribuciones. Todo aporte enviado al repositorio (código, documentación,
+   diseños) se entiende cedido al titular, que podrá usarlo sin restricción.
+
+5. Confidencialidad. Quien acceda al Software se obliga a mantenerlo en reserva y
+   a no revelarlo a terceros sin autorización del titular.
+
+6. Sin garantía. EL SOFTWARE SE ENTREGA "TAL CUAL", SIN GARANTÍAS DE NINGÚN TIPO,
+   EXPRESAS O IMPLÍCITAS. EN NINGÚN CASO EL TITULAR SERÁ RESPONSABLE DE DAÑOS
+   DERIVADOS DEL USO O DE LA IMPOSIBILIDAD DE USO DEL SOFTWARE, SALVO LO QUE
+   DISPONGA LA LICENCIA ESCRITA OTORGADA AL USUARIO.
+
+7. Componentes de terceros. Las bibliotecas de terceros que el Software utiliza se
+   rigen por sus propias licencias, que no se ven afectadas por esta.
+
+8. Ley aplicable. Esta licencia se rige por las leyes de la República Dominicana.
+
+Para solicitar una licencia de uso: https://github.com/langLEMY
