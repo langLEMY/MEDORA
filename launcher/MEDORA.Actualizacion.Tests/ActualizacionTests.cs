@@ -81,3 +81,12 @@ public class InterpretarReleaseTests
             Release("v1.1.0", assets: ["MEDORA-1.1.0-Setup-x64.exe", "MEDORA-1.1.0-Setup-x64.exe.sha256"]),
             new Version(1, 1, 0, 0)));
 }
+
+public class RepositorioActualizacionTests
+{
+    // El código es privado: si el launcher apuntara a ese repo, la API de GitHub
+    // respondería 404 sin token y las PCs dejarían de actualizarse sin avisar.
+    [Fact]
+    public void LeeDelRepoPublicoDeInstaladores() =>
+        Assert.Equal("langLEMY/medora-releases", ServicioActualizacion.RepositorioPorDefecto);
+}

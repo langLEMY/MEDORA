@@ -8,6 +8,12 @@ name: Release
 #   - Linux:   .AppImage y .deb (Tauri).
 #   - macOS:   .dmg (Tauri, sin firmar).
 
+# Destino: el código es privado; los instaladores se publican en un repo PÚBLICO de
+# solo releases (variable de repositorio RELEASES_REPO = "medora-releases"), del que el
+# launcher lee las actualizaciones. Hace falta el secreto RELEASES_TOKEN: token de grano
+# fino con "Contents: read and write" SOLO sobre ese repo. Sin RELEASES_REPO publica en
+# este mismo repositorio (así salió la versión puente 1.7.1).
+
 on:
   push:
     tags: ['v*.*.*']
@@ -50,7 +56,18 @@ jobs:
         shell: pwsh
         run: ./scripts/generar-instalador.ps1
 
-      # Notas escritas a mano en notas-version/<tag>.md; si no hay, las genera GitHub.
+      - name: Verificar destino de la release
+        shell: pwsh
+        env:
+          DESTINO: ${{ vars.RELEASES_REPO }}
+          TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if ($env:DESTINO -and -not $env:TOKEN) {
+            throw "RELEASES_REPO=$($env:DESTINO) pero falta el secreto RELEASES_TOKEN (token con Contents: write sobre ese repo)."
+          }
+
+      # Notas escritas a mano en notas-version/<tag>.md; si no hay, las genera GitHub
+      # (solo al publicar en este repo: en el público no se exponen los commits).
       - name: Notas de la versión
         id: notas
         shell: pwsh
@@ -62,9 +79,11 @@ jobs:
       - name: Publicar release (crea la release con el .exe)
         uses: softprops/action-gh-release@v2
         with:
+          repository: ${{ github.repository_owner }}/${{ vars.RELEASES_REPO || github.event.repository.name }}
+          token: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
           name: MEDORA ${{ github.ref_name }}
           body_path: ${{ steps.notas.outputs.ruta }}
-          generate_release_notes: ${{ steps.notas.outputs.auto == 'true' }}
+          generate_release_notes: ${{ steps.notas.outputs.auto == 'true' && vars.RELEASES_REPO == '' }}
           files: |
             instalacion/Output/*.exe
             instalacion/Output/*.exe.sha256
@@ -115,8 +134,10 @@ jobs:
       - name: Compilar y subir (Tauri)
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
         with:
+          owner: ${{ github.repository_owner }}
+          repo: ${{ vars.RELEASES_REPO || github.event.repository.name }}
           projectPath: ./desktop
           tagName: ${{ github.ref_name }}
           releaseName: MEDORA ${{ github.ref_name }}

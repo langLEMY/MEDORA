@@ -15,7 +15,8 @@ public sealed record InfoActualizacion(string VersionTag, Uri UrlInstalador, Uri
 /// </summary>
 public sealed class ServicioActualizacion(HttpClient http, string repositorio = ServicioActualizacion.RepositorioPorDefecto)
 {
-    public const string RepositorioPorDefecto = "langLEMY/MEDORA";
+    // Repo PÚBLICO de solo instaladores: el código (langLEMY/MEDORA) pasa a ser privado.
+    public const string RepositorioPorDefecto = "langLEMY/medora-releases";
 
     /// <summary>
     /// Por qué falló la última búsqueda (null si GitHub respondió bien). Sirve para no

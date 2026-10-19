@@ -45,7 +45,7 @@ export function Login() {
       void sacudir.start({ x: [0, -8, 7, -5, 3, 0], transition: { duration: 0.4 } });
       return;
     }
-    void supabase.rpc("registrar_evento", { p_accion: "LOGIN" });
+    void supabase.rpc("registrar_evento", { p_accion: "LOGIN", p_detalle: { version: __VERSION_APP__ } });
   });
 
   if (registro)
