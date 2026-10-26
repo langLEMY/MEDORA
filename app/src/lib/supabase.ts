@@ -34,6 +34,13 @@ export function mensajeError(e: unknown): string {
       return "El registro está relacionado con otros datos y no puede modificarse así.";
     case "P0001":
       return err.message ?? "Operación no permitida.";
+    // La app es más nueva que la base: falta una tabla, columna o función de una migración.
+    case "PGRST205":
+    case "PGRST202":
+    case "PGRST204":
+    case "42P01":
+    case "42703":
+      return "Esta función todavía no está disponible: falta actualizar la base de datos de MEDORA. Avisa a soporte.";
   }
   if (err.message === "Invalid login credentials") return "Correo o contraseña incorrectos.";
   if (err.message?.toLowerCase().includes("banned")) return "Tu cuenta está desactivada. Contacta a la administración de MEDORA.";
