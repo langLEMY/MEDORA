@@ -346,7 +346,8 @@ export function useAccionesSoporte() {
   // Tapback: tocar la misma reacción la quita (como en Mensajes).
   const reaccionar = useMutation({
     mutationFn: async (v: { mensaje: string; solicitud: string; tipo: Tapback | null; yo: string; comoSoporte: boolean }) =>
-      datos(await supabase.rpc("reaccionar_mensaje_soporte", { p_mensaje: v.mensaje, p_tipo: v.tipo })),
+      // p_tipo null quita la reacción (el generador de tipos no refleja que acepta nulo).
+      datos(await supabase.rpc("reaccionar_mensaje_soporte", { p_mensaje: v.mensaje, p_tipo: v.tipo as string })),
     onMutate: async (v) => {
       const clave = ["soporte", "reacciones", v.solicitud];
       await qc.cancelQueries({ queryKey: clave });

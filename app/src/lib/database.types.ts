@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -91,6 +91,67 @@ export type Database = {
             columns: ["sistema_id", "turno_id"]
             isOneToOne: false
             referencedRelation: "turnos_caja"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      admisiones: {
+        Row: {
+          cama_id: string
+          creado_por: string
+          egreso_en: string | null
+          estado: string
+          id: string
+          ingreso_en: string
+          medico_nombre: string | null
+          motivo: string | null
+          paciente_id: string
+          sistema_id: string
+        }
+        Insert: {
+          cama_id: string
+          creado_por?: string
+          egreso_en?: string | null
+          estado?: string
+          id?: string
+          ingreso_en?: string
+          medico_nombre?: string | null
+          motivo?: string | null
+          paciente_id: string
+          sistema_id: string
+        }
+        Update: {
+          cama_id?: string
+          creado_por?: string
+          egreso_en?: string | null
+          estado?: string
+          id?: string
+          ingreso_en?: string
+          medico_nombre?: string | null
+          motivo?: string | null
+          paciente_id?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admisiones_sistema_id_cama_id_fkey"
+            columns: ["sistema_id", "cama_id"]
+            isOneToOne: false
+            referencedRelation: "camas"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "admisiones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admisiones_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
             referencedColumns: ["sistema_id", "id"]
           },
         ]
@@ -640,6 +701,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sistemas"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      camas: {
+        Row: {
+          codigo: string
+          creado_en: string
+          estado: string
+          habitacion_id: string
+          id: string
+          sistema_id: string
+        }
+        Insert: {
+          codigo: string
+          creado_en?: string
+          estado?: string
+          habitacion_id: string
+          id?: string
+          sistema_id: string
+        }
+        Update: {
+          codigo?: string
+          creado_en?: string
+          estado?: string
+          habitacion_id?: string
+          id?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camas_sistema_id_habitacion_id_fkey"
+            columns: ["sistema_id", "habitacion_id"]
+            isOneToOne: false
+            referencedRelation: "habitaciones"
+            referencedColumns: ["sistema_id", "id"]
           },
         ]
       }
@@ -1968,6 +2071,155 @@ export type Database = {
           },
         ]
       }
+      farmacia_controlados: {
+        Row: {
+          cantidad: number
+          creado_en: string
+          creado_por: string
+          fecha: string
+          id: string
+          item_id: string | null
+          item_nombre: string
+          medico_nombre: string | null
+          paciente_nombre: string | null
+          receta: string | null
+          responsable: string
+          sistema_id: string
+          tipo: string
+        }
+        Insert: {
+          cantidad: number
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          id?: string
+          item_id?: string | null
+          item_nombre: string
+          medico_nombre?: string | null
+          paciente_nombre?: string | null
+          receta?: string | null
+          responsable: string
+          sistema_id: string
+          tipo: string
+        }
+        Update: {
+          cantidad?: number
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          id?: string
+          item_id?: string | null
+          item_nombre?: string
+          medico_nombre?: string | null
+          paciente_nombre?: string | null
+          receta?: string | null
+          responsable?: string
+          sistema_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmacia_controlados_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventario_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmacia_controlados_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farmacia_lotes: {
+        Row: {
+          actualizado_en: string
+          cantidad: number
+          creado_en: string
+          id: string
+          item_id: string
+          lote: string | null
+          sistema_id: string
+          vencimiento: string | null
+        }
+        Insert: {
+          actualizado_en?: string
+          cantidad?: number
+          creado_en?: string
+          id?: string
+          item_id: string
+          lote?: string | null
+          sistema_id: string
+          vencimiento?: string | null
+        }
+        Update: {
+          actualizado_en?: string
+          cantidad?: number
+          creado_en?: string
+          id?: string
+          item_id?: string
+          lote?: string | null
+          sistema_id?: string
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmacia_lotes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventario_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmacia_lotes_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habitaciones: {
+        Row: {
+          activa: boolean
+          creado_en: string
+          id: string
+          nombre: string
+          sede_id: string | null
+          sistema_id: string
+          tipo: string | null
+        }
+        Insert: {
+          activa?: boolean
+          creado_en?: string
+          id?: string
+          nombre: string
+          sede_id?: string | null
+          sistema_id: string
+          tipo?: string | null
+        }
+        Update: {
+          activa?: boolean
+          creado_en?: string
+          id?: string
+          nombre?: string
+          sede_id?: string | null
+          sistema_id?: string
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habitaciones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historial_clinico: {
         Row: {
           autor_id: string
@@ -2271,6 +2523,192 @@ export type Database = {
           },
         ]
       }
+      laboratorio_orden_items: {
+        Row: {
+          bioanalista: string | null
+          exequatur: string | null
+          firmado_en: string | null
+          fuera_rango: boolean | null
+          id: string
+          orden_id: string
+          prueba_id: string
+          prueba_nombre: string
+          ref_max: number | null
+          ref_min: number | null
+          ref_texto: string | null
+          resultado_texto: string | null
+          resultado_valor: number | null
+          sistema_id: string
+          unidad: string | null
+        }
+        Insert: {
+          bioanalista?: string | null
+          exequatur?: string | null
+          firmado_en?: string | null
+          fuera_rango?: boolean | null
+          id?: string
+          orden_id: string
+          prueba_id: string
+          prueba_nombre: string
+          ref_max?: number | null
+          ref_min?: number | null
+          ref_texto?: string | null
+          resultado_texto?: string | null
+          resultado_valor?: number | null
+          sistema_id: string
+          unidad?: string | null
+        }
+        Update: {
+          bioanalista?: string | null
+          exequatur?: string | null
+          firmado_en?: string | null
+          fuera_rango?: boolean | null
+          id?: string
+          orden_id?: string
+          prueba_id?: string
+          prueba_nombre?: string
+          ref_max?: number | null
+          ref_min?: number | null
+          ref_texto?: string | null
+          resultado_texto?: string | null
+          resultado_valor?: number | null
+          sistema_id?: string
+          unidad?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laboratorio_orden_items_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laboratorio_orden_items_sistema_id_orden_id_fkey"
+            columns: ["sistema_id", "orden_id"]
+            isOneToOne: false
+            referencedRelation: "laboratorio_ordenes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "laboratorio_orden_items_sistema_id_prueba_id_fkey"
+            columns: ["sistema_id", "prueba_id"]
+            isOneToOne: false
+            referencedRelation: "laboratorio_pruebas"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      laboratorio_ordenes: {
+        Row: {
+          creado_en: string
+          creado_por: string
+          estado: string
+          id: string
+          medico_nombre: string | null
+          notas: string | null
+          numero: string
+          paciente_id: string
+          sede_id: string | null
+          sistema_id: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string
+          estado?: string
+          id?: string
+          medico_nombre?: string | null
+          notas?: string | null
+          numero: string
+          paciente_id: string
+          sede_id?: string | null
+          sistema_id: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string
+          estado?: string
+          id?: string
+          medico_nombre?: string | null
+          notas?: string | null
+          numero?: string
+          paciente_id?: string
+          sede_id?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laboratorio_ordenes_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laboratorio_ordenes_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      laboratorio_pruebas: {
+        Row: {
+          activo: boolean
+          categoria: string | null
+          codigo: string | null
+          creado_en: string
+          id: string
+          metodo: string | null
+          nombre: string
+          precio: number
+          ref_max: number | null
+          ref_min: number | null
+          ref_texto: string | null
+          sistema_id: string
+          unidad: string | null
+        }
+        Insert: {
+          activo?: boolean
+          categoria?: string | null
+          codigo?: string | null
+          creado_en?: string
+          id?: string
+          metodo?: string | null
+          nombre: string
+          precio?: number
+          ref_max?: number | null
+          ref_min?: number | null
+          ref_texto?: string | null
+          sistema_id: string
+          unidad?: string | null
+        }
+        Update: {
+          activo?: boolean
+          categoria?: string | null
+          codigo?: string | null
+          creado_en?: string
+          id?: string
+          metodo?: string | null
+          nombre?: string
+          precio?: number
+          ref_max?: number | null
+          ref_min?: number | null
+          ref_texto?: string | null
+          sistema_id?: string
+          unidad?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laboratorio_pruebas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       liquidacion_items: {
         Row: {
           comision_id: string
@@ -2448,6 +2886,77 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "perfiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensajes_soporte: {
+        Row: {
+          adjunto: string | null
+          autor_id: string | null
+          creado_en: string
+          de_soporte: boolean
+          evento: string | null
+          id: string
+          responde_a: string | null
+          retirado_en: string | null
+          sistema_id: string
+          solicitud_id: string
+          texto: string
+        }
+        Insert: {
+          adjunto?: string | null
+          autor_id?: string | null
+          creado_en?: string
+          de_soporte?: boolean
+          evento?: string | null
+          id?: string
+          responde_a?: string | null
+          retirado_en?: string | null
+          sistema_id: string
+          solicitud_id: string
+          texto?: string
+        }
+        Update: {
+          adjunto?: string | null
+          autor_id?: string | null
+          creado_en?: string
+          de_soporte?: boolean
+          evento?: string | null
+          id?: string
+          responde_a?: string | null
+          retirado_en?: string | null
+          sistema_id?: string
+          solicitud_id?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensajes_soporte_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_soporte_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_soporte_sistema_id_responde_a_fkey"
+            columns: ["sistema_id", "responde_a"]
+            isOneToOne: false
+            referencedRelation: "mensajes_soporte"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "mensajes_soporte_sistema_id_solicitud_id_fkey"
+            columns: ["sistema_id", "solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes_soporte"
+            referencedColumns: ["sistema_id", "id"]
           },
         ]
       }
@@ -3075,6 +3584,7 @@ export type Database = {
         Row: {
           actualizado_en: string
           actualizado_por: string | null
+          agentes_soporte: string[]
           id: boolean
           mantenimiento: boolean
           mantenimiento_desde: string | null
@@ -3083,6 +3593,7 @@ export type Database = {
         Insert: {
           actualizado_en?: string
           actualizado_por?: string | null
+          agentes_soporte?: string[]
           id?: boolean
           mantenimiento?: boolean
           mantenimiento_desde?: string | null
@@ -3091,6 +3602,7 @@ export type Database = {
         Update: {
           actualizado_en?: string
           actualizado_por?: string | null
+          agentes_soporte?: string[]
           id?: boolean
           mantenimiento?: boolean
           mantenimiento_desde?: string | null
@@ -3158,6 +3670,68 @@ export type Database = {
             columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reacciones_soporte: {
+        Row: {
+          actualizado_en: string
+          de_soporte: boolean
+          id: string
+          mensaje_id: string
+          sistema_id: string
+          solicitud_id: string
+          tipo: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          actualizado_en?: string
+          de_soporte?: boolean
+          id?: string
+          mensaje_id: string
+          sistema_id: string
+          solicitud_id: string
+          tipo?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          actualizado_en?: string
+          de_soporte?: boolean
+          id?: string
+          mensaje_id?: string
+          sistema_id?: string
+          solicitud_id?: string
+          tipo?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reacciones_soporte_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reacciones_soporte_sistema_id_mensaje_id_fkey"
+            columns: ["sistema_id", "mensaje_id"]
+            isOneToOne: false
+            referencedRelation: "mensajes_soporte"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "reacciones_soporte_sistema_id_solicitud_id_fkey"
+            columns: ["sistema_id", "solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes_soporte"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "reacciones_soporte_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3434,214 +4008,6 @@ export type Database = {
           },
         ]
       }
-      mensajes_soporte: {
-        Row: {
-          adjunto: string | null
-          autor_id: string | null
-          creado_en: string
-          de_soporte: boolean
-          evento: string | null
-          id: string
-          responde_a: string | null
-          retirado_en: string | null
-          sistema_id: string
-          solicitud_id: string
-          texto: string
-        }
-        Insert: {
-          adjunto?: string | null
-          autor_id?: string | null
-          creado_en?: string
-          de_soporte?: boolean
-          evento?: string | null
-          id?: string
-          responde_a?: string | null
-          retirado_en?: string | null
-          sistema_id: string
-          solicitud_id: string
-          texto?: string
-        }
-        Update: {
-          adjunto?: string | null
-          autor_id?: string | null
-          creado_en?: string
-          de_soporte?: boolean
-          evento?: string | null
-          id?: string
-          responde_a?: string | null
-          retirado_en?: string | null
-          sistema_id?: string
-          solicitud_id?: string
-          texto?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mensajes_soporte_autor_id_fkey"
-            columns: ["autor_id"]
-            isOneToOne: false
-            referencedRelation: "perfiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mensajes_soporte_sistema_id_fkey"
-            columns: ["sistema_id"]
-            isOneToOne: false
-            referencedRelation: "sistemas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mensajes_soporte_sistema_id_responde_a_fkey"
-            columns: ["sistema_id", "responde_a"]
-            isOneToOne: false
-            referencedRelation: "mensajes_soporte"
-            referencedColumns: ["sistema_id", "id"]
-          },
-          {
-            foreignKeyName: "mensajes_soporte_sistema_id_solicitud_id_fkey"
-            columns: ["sistema_id", "solicitud_id"]
-            isOneToOne: false
-            referencedRelation: "solicitudes_soporte"
-            referencedColumns: ["sistema_id", "id"]
-          },
-        ]
-      }
-      solicitudes_soporte: {
-        Row: {
-          asunto: string
-          autor_id: string
-          categoria: string
-          contexto: Json
-          creado_en: string
-          estado: string
-          fijada_soporte: boolean
-          id: string
-          no_leida_soporte: boolean
-          numero: number
-          prioridad: string
-          resuelta_en: string | null
-          sistema_id: string
-          ultimo_de_soporte: boolean
-          ultimo_mensaje_en: string
-          vista_autor_en: string | null
-          vista_soporte_en: string | null
-        }
-        Insert: {
-          asunto: string
-          autor_id: string
-          categoria: string
-          contexto?: Json
-          creado_en?: string
-          estado?: string
-          fijada_soporte?: boolean
-          id?: string
-          no_leida_soporte?: boolean
-          numero: number
-          prioridad?: string
-          resuelta_en?: string | null
-          sistema_id: string
-          ultimo_de_soporte?: boolean
-          ultimo_mensaje_en?: string
-          vista_autor_en?: string | null
-          vista_soporte_en?: string | null
-        }
-        Update: {
-          asunto?: string
-          autor_id?: string
-          categoria?: string
-          contexto?: Json
-          creado_en?: string
-          estado?: string
-          fijada_soporte?: boolean
-          id?: string
-          no_leida_soporte?: boolean
-          numero?: number
-          prioridad?: string
-          resuelta_en?: string | null
-          sistema_id?: string
-          ultimo_de_soporte?: boolean
-          ultimo_mensaje_en?: string
-          vista_autor_en?: string | null
-          vista_soporte_en?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "solicitudes_soporte_autor_id_fkey"
-            columns: ["autor_id"]
-            isOneToOne: false
-            referencedRelation: "perfiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "solicitudes_soporte_sistema_id_fkey"
-            columns: ["sistema_id"]
-            isOneToOne: false
-            referencedRelation: "sistemas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      reacciones_soporte: {
-        Row: {
-          actualizado_en: string
-          de_soporte: boolean
-          id: string
-          mensaje_id: string
-          sistema_id: string
-          solicitud_id: string
-          tipo: string | null
-          usuario_id: string | null
-        }
-        Insert: {
-          actualizado_en?: string
-          de_soporte?: boolean
-          id?: string
-          mensaje_id: string
-          sistema_id: string
-          solicitud_id: string
-          tipo?: string | null
-          usuario_id?: string | null
-        }
-        Update: {
-          actualizado_en?: string
-          de_soporte?: boolean
-          id?: string
-          mensaje_id?: string
-          sistema_id?: string
-          solicitud_id?: string
-          tipo?: string | null
-          usuario_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reacciones_soporte_sistema_id_fkey"
-            columns: ["sistema_id"]
-            isOneToOne: false
-            referencedRelation: "sistemas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reacciones_soporte_sistema_id_mensaje_id_fkey"
-            columns: ["sistema_id", "mensaje_id"]
-            isOneToOne: false
-            referencedRelation: "mensajes_soporte"
-            referencedColumns: ["sistema_id", "id"]
-          },
-          {
-            foreignKeyName: "reacciones_soporte_sistema_id_solicitud_id_fkey"
-            columns: ["sistema_id", "solicitud_id"]
-            isOneToOne: false
-            referencedRelation: "solicitudes_soporte"
-            referencedColumns: ["sistema_id", "id"]
-          },
-          {
-            foreignKeyName: "reacciones_soporte_usuario_id_fkey"
-            columns: ["usuario_id"]
-            isOneToOne: false
-            referencedRelation: "perfiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       secuencias_ncf: {
         Row: {
           activo: boolean
@@ -3700,6 +4066,7 @@ export type Database = {
           activo: boolean
           actualizado_en: string
           actualizado_por: string | null
+          capacidades: Json
           codigo: string | null
           creado_en: string
           creado_por: string | null
@@ -3714,6 +4081,7 @@ export type Database = {
           activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
+          capacidades?: Json
           codigo?: string | null
           creado_en?: string
           creado_por?: string | null
@@ -3728,6 +4096,7 @@ export type Database = {
           activo?: boolean
           actualizado_en?: string
           actualizado_por?: string | null
+          capacidades?: Json
           codigo?: string | null
           creado_en?: string
           creado_por?: string | null
@@ -3890,6 +4259,81 @@ export type Database = {
           {
             foreignKeyName: "sistemas_pruebas_de_fkey"
             columns: ["pruebas_de"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solicitudes_soporte: {
+        Row: {
+          asunto: string
+          autor_id: string
+          categoria: string
+          contexto: Json
+          creado_en: string
+          estado: string
+          fijada_soporte: boolean
+          id: string
+          no_leida_soporte: boolean
+          numero: number
+          prioridad: string
+          resuelta_en: string | null
+          sistema_id: string
+          ultimo_de_soporte: boolean
+          ultimo_mensaje_en: string
+          vista_autor_en: string | null
+          vista_soporte_en: string | null
+        }
+        Insert: {
+          asunto: string
+          autor_id: string
+          categoria: string
+          contexto?: Json
+          creado_en?: string
+          estado?: string
+          fijada_soporte?: boolean
+          id?: string
+          no_leida_soporte?: boolean
+          numero: number
+          prioridad?: string
+          resuelta_en?: string | null
+          sistema_id: string
+          ultimo_de_soporte?: boolean
+          ultimo_mensaje_en?: string
+          vista_autor_en?: string | null
+          vista_soporte_en?: string | null
+        }
+        Update: {
+          asunto?: string
+          autor_id?: string
+          categoria?: string
+          contexto?: Json
+          creado_en?: string
+          estado?: string
+          fijada_soporte?: boolean
+          id?: string
+          no_leida_soporte?: boolean
+          numero?: number
+          prioridad?: string
+          resuelta_en?: string | null
+          sistema_id?: string
+          ultimo_de_soporte?: boolean
+          ultimo_mensaje_en?: string
+          vista_autor_en?: string | null
+          vista_soporte_en?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitudes_soporte_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_soporte_sistema_id_fkey"
+            columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
             referencedColumns: ["id"]
@@ -4179,6 +4623,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      admitir_paciente: {
+        Args: {
+          p_cama: string
+          p_medico?: string
+          p_motivo?: string
+          p_paciente: string
+          p_sistema: string
+        }
+        Returns: string
+      }
+      ajustar_bandeja_soporte: {
+        Args: { p_fijada?: boolean; p_no_leida?: boolean; p_solicitud: string }
+        Returns: undefined
+      }
       anular_cobro: {
         Args: { p_cobro: string; p_motivo: string }
         Returns: undefined
@@ -4211,10 +4669,15 @@ export type Database = {
           tipo: string
         }[]
       }
+      cambiar_estado_solicitud_soporte: {
+        Args: { p_estado: string; p_prioridad?: string; p_solicitud: string }
+        Returns: undefined
+      }
       canjear_codigo_invitacion: {
         Args: { p_codigo: string; p_usuario: string }
         Returns: Json
       }
+      capacidades_sede: { Args: { p_sede: string }; Returns: Json }
       cerrar_acceso_restablecido: {
         Args: { p_autor: string; p_sistema: string; p_usuarios: string[] }
         Returns: number
@@ -4277,6 +4740,28 @@ export type Database = {
         Returns: boolean
       }
       correo_de_acceso: { Args: { p_usuario: string }; Returns: string }
+      crear_orden_lab: {
+        Args: {
+          p_medico?: string
+          p_notas?: string
+          p_paciente: string
+          p_pruebas: string[]
+          p_sede?: string
+          p_sistema: string
+        }
+        Returns: Json
+      }
+      crear_solicitud_soporte: {
+        Args: {
+          p_asunto: string
+          p_categoria: string
+          p_contexto?: Json
+          p_prioridad?: string
+          p_sistema: string
+          p_texto: string
+        }
+        Returns: string
+      }
       credencial_legado: {
         Args: { p_usuario: string }
         Returns: {
@@ -4290,6 +4775,7 @@ export type Database = {
         Returns: Json
       }
       cuenta_tiene_mfa: { Args: { p_usuario: string }; Returns: boolean }
+      dar_egreso: { Args: { p_admision: string }; Returns: undefined }
       deshacer_conciliacion: {
         Args: { p_movimiento: string; p_sistema: string }
         Returns: undefined
@@ -4478,6 +4964,10 @@ export type Database = {
       llamar_siguiente: { Args: { p_sistema: string }; Returns: Json }
       llamar_turno: { Args: { p_cita: string }; Returns: Json }
       marcar_password_actualizada: { Args: never; Returns: undefined }
+      marcar_solicitud_soporte_vista: {
+        Args: { p_solicitud: string }
+        Returns: undefined
+      }
       mis_avisos: { Args: { p_sistema: string }; Returns: Json }
       mis_sistemas_detalle: {
         Args: never
@@ -4591,6 +5081,10 @@ export type Database = {
         Args: { p_proveedor: string; p_sistema: string }
         Returns: undefined
       }
+      reaccionar_mensaje_soporte: {
+        Args: { p_mensaje: string; p_tipo: string }
+        Returns: undefined
+      }
       recalcular_nomina: { Args: { p_nomina: string }; Returns: undefined }
       registrar_abono: {
         Args: {
@@ -4661,6 +5155,21 @@ export type Database = {
           p_sistema: string
         }
         Returns: Json
+      }
+      registrar_controlado: {
+        Args: {
+          p_cantidad: number
+          p_fecha?: string
+          p_item?: string
+          p_item_nombre: string
+          p_medico?: string
+          p_paciente?: string
+          p_receta?: string
+          p_responsable: string
+          p_sistema: string
+          p_tipo: string
+        }
+        Returns: string
       }
       registrar_donacion: {
         Args: {
@@ -4760,6 +5269,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_resultado_lab: {
+        Args: {
+          p_bioanalista: string
+          p_exequatur?: string
+          p_item: string
+          p_texto: string
+          p_valor: number
+        }
+        Returns: undefined
+      }
       registrar_uso_ia: {
         Args: {
           p_costo: number
@@ -4795,25 +5314,6 @@ export type Database = {
       }
       respaldo_tabla: { Args: { p_tabla: string }; Returns: Json }
       respaldo_tablas: { Args: never; Returns: string[] }
-      cambiar_estado_solicitud_soporte: {
-        Args: { p_estado: string; p_prioridad?: string; p_solicitud: string }
-        Returns: undefined
-      }
-      crear_solicitud_soporte: {
-        Args: {
-          p_asunto: string
-          p_categoria: string
-          p_contexto?: Json
-          p_prioridad?: string
-          p_sistema: string
-          p_texto: string
-        }
-        Returns: string
-      }
-      marcar_solicitud_soporte_vista: {
-        Args: { p_solicitud: string }
-        Returns: undefined
-      }
       responder_solicitud_soporte: {
         Args: {
           p_adjunto?: string
@@ -4823,17 +5323,6 @@ export type Database = {
         }
         Returns: string
       }
-      retirar_mensaje_soporte: { Args: { p_mensaje: string }; Returns: string }
-      reaccionar_mensaje_soporte: {
-        Args: { p_mensaje: string; p_tipo: string | null }
-        Returns: undefined
-      }
-      ajustar_bandeja_soporte: {
-        Args: { p_fijada?: boolean; p_no_leida?: boolean; p_solicitud: string }
-        Returns: undefined
-      }
-      soporte_pendientes: { Args: never; Returns: number }
-      soy_agente_soporte: { Args: never; Returns: boolean }
       resumen_dashboard: { Args: { p_sistema: string }; Returns: Json }
       resumen_financiero: {
         Args: {
@@ -4844,7 +5333,10 @@ export type Database = {
         }
         Returns: Json
       }
+      retirar_mensaje_soporte: { Args: { p_mensaje: string }; Returns: string }
       revocar_codigo_invitacion: { Args: { p_id: string }; Returns: undefined }
+      soporte_pendientes: { Args: never; Returns: number }
+      soy_agente_soporte: { Args: never; Returns: boolean }
       verificar_codigo_instalacion: {
         Args: { p_codigo: string }
         Returns: boolean
@@ -4885,6 +5377,7 @@ export type Database = {
         | "nutricion"
         | "terapia"
         | "quiosco"
+        | "laboratorio"
       tipo_entrada_clinica:
         | "consulta"
         | "evolucion"
@@ -5065,6 +5558,7 @@ export const Constants = {
         "nutricion",
         "terapia",
         "quiosco",
+        "laboratorio",
       ],
       tipo_entrada_clinica: [
         "consulta",

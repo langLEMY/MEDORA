@@ -140,6 +140,8 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
   farmacia: "Farmacia",
   auditor: "Auditoría",
   quiosco: "Quiosco de turnos",
+  // El rol existe en la base (módulo de Laboratorio, rama de capacidades por sede); aquí solo su nombre.
+  laboratorio: "Laboratorio",
 };
 
 export const ROLES: Rol[] = [
