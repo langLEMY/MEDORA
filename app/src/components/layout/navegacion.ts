@@ -7,6 +7,7 @@ import {
   ChartPie,
   FileBarChart,
   LayoutDashboard,
+  LifeBuoy,
   Network,
   Pill,
   Settings2,
@@ -64,6 +65,7 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/precios", etiqueta: "Precios y seguros", icono: Tags, modulos: ["catalogos", "aseguradoras"], grupo: "Gestión" },
   { ruta: "/administracion", etiqueta: "Administración", icono: Settings2, modulos: ["configuracion", "integraciones", "auditoria"], grupo: "Gestión" },
   { ruta: "/plataforma", etiqueta: "Plataforma", icono: Network, soloSuperadmin: true, grupo: "Plataforma" },
+  { ruta: "/ayuda", etiqueta: "Ayuda y soporte", icono: LifeBuoy, soloBusqueda: true, grupo: "Gestión" },
   // Solo en el buscador:
   { ruta: "/medicos?vista=directorio", etiqueta: "Directorio de médicos", icono: Stethoscope, modulo: "recepcion", ocultoPropio: true, soloBusqueda: true, grupo: "Operación" },
   { ruta: "/medicos?vista=pagos", etiqueta: "Pago de médicos (comisiones)", icono: Stethoscope, modulo: "comisiones", soloBusqueda: true, grupo: "Finanzas" },

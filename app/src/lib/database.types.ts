@@ -3405,6 +3405,214 @@ export type Database = {
           },
         ]
       }
+      mensajes_soporte: {
+        Row: {
+          adjunto: string | null
+          autor_id: string | null
+          creado_en: string
+          de_soporte: boolean
+          evento: string | null
+          id: string
+          responde_a: string | null
+          retirado_en: string | null
+          sistema_id: string
+          solicitud_id: string
+          texto: string
+        }
+        Insert: {
+          adjunto?: string | null
+          autor_id?: string | null
+          creado_en?: string
+          de_soporte?: boolean
+          evento?: string | null
+          id?: string
+          responde_a?: string | null
+          retirado_en?: string | null
+          sistema_id: string
+          solicitud_id: string
+          texto?: string
+        }
+        Update: {
+          adjunto?: string | null
+          autor_id?: string | null
+          creado_en?: string
+          de_soporte?: boolean
+          evento?: string | null
+          id?: string
+          responde_a?: string | null
+          retirado_en?: string | null
+          sistema_id?: string
+          solicitud_id?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensajes_soporte_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_soporte_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_soporte_sistema_id_responde_a_fkey"
+            columns: ["sistema_id", "responde_a"]
+            isOneToOne: false
+            referencedRelation: "mensajes_soporte"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "mensajes_soporte_sistema_id_solicitud_id_fkey"
+            columns: ["sistema_id", "solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes_soporte"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      solicitudes_soporte: {
+        Row: {
+          asunto: string
+          autor_id: string
+          categoria: string
+          contexto: Json
+          creado_en: string
+          estado: string
+          fijada_soporte: boolean
+          id: string
+          no_leida_soporte: boolean
+          numero: number
+          prioridad: string
+          resuelta_en: string | null
+          sistema_id: string
+          ultimo_de_soporte: boolean
+          ultimo_mensaje_en: string
+          vista_autor_en: string | null
+          vista_soporte_en: string | null
+        }
+        Insert: {
+          asunto: string
+          autor_id: string
+          categoria: string
+          contexto?: Json
+          creado_en?: string
+          estado?: string
+          fijada_soporte?: boolean
+          id?: string
+          no_leida_soporte?: boolean
+          numero: number
+          prioridad?: string
+          resuelta_en?: string | null
+          sistema_id: string
+          ultimo_de_soporte?: boolean
+          ultimo_mensaje_en?: string
+          vista_autor_en?: string | null
+          vista_soporte_en?: string | null
+        }
+        Update: {
+          asunto?: string
+          autor_id?: string
+          categoria?: string
+          contexto?: Json
+          creado_en?: string
+          estado?: string
+          fijada_soporte?: boolean
+          id?: string
+          no_leida_soporte?: boolean
+          numero?: number
+          prioridad?: string
+          resuelta_en?: string | null
+          sistema_id?: string
+          ultimo_de_soporte?: boolean
+          ultimo_mensaje_en?: string
+          vista_autor_en?: string | null
+          vista_soporte_en?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitudes_soporte_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_soporte_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reacciones_soporte: {
+        Row: {
+          actualizado_en: string
+          de_soporte: boolean
+          id: string
+          mensaje_id: string
+          sistema_id: string
+          solicitud_id: string
+          tipo: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          actualizado_en?: string
+          de_soporte?: boolean
+          id?: string
+          mensaje_id: string
+          sistema_id: string
+          solicitud_id: string
+          tipo?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          actualizado_en?: string
+          de_soporte?: boolean
+          id?: string
+          mensaje_id?: string
+          sistema_id?: string
+          solicitud_id?: string
+          tipo?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reacciones_soporte_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reacciones_soporte_sistema_id_mensaje_id_fkey"
+            columns: ["sistema_id", "mensaje_id"]
+            isOneToOne: false
+            referencedRelation: "mensajes_soporte"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "reacciones_soporte_sistema_id_solicitud_id_fkey"
+            columns: ["sistema_id", "solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes_soporte"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "reacciones_soporte_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       secuencias_ncf: {
         Row: {
           activo: boolean
@@ -4558,6 +4766,45 @@ export type Database = {
       }
       respaldo_tabla: { Args: { p_tabla: string }; Returns: Json }
       respaldo_tablas: { Args: never; Returns: string[] }
+      cambiar_estado_solicitud_soporte: {
+        Args: { p_estado: string; p_prioridad?: string; p_solicitud: string }
+        Returns: undefined
+      }
+      crear_solicitud_soporte: {
+        Args: {
+          p_asunto: string
+          p_categoria: string
+          p_contexto?: Json
+          p_prioridad?: string
+          p_sistema: string
+          p_texto: string
+        }
+        Returns: string
+      }
+      marcar_solicitud_soporte_vista: {
+        Args: { p_solicitud: string }
+        Returns: undefined
+      }
+      responder_solicitud_soporte: {
+        Args: {
+          p_adjunto?: string
+          p_responde_a?: string
+          p_solicitud: string
+          p_texto: string
+        }
+        Returns: string
+      }
+      retirar_mensaje_soporte: { Args: { p_mensaje: string }; Returns: string }
+      reaccionar_mensaje_soporte: {
+        Args: { p_mensaje: string; p_tipo: string | null }
+        Returns: undefined
+      }
+      ajustar_bandeja_soporte: {
+        Args: { p_fijada?: boolean; p_no_leida?: boolean; p_solicitud: string }
+        Returns: undefined
+      }
+      soporte_pendientes: { Args: never; Returns: number }
+      soy_agente_soporte: { Args: never; Returns: boolean }
       resumen_dashboard: { Args: { p_sistema: string }; Returns: Json }
       resumen_financiero: {
         Args: {

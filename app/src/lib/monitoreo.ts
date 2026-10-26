@@ -31,6 +31,9 @@ const sinQuery = (url?: string) => (url ? url.split("?")[0] : url);
 let contexto: { sistema: string | null; rol: string | null } = { sistema: null, rol: null };
 const yaReportados = new Set<string>();
 const MAX_POR_SESION = 25;
+// Los últimos errores de esta sesión (ya limpios): Ayuda los adjunta a una solicitud de soporte.
+const recientes: { tipo: string; mensaje: string; pantalla: string; en: string }[] = [];
+export const erroresRecientes = () => recientes.slice(-5);
 
 /** Pantalla actual sin parámetros (el hash puede llevar ids o búsquedas). */
 const pantallaActual = () => limpiar((location.hash || "").replace(/^#/, "").split("?")[0] || "/")!;
@@ -44,6 +47,7 @@ export async function reportarError(mensaje: unknown, tipo?: string, stack?: str
     const huella = `${tipo}:${texto}:${(pila ?? "").slice(0, 120)}`;
     if (!texto || yaReportados.has(huella)) return;
     yaReportados.add(huella);
+    recientes.push({ tipo: (tipo ?? "Error").slice(0, 120), mensaje: texto.slice(0, 300), pantalla: pantallaActual(), en: new Date().toISOString() });
     await supabase.rpc("registrar_error_cliente", {
       p_sistema: contexto.sistema ?? undefined,
       p_rol: contexto.rol ?? undefined,

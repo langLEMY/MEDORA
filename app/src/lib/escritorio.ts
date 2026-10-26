@@ -4,9 +4,11 @@
  * no-op y la app funciona igual.
  *
  * App → launcher:  { tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" }
+ *                  | { tipo: "notificar", titulo, texto, ruta }  (aviso de Windows si MEDORA no está al frente)
  * Launcher → app:  { tipo: "info", version } | { tipo: "actualizacion", version, notas }
  *                  | { tipo: "sin-actualizacion" } | { tipo: "progreso", porcentaje }
  *                  | { tipo: "error-actualizacion", mensaje } | { tipo: "error-busqueda", mensaje }
+ *                  | { tipo: "abrir-ruta", ruta }  (se tocó un aviso de Windows)
  * Ver launcher/FormPrincipal.cs.
  */
 export type MensajeLauncher =
@@ -17,7 +19,9 @@ export type MensajeLauncher =
   | { tipo: "error-actualizacion"; mensaje: string }
   /** La búsqueda manual no pudo consultar GitHub (sin red, rate limit…): no es "estás al día". */
   | { tipo: "error-busqueda"; mensaje: string }
-  | { tipo: "impresoras"; lista: string[]; predeterminada: string; recibos: string | null; tickets: string | null; preguntar: boolean };
+  | { tipo: "impresoras"; lista: string[]; predeterminada: string; recibos: string | null; tickets: string | null; preguntar: boolean }
+  /** Se tocó un aviso de Windows (Notificar): abrir esta ruta interna. */
+  | { tipo: "abrir-ruta"; ruta: string };
 
 type Manejador = (e: { data: unknown }) => void;
 interface WebView {
@@ -31,7 +35,7 @@ const webview = (window as unknown as { chrome?: { webview?: WebView } }).chrome
 export const enEscritorio = !!webview;
 
 export function enviar(
-  tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" | "imprimir-directo" | "pdf" | "salir-quiosco" | "impresoras" | "configurar-impresion",
+  tipo: "info" | "buscar-actualizacion" | "instalar-actualizacion" | "imprimir" | "imprimir-directo" | "pdf" | "salir-quiosco" | "impresoras" | "configurar-impresion" | "notificar",
   extra?: Record<string, unknown>,
 ) {
   webview?.postMessage(JSON.stringify({ tipo, ...extra }));

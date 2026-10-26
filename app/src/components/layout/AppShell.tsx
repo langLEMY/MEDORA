@@ -26,6 +26,7 @@ import { Isotipo } from "./Logo";
 import { NAVEGACION, inicioPorRol, puedeVer } from "./navegacion";
 import { NovedadesAlActualizar } from "../Novedades";
 import { CentroAvisos } from "./CentroAvisos";
+import { BotonAyuda } from "@/components/soporte/BotonAyuda";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
 import { FranjaSinConexion } from "@/components/FranjaSinConexion";
@@ -103,7 +104,7 @@ export function AppShell() {
       <motion.aside
         animate={{ width: colapsada ? 68 : 248 }}
         transition={{ type: "spring", duration: 0.4, bounce: 0 }}
-        className="no-imprimir relative flex shrink-0 flex-col border-r border-borde bg-superficie"
+        className="no-imprimir relative flex shrink-0 flex-col border-r border-borde/70 bg-superficie"
       >
         <div className="flex h-14 items-center gap-2.5 px-4">
           <Isotipo className="size-7 shrink-0" />
@@ -144,14 +145,14 @@ export function AppShell() {
                       to={i.ruta}
                       title={colapsada ? i.etiqueta : undefined}
                       className={cn(
-                        "relative mb-0.5 flex h-9 items-center gap-3 rounded-[10px] px-2.5 text-sm font-medium transition-colors duration-150",
-                        activo ? "text-texto" : "text-texto-2 hover:bg-superficie-2 hover:text-texto",
+                        "relative mb-0.5 flex h-9 items-center gap-3 rounded-xl px-2.5 text-sm font-medium transition-colors duration-150",
+                        activo ? "text-marca-texto" : "text-texto-2 hover:bg-superficie-2 hover:text-texto",
                       )}
                     >
                       {activo && (
                         <motion.span
                           layoutId="nav-activo"
-                          className="absolute inset-0 rounded-[10px] border border-borde bg-superficie-2 shadow-sm"
+                          className="absolute inset-0 rounded-xl bg-marca-suave"
                           transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
                         />
                       )}
@@ -298,13 +299,13 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
   };
 
   return (
-    <header className="no-imprimir relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-borde px-6 lg:px-8">
+    <header className="no-imprimir relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-borde/70 px-6 lg:px-8">
       {/* El desenfoque va en una capa hermana: si el header mismo tuviera backdrop-filter,
           WebView2 deja restos del menú (que desborda el header) al cerrarse. */}
-      <div aria-hidden className="absolute inset-0 -z-10 bg-superficie/80 backdrop-blur-md" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-superficie/75 backdrop-blur-xl backdrop-saturate-150" />
       <button
         onClick={onBuscar}
-        className="flex h-9 w-full max-w-sm items-center gap-2.5 rounded-[10px] border border-borde bg-superficie-2 px-3 text-sm text-texto-3 transition-colors hover:border-borde-fuerte"
+        className="flex h-9 w-full max-w-sm items-center gap-2.5 rounded-xl bg-superficie-2 px-3 text-sm text-texto-3 transition-colors hover:bg-[color-mix(in_oklab,var(--superficie-2)_80%,var(--borde-fuerte))]"
       >
         <Search className="size-4" />
         <span className="flex-1 text-left">Buscar pacientes, módulos…</span>
@@ -312,6 +313,7 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
         <Kbd>K</Kbd>
       </button>
       <div className="flex-1" />
+      <BotonAyuda />
       <CentroAvisos />
       <Menu
         alinear="derecha"

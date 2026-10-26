@@ -31,6 +31,7 @@ const Plataforma = lazy(() => import("./paginas/Plataforma"));
 const Perfil = lazy(() => import("./paginas/Perfil"));
 const Quiosco = lazy(() => import("./paginas/Quiosco"));
 const Pantalla = lazy(() => import("./paginas/Pantalla"));
+const Ayuda = lazy(() => import("./paginas/Ayuda"));
 
 /** Pantallas completas sin menú (quiosco táctil y TV de la sala). */
 function PantallaCompleta({ children }: { children: ReactNode }) {
@@ -101,6 +102,7 @@ export const enrutador = createHashRouter([
           { path: "personal", element: s(<Personal />) },
           { path: "precios", element: s(<PaginaPrecios />) },
           { path: "administracion", element: s(<PaginaAdministracion />) },
+          { path: "ayuda", element: s(<Ayuda />) },
           // Rutas de antes del menú agrupado (enlaces guardados, accesos directos).
           { path: "servicios", element: <Navigate to="/precios?vista=servicios" replace /> },
           { path: "catalogos", element: <Navigate to="/precios?vista=servicios" replace /> },

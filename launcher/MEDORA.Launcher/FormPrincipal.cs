@@ -33,6 +33,8 @@ public sealed class FormPrincipal : Form
     private bool _salidaPermitida;
     private bool _primerChequeo = true;
     private FormPantalla? _pantallaSala;
+    private NotifyIcon? _aviso;
+    private string? _rutaAviso;
 
     public FormPrincipal(Modo modo = Modo.Normal)
     {
@@ -272,6 +274,12 @@ public sealed class FormPrincipal : Form
             case "impresoras":
                 EnviarImpresoras();
                 break;
+            case "notificar":
+                Notificar(
+                    raiz.TryGetProperty("titulo", out var ti) ? ti.GetString() : null,
+                    raiz.TryGetProperty("texto", out var te) ? te.GetString() : null,
+                    raiz.TryGetProperty("ruta", out var ru) ? ru.GetString() : null);
+                break;
             case "configurar-impresion":
                 {
                     var cfg = ConfiguracionImpresion.Cargar();
@@ -503,6 +511,63 @@ public sealed class FormPrincipal : Form
         }
     }
 
+    // --- Notificaciones de Windows (respuestas de Soporte MEDORA) -----------------------
+
+    /// <summary>
+    /// Aviso nativo cuando MEDORA no está al frente (minimizada o detrás de otra ventana).
+    /// Al tocarlo, la ventana vuelve y la app abre la ruta indicada (solo rutas internas).
+    /// </summary>
+    private void Notificar(string? titulo, string? texto, string? ruta)
+    {
+        if (_modo != Modo.Normal || string.IsNullOrWhiteSpace(titulo))
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => Notificar(titulo, texto, ruta));
+            return;
+        }
+
+        if (ContainsFocus && WindowState != FormWindowState.Minimized)
+        {
+            return;
+        }
+
+        _aviso ??= CrearAviso();
+        _rutaAviso = ruta is not null && ruta.StartsWith('/') && !ruta.StartsWith("//") ? ruta : null;
+        _aviso.Visible = true;
+        _aviso.ShowBalloonTip(8000, Recortar(titulo, 63), Recortar(texto ?? "", 255), ToolTipIcon.Info);
+    }
+
+    private NotifyIcon CrearAviso()
+    {
+        var aviso = new NotifyIcon { Icon = Icon ?? SystemIcons.Application, Text = "MEDORA" };
+        aviso.BalloonTipClicked += (_, _) =>
+        {
+            Restaurar();
+            if (_rutaAviso is { } r)
+            {
+                Enviar(new { tipo = "abrir-ruta", ruta = r });
+            }
+        };
+        aviso.MouseClick += (_, _) => Restaurar();
+        return aviso;
+    }
+
+    private void Restaurar()
+    {
+        if (WindowState == FormWindowState.Minimized)
+        {
+            WindowState = FormWindowState.Normal;
+        }
+
+        Activate();
+    }
+
+    private static string Recortar(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
+
     private void Enviar(object mensaje)
     {
         if (_webView.CoreWebView2 is null)
@@ -556,6 +621,7 @@ public sealed class FormPrincipal : Form
         {
             _temporizador.Dispose();
             _webView.Dispose();
+            _aviso?.Dispose();
         }
 
         base.Dispose(disposing);
