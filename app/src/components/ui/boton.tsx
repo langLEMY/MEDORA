@@ -8,8 +8,10 @@ type Tamano = "sm" | "md" | "lg" | "icono";
 const VARIANTES: Record<Variante, string> = {
   primario:
     "bg-marca text-white shadow-sm hover:brightness-110 active:brightness-95 [box-shadow:inset_0_1px_0_rgb(255_255_255/0.15),var(--sombra-sm)]",
-  secundario: "bg-superficie text-texto border border-borde shadow-sm hover:bg-superficie-2 hover:border-borde-fuerte",
-  fantasma: "text-texto-2 hover:bg-superficie-2 hover:text-texto",
+  // Como los botones «gris» de Apple: relleno translúcido que funciona sobre cualquier fondo.
+  secundario: "bg-[color-mix(in_oklab,var(--texto)_7%,transparent)] text-texto hover:bg-[color-mix(in_oklab,var(--texto)_11%,transparent)]",
+  // Botón simple de Apple: texto en el color de acento.
+  fantasma: "text-marca-texto hover:bg-marca-suave",
   peligro: "bg-peligro text-white shadow-sm hover:brightness-110",
   suave: "bg-marca-suave text-marca-texto hover:brightness-[0.97]",
 };

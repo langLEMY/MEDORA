@@ -1,8 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { Camera, Check, MonitorDown, RefreshCw, Trash2 } from "lucide-react";
+import { MonitorDown, Pencil, RefreshCw } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -10,42 +9,28 @@ import { DosPasos } from "@/components/DosPasos";
 import { Impresion } from "@/components/Impresion";
 import { notasDeVersion, VentanaNovedades } from "@/components/Novedades";
 import { Personalizacion } from "@/components/Personalizacion";
-import { RecorteFoto } from "@/components/RecorteFoto";
 import { RestablecerContrasenas } from "@/components/RestablecerContrasenas";
 import { CerrarSesiones, Soporte } from "@/components/Soporte";
 import { Boton } from "@/components/ui/boton";
-import { Entrada, EntradaClave } from "@/components/ui/campos";
-import { Avatar, EncabezadoPagina, Insignia, Tarjeta } from "@/components/ui/superficies";
+import { EntradaClave, Segmentado } from "@/components/ui/campos";
+import { CabeceraPerfil, EditarPerfil } from "@/components/perfil/CabeceraPerfil";
+import { EncabezadoPagina, Tarjeta } from "@/components/ui/superficies";
 import { enEscritorio, enviar, escuchar } from "@/lib/escritorio";
-import { ETIQUETA_ROL } from "@/lib/permisos";
-import { mensajeError, supabase } from "@/lib/supabase";
-import { cn, CORREO_RE, correoVisible, telefonoRd } from "@/lib/utils";
+import { mensajeError } from "@/lib/supabase";
+import { cn, correoVisible } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 import { actualizarPassword, esquemaPassword, RequisitosClave } from "./acceso/CambiarPassword";
 
 type Pestana = "perfil" | "preferencias" | "seguridad" | "dispositivo" | "soporte";
 
 export default function Perfil() {
-  const { perfil, sistema, roles, esSuperadmin, recargar } = useSesion();
+  const { perfil, esSuperadmin } = useSesion();
   // La pestaña vive en ?vista= para que los enlaces y el botón «atrás» la respeten.
   const [params, setParams] = useSearchParams();
-  const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [correo, setCorreo] = useState("");
-  const [whatsapp, setWhatsapp] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [version, setVersion] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [novedades, setNovedades] = useState(false);
-
-  useEffect(() => {
-    setNombre(perfil?.nombre_completo ?? "");
-    setTelefono(perfil?.telefono ?? "");
-    setCorreo(perfil?.correo_contacto ?? "");
-    setWhatsapp(!!perfil?.recibir_whatsapp);
-  }, [perfil]);
-
-  const telefonoOk = !telefono.trim() || !!telefonoRd(telefono);
-  const correoOk = !correo.trim() || CORREO_RE.test(correo.trim());
 
   useEffect(() => {
     const quitar = escuchar((m) => {
@@ -63,28 +48,6 @@ export default function Perfil() {
     enviar("info");
     return quitar;
   }, []);
-
-  const guardar = useMutation({
-    mutationFn: async () => {
-      const tel = telefono.trim() ? telefonoRd(telefono) : null;
-      const mail = correo.trim().toLowerCase() || null;
-      const { error } = await supabase
-        .from("perfiles")
-        .update({
-          nombre_completo: nombre.trim(),
-          telefono: tel,
-          correo_contacto: mail,
-          recibir_whatsapp: whatsapp && !!tel,
-        })
-        .eq("id", perfil!.id);
-      if (error) throw error;
-    },
-    onSuccess: async () => {
-      toast.success("Perfil actualizado");
-      await recargar();
-    },
-    onError: (e) => toast.error(mensajeError(e)),
-  });
 
   const pwd = useForm({ resolver: zodResolver(esquemaPassword) });
   const cambiar = pwd.handleSubmit(async ({ password }) => {
@@ -108,47 +71,18 @@ export default function Perfil() {
 
   return (
     <>
-      <EncabezadoPagina titulo="Mi perfil" acciones={esSuperadmin ? <RestablecerContrasenas /> : undefined} />
+      <EncabezadoPagina titulo="Mi perfil" />
+      <CabeceraPerfil onEditar={() => setEditando(true)} acciones={esSuperadmin ? <RestablecerContrasenas /> : undefined} />
+      <EditarPerfil abierto={editando} onCerrar={() => setEditando(false)} />
 
-      {/* Encabezado con la franja del color del hospital, la foto y los accesos. */}
-      <Tarjeta className="mb-5 overflow-hidden">
-        <div className="h-16 bg-[linear-gradient(110deg,var(--marca),color-mix(in_oklab,var(--marca)_45%,var(--superficie)))]" />
-        <div className="-mt-8 flex flex-wrap items-end gap-4 px-6 pb-5">
-          <FotoPerfil />
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold">{perfil?.nombre_completo}</p>
-            <p className="truncate text-sm text-texto-3">
-              {[perfil?.nombre_usuario && `Usuario: ${perfil.nombre_usuario}`, correoVisible(perfil?.email)].filter(Boolean).join(" · ")}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {esSuperadmin && <Insignia tono="marca">Superadministración</Insignia>}
-              {roles.map((r) => (
-                <Insignia key={r}>{ETIQUETA_ROL[r]}</Insignia>
-              ))}
-              {sistema && <Insignia tono="info">{sistema.nombre}</Insignia>}
-            </div>
-          </div>
-        </div>
-      </Tarjeta>
-
-      <nav className="mb-5 flex gap-1 overflow-x-auto border-b border-borde" role="tablist">
-        {pestanas.map(([p, etiqueta]) => (
-          <button
-            key={p}
-            type="button"
-            role="tab"
-            aria-selected={actual === p}
-            onClick={() => setParams(new URLSearchParams({ vista: p }), { replace: true })}
-            className={cn(
-              "relative shrink-0 px-3 pt-1 pb-2.5 text-sm font-medium transition-colors",
-              actual === p ? "text-texto" : "text-texto-3 hover:text-texto-2",
-            )}
-          >
-            {etiqueta}
-            {actual === p && <motion.span layoutId="pestana-perfil" className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-marca" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />}
-          </button>
-        ))}
-      </nav>
+      <div className="mb-5 overflow-x-auto pb-0.5">
+        <Segmentado
+          id="perfil-pestanas"
+          valor={actual}
+          onChange={(p) => setParams(new URLSearchParams({ vista: p }), { replace: true })}
+          opciones={pestanas.map(([p, etiqueta]) => ({ valor: p, etiqueta }))}
+        />
+      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -159,46 +93,19 @@ export default function Perfil() {
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
         >
       {actual === "perfil" && (
-        <Tarjeta className="max-w-3xl p-6">
-          <div className="space-y-4">
-            <Entrada etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Entrada
-                etiqueta="Teléfono celular"
-                inputMode="tel"
-                placeholder="809-000-0000"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                onBlur={() => telefonoRd(telefono) && setTelefono(telefonoRd(telefono)!)}
-                error={telefonoOk ? undefined : "Número dominicano de 10 dígitos (809, 829 u 849)."}
-              />
-              <Entrada
-                etiqueta="Correo de contacto"
-                type="email"
-                placeholder="nombre@correo.com"
-                value={correo}
-                onChange={(e) => setCorreo(e.target.value)}
-                error={correoOk ? undefined : "Revisa el correo."}
-              />
-            </div>
-            <div className="space-y-2.5 rounded-xl border border-borde p-4">
-              <p className="text-[0.8125rem] font-medium text-texto-2">Avisos de MEDORA</p>
-              <Casilla
-                marcada={whatsapp}
-                onChange={setWhatsapp}
-                deshabilitada={!telefono.trim() || !telefonoOk}
-                etiqueta="Recibir avisos por WhatsApp"
-                ayuda={!telefono.trim() ? "Escribe tu celular para activarlo." : `Al ${telefonoRd(telefono) ?? telefono}`}
-              />
-              <p className="text-xs text-texto-3">Pocos avisos del hospital. Puedes desactivarlos cuando quieras.</p>
-            </div>
-            <div className="flex justify-end">
-              <Boton cargando={guardar.isPending} disabled={nombre.trim().length < 3 || !telefonoOk || !correoOk} onClick={() => guardar.mutate()}>
-                Guardar
-              </Boton>
-            </div>
-          </div>
-        </Tarjeta>
+        <div className="max-w-3xl space-y-6">
+          <GrupoAjustes titulo="Contacto">
+            <FilaAjuste etiqueta="Usuario" valor={perfil?.nombre_usuario ? `@${perfil.nombre_usuario}` : "—"} />
+            <FilaAjuste etiqueta="Teléfono celular" valor={perfil?.telefono || "Sin teléfono"} tenue={!perfil?.telefono} />
+            <FilaAjuste etiqueta="Correo de contacto" valor={correoVisible(perfil?.correo_contacto) || "Sin correo"} tenue={!perfil?.correo_contacto} />
+          </GrupoAjustes>
+          <GrupoAjustes titulo="Avisos de MEDORA" pie="Pocos avisos del hospital. Puedes desactivarlos cuando quieras.">
+            <FilaAjuste etiqueta="WhatsApp" valor={perfil?.recibir_whatsapp ? "Activados" : "Desactivados"} tenue={!perfil?.recibir_whatsapp} />
+          </GrupoAjustes>
+          <Boton variante="secundario" icono={<Pencil className="size-4" />} onClick={() => setEditando(true)}>
+            Editar perfil
+          </Boton>
+        </div>
       )}
 
       {actual === "preferencias" && (
@@ -268,108 +175,23 @@ export default function Perfil() {
   );
 }
 
-/** Casilla con check (consentimientos): toda la fila es clicable. */
-function Casilla({
-  marcada,
-  onChange,
-  etiqueta,
-  ayuda,
-  deshabilitada,
-}: {
-  marcada: boolean;
-  onChange: (v: boolean) => void;
-  etiqueta: string;
-  ayuda?: string;
-  deshabilitada?: boolean;
-}) {
-  const activa = marcada && !deshabilitada;
+
+/** Grupo de ajustes al estilo de iOS: título pequeño, filas separadas por líneas finas y una nota al pie. */
+function GrupoAjustes({ titulo, pie, children }: { titulo: string; pie?: string; children: ReactNode }) {
   return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={activa}
-      disabled={deshabilitada}
-      onClick={() => onChange(!marcada)}
-      className="flex w-full items-start gap-3 rounded-lg text-left disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      <span
-        className={cn(
-          "mt-0.5 grid size-[1.125rem] shrink-0 place-items-center rounded-[5px] border transition-colors duration-150",
-          activa ? "border-marca bg-marca text-white" : "border-borde-fuerte bg-superficie",
-        )}
-      >
-        {activa && <Check className="size-3" strokeWidth={3} />}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-medium">{etiqueta}</span>
-        {ayuda && <span className="block truncate text-xs text-texto-3">{ayuda}</span>}
-      </span>
-    </button>
+    <section>
+      <h2 className="mb-1.5 px-4 text-[0.75rem] font-medium tracking-wide text-texto-3 uppercase">{titulo}</h2>
+      <Tarjeta className="divide-y divide-borde/70 overflow-hidden">{children}</Tarjeta>
+      {pie && <p className="mt-1.5 px-4 text-xs text-texto-3">{pie}</p>}
+    </section>
   );
 }
 
-/** Foto de perfil con botón de cámara para cambiarla (con recorte) y opción de quitarla. */
-function FotoPerfil() {
-  const { perfil, recargar } = useSesion();
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const m = useMutation({
-    mutationFn: async (foto: string | null) => {
-      const { error } = await supabase.from("perfiles").update({ foto }).eq("id", perfil!.id);
-      if (error) throw error;
-    },
-    onSuccess: async (_, foto) => {
-      toast.success(foto ? "Foto actualizada" : "Foto quitada");
-      setArchivo(null);
-      await recargar();
-    },
-    onError: (e) => toast.error(mensajeError(e)),
-  });
-  const elegir = (f: File | undefined) => {
-    if (!f) return;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(f.type)) {
-      toast.error("Elige una imagen JPG, PNG o WebP.");
-      return;
-    }
-    setArchivo(f);
-  };
+function FilaAjuste({ etiqueta, valor, tenue }: { etiqueta: string; valor: ReactNode; tenue?: boolean }) {
   return (
-    <div
-      className="group relative shrink-0"
-      // También se puede soltar una imagen encima del avatar.
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        elegir(e.dataTransfer.files?.[0]);
-      }}
-    >
-      <RecorteFoto archivo={archivo} guardando={m.isPending} onCancelar={() => setArchivo(null)} onListo={(foto) => m.mutate(foto)} />
-      <Avatar nombre={perfil?.nombre_completo} foto={perfil?.foto} tamano={64} className={cn(m.isPending && "opacity-50")} />
-      <label
-        title="Cambiar foto"
-        className="absolute -right-1 -bottom-1 grid size-7 cursor-pointer place-items-center rounded-full border-2 border-superficie bg-marca text-white shadow-md transition-transform duration-150 active:scale-95"
-      >
-        <Camera className="size-3.5" />
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            e.target.value = "";
-            elegir(f);
-          }}
-        />
-      </label>
-      {perfil?.foto && (
-        <button
-          type="button"
-          title="Quitar foto"
-          onClick={() => m.mutate(null)}
-          className="absolute -top-1 -right-1 grid size-6 place-items-center rounded-full border-2 border-superficie bg-superficie-2 text-texto-3 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 hover:text-peligro"
-        >
-          <Trash2 className="size-3" />
-        </button>
-      )}
+    <div className="flex items-center justify-between gap-4 px-4 py-3 text-[0.9375rem]">
+      <span>{etiqueta}</span>
+      <span className={cn("min-w-0 truncate text-right", tenue ? "text-texto-3" : "text-texto-2")}>{valor}</span>
     </div>
   );
 }

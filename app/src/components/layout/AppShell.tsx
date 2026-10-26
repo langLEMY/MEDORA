@@ -104,7 +104,8 @@ export function AppShell() {
       <motion.aside
         animate={{ width: colapsada ? 68 : 248 }}
         transition={{ type: "spring", duration: 0.4, bounce: 0 }}
-        className="no-imprimir relative flex shrink-0 flex-col border-r border-borde/70 bg-superficie"
+        // Barra lateral como la de macOS: material translúcido, separada del contenido por una línea fina.
+        className="no-imprimir relative flex shrink-0 flex-col border-r border-borde/70 bg-superficie/70 backdrop-blur-2xl backdrop-saturate-150"
       >
         <div className="flex h-14 items-center gap-2.5 px-4">
           <Isotipo className="size-7 shrink-0" />
@@ -146,18 +147,18 @@ export function AppShell() {
                       title={colapsada ? i.etiqueta : undefined}
                       className={cn(
                         "relative mb-0.5 flex h-9 items-center gap-3 rounded-xl px-2.5 text-sm font-medium transition-colors duration-150",
-                        activo ? "text-marca-texto" : "text-texto-2 hover:bg-superficie-2 hover:text-texto",
+                        activo ? "text-white" : "text-texto-2 hover:bg-[color-mix(in_oklab,var(--texto)_6%,transparent)] hover:text-texto",
                       )}
                     >
                       {activo && (
                         <motion.span
                           layoutId="nav-activo"
-                          className="absolute inset-0 rounded-xl bg-marca-suave"
+                          className="absolute inset-0 rounded-xl bg-marca shadow-[0_1px_2px_color-mix(in_oklab,var(--marca)_40%,transparent)]"
                           transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
                         />
                       )}
                       <i.icono
-                        className={cn("relative size-[18px] shrink-0 transition-colors", activo && "text-marca")}
+                        className={cn("relative size-[18px] shrink-0 transition-colors", activo && "text-white")}
                         strokeWidth={activo ? 2.2 : 1.8}
                       />
                       <span className={cn("relative truncate transition-opacity", colapsada && "opacity-0")}>

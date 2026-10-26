@@ -20,9 +20,10 @@
   --texto: #16181d;
   --texto-2: #4a4f5a;
   --texto-3: #8b909b;
-  --peligro: #d92d20;
-  --exito: #079455;
-  --aviso: #dc6803;
+  /* Colores de sistema de Apple, en su variante accesible (se leen como texto sobre claro). */
+  --peligro: #d70015;
+  --exito: #248a3d;
+  --aviso: #c93400;
   /* Sombras amplias y difusas, como los widgets de iOS. */
   --sombra-sm: 0 1px 2px rgb(16 20 28 / 0.04), 0 4px 14px -6px rgb(16 20 28 / 0.07);
   --sombra-md: 0 2px 4px rgb(16 20 28 / 0.04), 0 10px 24px -8px rgb(16 20 28 / 0.12);
@@ -42,6 +43,10 @@
   --texto: #f5f5f7;
   --texto-2: #a5a5ad;
   --texto-3: #6e6e77;
+  /* En oscuro, los de sistema de Apple tal cual. */
+  --peligro: #ff453a;
+  --exito: #30d158;
+  --aviso: #ff9f0a;
   --sombra-sm: 0 1px 2px rgb(0 0 0 / 0.4);
   --sombra-md: 0 4px 12px -2px rgb(0 0 0 / 0.5);
   --sombra-lg: 0 24px 48px -12px rgb(0 0 0 / 0.6);
@@ -50,7 +55,8 @@
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  /* La fuente del sistema de Apple donde existe (macOS); en Windows, Inter, que es su pariente más cercano. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   /* Esquinas amplias de iOS: todo rounded-* de la app se redondea un poco más. */
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
@@ -87,6 +93,8 @@
     background: var(--fondo);
     color: var(--texto);
     font-feature-settings: "cv11", "ss01", "tnum" 0;
+    /* Tracking del texto de cuerpo como el de SF (Inter en 14-15 px lo pide un poco más cerrado). */
+    letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -252,6 +260,14 @@ html[data-movimiento="reducido"] *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+}
+
+/* Reducir transparencia (ajuste del sistema): sin desenfoques; las barras quedan sólidas. */
+@media (prefers-reduced-transparency: reduce) {
+  [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

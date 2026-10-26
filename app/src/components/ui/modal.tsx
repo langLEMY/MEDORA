@@ -14,11 +14,13 @@ interface ModalProps {
   ancho?: "sm" | "md" | "lg" | "xl";
   /** Panel lateral (desde la derecha) en vez de diálogo centrado. */
   lateral?: boolean;
+  /** Cuerpo sin relleno, para contenido de borde a borde (p. ej. una portada). */
+  sinRelleno?: boolean;
 }
 
 const ANCHOS = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };
 
-export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, ancho = "md", lateral }: ModalProps) {
+export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, ancho = "md", lateral, sinRelleno }: ModalProps) {
   const panel = useRef<HTMLDivElement>(null);
   const anterior = useRef<HTMLElement | null>(null);
   // En ref: los padres suelen pasar una función inline y no queremos re-enfocar en cada render.
@@ -99,7 +101,7 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
               </div>
               {children != null && children !== false && (
                 <motion.div
-                  className="flex-1 overflow-y-auto px-6 py-5"
+                  className={cn("flex-1 overflow-y-auto", !sinRelleno && "px-6 py-5")}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.26, delay: 0.05, ease: [0.23, 1, 0.32, 1] }}

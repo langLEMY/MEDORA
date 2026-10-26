@@ -2980,6 +2980,7 @@ export type Database = {
           actualizado_en: string
           actualizado_por: string | null
           avatar_url: string | null
+          biografia: string | null
           correo_contacto: string | null
           creado_en: string
           debe_cambiar_password: boolean
@@ -2999,6 +3000,7 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
+          biografia?: string | null
           correo_contacto?: string | null
           creado_en?: string
           debe_cambiar_password?: boolean
@@ -3018,6 +3020,7 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
+          biografia?: string | null
           correo_contacto?: string | null
           creado_en?: string
           debe_cambiar_password?: boolean
@@ -3038,6 +3041,32 @@ export type Database = {
             columns: ["ultimo_sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      perfiles_portada: {
+        Row: {
+          actualizado_en: string
+          imagen: string
+          perfil_id: string
+        }
+        Insert: {
+          actualizado_en?: string
+          imagen: string
+          perfil_id: string
+        }
+        Update: {
+          actualizado_en?: string
+          imagen?: string
+          perfil_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perfiles_portada_perfil_id_fkey"
+            columns: ["perfil_id"]
+            isOneToOne: true
+            referencedRelation: "perfiles"
             referencedColumns: ["id"]
           },
         ]

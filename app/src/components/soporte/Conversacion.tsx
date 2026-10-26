@@ -852,7 +852,7 @@ export function Conversacion({
 
       {/* Datos que se adjuntaron solos (solo soporte). */}
       <Modal abierto={verInfo} onCerrar={() => setVerInfo(false)} titulo={`Solicitud #${solicitud.numero}`} descripcion={solicitud.sistema?.nombre}>
-        <dl className="divide-y divide-borde/70 px-6 py-2 text-sm">
+        <dl className="-my-2 divide-y divide-borde/70 text-sm">
           {[
             ["Persona", solicitud.autor?.nombre_completo],
             ["Categoría", CATEGORIA_SOLICITUD[solicitud.categoria]],
@@ -873,7 +873,7 @@ export function Conversacion({
             ))}
         </dl>
         {Array.isArray(ctx.errores) && ctx.errores.length > 0 && (
-          <div className="px-6 pb-5">
+          <div className="mt-4">
             <p className="mb-2 text-xs font-medium text-texto-3">Errores recientes en su sesión</p>
             <ul className="space-y-1.5">
               {(ctx.errores as { tipo: string; mensaje: string; pantalla: string }[]).map((e, i) => (
@@ -889,7 +889,7 @@ export function Conversacion({
       <EditarRespuestas abierto={editarRespuestas} onCerrar={() => setEditarRespuestas(false)} actuales={respuestas} usuarioId={perfil?.id} />
 
       <Modal abierto={!!ampliada} onCerrar={() => setAmpliada(null)} titulo="Captura" ancho="xl">
-        {ampliada && <img src={ampliada} alt="Captura adjunta" className="mx-auto block max-h-[70vh] max-w-full p-4" />}
+        {ampliada && <img src={ampliada} alt="Captura adjunta" className="mx-auto block max-h-[70vh] max-w-full rounded-xl" />}
       </Modal>
     </div>
   );
@@ -1231,7 +1231,7 @@ function EditarRespuestas({ abierto, onCerrar, actuales, usuarioId }: { abierto:
         </div>
       }
     >
-      <div className="px-6 py-5">
+      <div>
         <AreaTexto value={texto} onChange={(e) => setTexto(e.target.value)} rows={10} aria-label="Respuestas rápidas, una por línea" />
       </div>
     </Modal>

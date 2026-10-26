@@ -95,7 +95,7 @@ export function NuevaSolicitud({
         </div>
       }
     >
-      <div className="space-y-4 px-6 py-5" onPaste={alPegar}>
+      <div className="space-y-4" onPaste={alPegar}>
         <Campo etiqueta="¿De qué se trata?">
           {() => (
             <Segmentado

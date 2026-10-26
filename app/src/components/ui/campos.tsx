@@ -274,15 +274,16 @@ export function Interruptor({
       className="inline-flex items-center gap-2.5 text-sm text-texto-2 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span
+        // Proporciones del interruptor de iOS (51×31 a escala de escritorio) y su verde de sistema.
         className={cn(
-          "relative h-5 w-9 rounded-full transition-colors duration-200",
-          activo ? "bg-marca" : "bg-borde-fuerte",
+          "relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200",
+          activo ? "bg-exito" : "bg-[color-mix(in_oklab,var(--texto)_16%,transparent)]",
         )}
       >
         <motion.span
-          className="absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm"
-          animate={{ x: activo ? 16 : 0 }}
-          transition={{ type: "spring", duration: 0.25, bounce: 0.2 }}
+          className="absolute top-[2px] left-[2px] size-[22px] rounded-full bg-white shadow-[0_2px_6px_rgb(0_0_0/0.2),0_0_0_0.5px_rgb(0_0_0/0.04)]"
+          animate={{ x: activo ? 18 : 0 }}
+          transition={{ type: "spring", duration: 0.3, bounce: 0.15 }}
         />
       </span>
       {etiqueta}

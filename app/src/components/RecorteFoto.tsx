@@ -5,21 +5,29 @@ import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
 /**
- * Recorte de la foto de perfil: se arrastra para encuadrar dentro del círculo, se acerca con el
- * deslizador (o la rueda del ratón) y se gira de 90 en 90. El resultado es un JPEG cuadrado de
- * 256×256 (≈15-25 KB) que se guarda en el perfil; el avatar lo muestra redondo.
+ * Recorte de imágenes del perfil: se arrastra para encuadrar, se acerca con el deslizador (o la
+ * rueda del ratón) y se gira de 90 en 90.
+ *   - «circulo» (foto): JPEG cuadrado de 256×256 (≈15-25 KB); el avatar lo muestra redondo.
+ *   - «portada» (banner): JPEG 3:1 de 1200×400, comprimido hasta que quepa en el perfil.
  */
 
-const MARCO = 224;
-const SALIDA = 256;
+const FORMAS = {
+  circulo: { marco: { w: 224, h: 224 }, salida: { w: 256, h: 256 }, titulo: "Recortar foto", boton: "Usar foto" },
+  portada: { marco: { w: 360, h: 120 }, salida: { w: 1200, h: 400 }, titulo: "Recortar portada", boton: "Usar portada" },
+} as const;
 const ZOOM_MAX = 3;
+/** Tope del data URL de la portada (perfiles.portada lo exige en la base). */
+const MAX_PORTADA = 380_000;
 
-export function RecorteFoto({ archivo, guardando, onCancelar, onListo }: {
+export function RecorteFoto({ archivo, guardando, onCancelar, onListo, forma = "circulo" }: {
   archivo: File | null;
   guardando?: boolean;
   onCancelar: () => void;
   onListo: (fotoDataUrl: string) => void;
+  forma?: keyof typeof FORMAS;
 }) {
+  const { marco: MARCO, salida: SALIDA, titulo, boton } = FORMAS[forma];
+  const redonda = forma === "circulo";
   const [url, setUrl] = useState<string | null>(null);
   const [natural, setNatural] = useState({ ancho: 0, alto: 0 });
   const [zoom, setZoom] = useState(1);
@@ -49,20 +57,20 @@ export function RecorteFoto({ archivo, guardando, onCancelar, onListo }: {
     };
   }, [archivo]);
 
-  // La imagen siempre cubre el círculo: el lado corto mide lo que el marco.
-  const escala = natural.ancho && natural.alto ? MARCO / Math.min(natural.ancho, natural.alto) : 1;
+  // La imagen siempre cubre el marco por completo.
+  const escala = natural.ancho && natural.alto ? Math.max(MARCO.w / natural.ancho, MARCO.h / natural.alto) : 1;
   const ancho = natural.ancho * escala * zoom;
   const alto = natural.alto * escala * zoom;
   const girada = giro % 180 !== 0;
 
-  // Límite del arrastre para que no quede espacio vacío dentro del círculo.
+  // Límite del arrastre para que no quede espacio vacío dentro del marco.
   const limitar = useMemo(() => {
     const w = girada ? alto : ancho;
     const h = girada ? ancho : alto;
-    const mx = Math.max(0, (w - MARCO) / 2);
-    const my = Math.max(0, (h - MARCO) / 2);
+    const mx = Math.max(0, (w - MARCO.w) / 2);
+    const my = Math.max(0, (h - MARCO.h) / 2);
     return (p: { x: number; y: number }) => ({ x: Math.min(mx, Math.max(-mx, p.x)), y: Math.min(my, Math.max(-my, p.y)) });
-  }, [ancho, alto, girada]);
+  }, [ancho, alto, girada, MARCO]);
 
   useEffect(() => setDesplazo((d) => limitar(d)), [limitar]);
 
@@ -85,25 +93,34 @@ export function RecorteFoto({ archivo, guardando, onCancelar, onListo }: {
     const img = imagen.current;
     if (!img) return;
     const lienzo = document.createElement("canvas");
-    lienzo.width = lienzo.height = SALIDA;
+    lienzo.width = SALIDA.w;
+    lienzo.height = SALIDA.h;
     const ctx = lienzo.getContext("2d")!;
-    const k = SALIDA / MARCO;
+    const k = SALIDA.w / MARCO.w;
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, SALIDA, SALIDA);
+    ctx.fillRect(0, 0, SALIDA.w, SALIDA.h);
     // Mismo orden que la vista previa: desplazar en pantalla, luego girar sobre el centro y escalar.
-    ctx.translate(SALIDA / 2 + desplazo.x * k, SALIDA / 2 + desplazo.y * k);
+    ctx.translate(SALIDA.w / 2 + desplazo.x * k, SALIDA.h / 2 + desplazo.y * k);
     ctx.rotate((giro * Math.PI) / 180);
     ctx.scale(escala * zoom * k, escala * zoom * k);
     ctx.drawImage(img, -natural.ancho / 2, -natural.alto / 2);
-    onListo(lienzo.toDataURL("image/jpeg", 0.85));
+    if (redonda) return onListo(lienzo.toDataURL("image/jpeg", 0.85));
+    // La portada baja de calidad hasta caber (una foto con mucho detalle pesa más).
+    let calidad = 0.82;
+    let datos = lienzo.toDataURL("image/jpeg", calidad);
+    while (datos.length > MAX_PORTADA && calidad > 0.4) {
+      calidad -= 0.08;
+      datos = lienzo.toDataURL("image/jpeg", calidad);
+    }
+    onListo(datos);
   };
 
   return (
     <Modal
       abierto={!!archivo}
       onCerrar={onCancelar}
-      ancho="sm"
-      titulo="Recortar foto"
+      ancho={redonda ? "sm" : "md"}
+      titulo={titulo}
       descripcion="Arrastra para encuadrar y acerca con el deslizador."
       pie={
         <>
@@ -114,7 +131,7 @@ export function RecorteFoto({ archivo, guardando, onCancelar, onListo }: {
             Cancelar
           </Boton>
           <Boton onClick={usar} cargando={guardando} disabled={!url}>
-            Usar foto
+            {boton}
           </Boton>
         </>
       }
@@ -127,10 +144,11 @@ export function RecorteFoto({ archivo, guardando, onCancelar, onListo }: {
           onPointerCancel={soltar}
           onWheel={rueda}
           className={cn(
-            "relative touch-none overflow-hidden rounded-full bg-superficie-2 ring-2 ring-[color-mix(in_oklab,var(--marca)_45%,transparent)] select-none",
+            "relative max-w-full touch-none overflow-hidden bg-superficie-2 ring-2 ring-[color-mix(in_oklab,var(--marca)_45%,transparent)] select-none",
+            redonda ? "rounded-full" : "rounded-2xl",
             arrastrando ? "cursor-grabbing" : "cursor-grab",
           )}
-          style={{ width: MARCO, height: MARCO }}
+          style={{ width: MARCO.w, height: MARCO.h }}
           aria-label="Área de recorte: arrastra para encuadrar"
         >
           {url && (
@@ -147,7 +165,7 @@ export function RecorteFoto({ archivo, guardando, onCancelar, onListo }: {
               }}
             />
           )}
-          <div className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/40 ring-inset" />
+          <div className={cn("pointer-events-none absolute inset-0 ring-1 ring-white/40 ring-inset", redonda ? "rounded-full" : "rounded-2xl")} />
         </div>
 
         <label className="flex w-full max-w-64 items-center gap-3">
