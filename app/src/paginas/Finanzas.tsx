@@ -26,11 +26,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
-  Line,
   Pie,
   PieChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -44,6 +41,7 @@ import { AreaTexto, Entrada, Interruptor, Selector } from "@/components/ui/campo
 import { Modal } from "@/components/ui/modal";
 import { contenedorEscalonado, EASE_SALIDA, itemEscalonado } from "@/components/ui/movimiento";
 import { EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
+import { CurvaEspejo } from "@/components/ui/widgets";
 import { useAccionUrl } from "@/lib/accionUrl";
 import { METODOS_PAGO } from "@/lib/consultas";
 import { puede } from "@/lib/permisos";
@@ -143,6 +141,11 @@ const PALETA = [
 // ---------------------------------------------------------------------------
 // Resumen
 // ---------------------------------------------------------------------------
+/** Entró: verde que se aclara; salió: naranja que pasa a rojo. */
+const COLORES_ESPEJO: { arriba: [string, string]; abajo: [string, string] } = {
+  arriba: ["color-mix(in oklab, var(--exito) 60%, #22d3ee)", "var(--exito)"],
+  abajo: ["var(--aviso)", "var(--peligro)"],
+};
 interface Resumen {
   ingresos: number;
   gastos: number;
@@ -185,12 +188,24 @@ export function ResumenFinanciero() {
     ganancia: Number(p.ganancia),
     etiqueta: etiquetaPeriodo(p.periodo, agrupar),
   }));
-  const promedio = serie.length ? serie.reduce((s, p) => s + p.ganancia, 0) / serie.length : 0;
   const ticket = f?.cobros ? Number(f.ingresos) / f.cobros : 0;
+  // Ritmo y extremos del período. Los promedios cuentan solo los períodos con movimiento
+  // (un domingo cerrado no baja el promedio de lo que entra por día).
+  const unidad = agrupar === "dia" ? "día" : agrupar === "semana" ? "semana" : "mes";
+  const conMovimiento = serie.filter((p) => p.ingresos || p.gastos);
+  const promEntro = conMovimiento.length ? conMovimiento.reduce((s, p) => s + p.ingresos, 0) / conMovimiento.length : 0;
+  const promSalio = conMovimiento.length ? conMovimiento.reduce((s, p) => s + p.gastos, 0) / conMovimiento.length : 0;
+  const mejor = conMovimiento.reduce<(typeof serie)[number] | null>((m, p) => (p.ingresos > (m?.ingresos ?? 0) ? p : m), null);
+  const masGasto = conMovimiento.reduce<(typeof serie)[number] | null>((m, p) => (p.gastos > (m?.gastos ?? 0) ? p : m), null);
+  const enRojo = conMovimiento.filter((p) => p.gastos > p.ingresos);
   const cargando = q.isLoading;
   const [detalle, setDetalle] = useState<PedidoDetalle | null>(null);
   const hoy = isoDia(new Date());
   const delPeriodo = (p: Omit<PedidoDetalle, "desde" | "hasta">) => setDetalle({ ...p, desde, hasta });
+  const abrirPeriodo = (p: (typeof serie)[number], vista: "ingresos" | "gastos") => {
+    const [d, h] = limitesPeriodo(p.periodo, agrupar);
+    setDetalle({ titulo: `Movimiento del ${p.etiqueta}`, vista, desde: d, hasta: h, agrupar: "cuenta", alternar: true });
+  };
   const deSaldo = (titulo: string, cuentas: string[], descripcion?: string) =>
     setDetalle({ titulo, descripcion, vista: "saldo", hasta: hoy, cuentas, agrupar: cuentas.includes("comisiones_por_pagar") ? "medico" : "tercero" });
 
@@ -272,52 +287,79 @@ export function ResumenFinanciero() {
         />
       </motion.div>
 
-      {/* Entradas y salidas por período */}
+      {/* Entradas y salidas por período: lo que entró hacia arriba, lo que salió hacia abajo. */}
       <Tarjeta className="mt-4 p-5">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[0.9375rem] font-semibold">Entradas y salidas</h2>
-            <p className="text-xs text-texto-3">
-              Por {agrupar === "dia" ? "día" : agrupar === "semana" ? "semana" : "mes"}. La línea es lo que quedó; la raya punteada, el promedio. Toca un{" "}
-              {agrupar === "dia" ? "día" : agrupar === "semana" ? "semana" : "mes"} para ver el detalle.
+        <div className="flex flex-col gap-5 lg:flex-row">
+          <div className="shrink-0 lg:w-56">
+            <h2 className="text-[1.0625rem] font-semibold tracking-[-0.02em]">Entradas y salidas</h2>
+            <p className="mt-0.5 text-xs text-texto-3">
+              Arriba lo que entró, abajo lo que salió; la raya punteada es el promedio. Toca un {unidad} para ver el detalle.
             </p>
+            {/* Lo que las tarjetas de arriba no dicen: ritmo, extremos y días en rojo. */}
+            <dl className="mt-4 divide-y divide-borde/70 text-[0.8125rem]">
+              {cargando
+                ? Array.from({ length: 5 }, (_, i) => <Esqueleto key={i} className="my-2.5 h-4" />)
+                : [
+                    { etiqueta: `Entra por ${unidad}`, valor: moneda(promEntro), color: COLORES_ESPEJO.arriba[1] },
+                    { etiqueta: `Sale por ${unidad}`, valor: moneda(promSalio), color: COLORES_ESPEJO.abajo[1] },
+                    mejor && { etiqueta: `Mejor ${unidad}`, valor: mejor.etiqueta, nota: moneda(mejor.ingresos), abrir: () => abrirPeriodo(mejor, "ingresos") },
+                    masGasto && { etiqueta: "Más gasto", valor: masGasto.etiqueta, nota: moneda(masGasto.gastos), abrir: () => abrirPeriodo(masGasto, "gastos") },
+                    {
+                      etiqueta: `${unidad === "mes" ? "Meses" : unidad === "semana" ? "Semanas" : "Días"} en rojo`,
+                      valor: enRojo.length ? String(enRojo.length) : "Ninguno",
+                      nota: enRojo.length ? "salió más de lo que entró" : undefined,
+                      tono: enRojo.length ? "text-peligro" : "text-exito",
+                    },
+                  ]
+                    .filter((x) => !!x)
+                    .map((x) => {
+                      const fila = (
+                        <>
+                          <dt className="flex items-center gap-1.5 text-texto-2">
+                            {"color" in x && x.color && <i className="size-2 rounded-full" style={{ background: x.color }} />}
+                            {x.etiqueta}
+                          </dt>
+                          <dd className="text-right">
+                            <span className={cn("font-semibold tabular-nums", "tono" in x ? x.tono : "text-texto")}>{x.valor}</span>
+                            {"nota" in x && x.nota && <span className="block text-xs text-texto-3 tabular-nums">{x.nota}</span>}
+                          </dd>
+                        </>
+                      );
+                      return "abrir" in x && x.abrir ? (
+                        <button
+                          key={x.etiqueta}
+                          type="button"
+                          onClick={x.abrir}
+                          className="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-superficie-2"
+                        >
+                          {fila}
+                        </button>
+                      ) : (
+                        <div key={x.etiqueta} className="flex items-center justify-between gap-3 py-2.5">
+                          {fila}
+                        </div>
+                      );
+                    })}
+            </dl>
           </div>
-          <Leyenda items={[["Entró", "var(--exito)"], ["Salió", "color-mix(in oklab, var(--peligro) 70%, var(--superficie))"], ["Quedó", "var(--marca)"]]} />
-        </div>
-        <div className="h-72">
-          {cargando ? (
-            <Esqueleto className="h-full rounded-xl" />
-          ) : serie.every((p) => !p.ingresos && !p.gastos) ? (
-            <Vacio icono={<Scale />} titulo="Sin movimientos en este período" descripcion="Cuando haya cobros o gastos, aquí verás cómo se comparan." />
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={serie}
-                margin={{ left: -6, right: 8, top: 8 }}
-                barGap={2}
-                style={{ cursor: "pointer" }}
-                onClick={(e) => {
-                  const punto = serie[Number(e?.activeTooltipIndex)];
-                  if (!punto) return;
-                  const [d, h] = limitesPeriodo(punto.periodo, agrupar);
-                  setDetalle({ titulo: `Movimiento del ${punto.etiqueta}`, vista: punto.ingresos || !punto.gastos ? "ingresos" : "gastos", desde: d, hasta: h, agrupar: "cuenta", alternar: true });
-                }}
-              >
-                <CartesianGrid vertical={false} stroke="var(--borde)" strokeDasharray="3 4" />
-                <XAxis dataKey="etiqueta" tick={{ fontSize: 11, fill: "var(--texto-3)" }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={12} />
-                <YAxis tickFormatter={compacto} tick={{ fontSize: 11, fill: "var(--texto-3)" }} axisLine={false} tickLine={false} width={52} />
-                <Tooltip
-                  cursor={{ fill: "color-mix(in oklab, var(--marca) 6%, transparent)" }}
-                  contentStyle={tooltipEstilo}
-                  formatter={(v, nombre) => [moneda(Number(v)), nombre === "ingresos" ? "Entró" : nombre === "gastos" ? "Salió" : "Quedó"]}
-                />
-                <ReferenceLine y={promedio} stroke="var(--texto-3)" strokeDasharray="4 4" />
-                <Bar dataKey="ingresos" fill="var(--exito)" radius={[5, 5, 0, 0]} maxBarSize={22} animationDuration={700} />
-                <Bar dataKey="gastos" fill="color-mix(in oklab, var(--peligro) 70%, var(--superficie))" radius={[5, 5, 0, 0]} maxBarSize={22} animationDuration={700} />
-                <Line dataKey="ganancia" type="monotone" stroke="var(--marca)" strokeWidth={2.5} dot={serie.length <= 14 ? { r: 3 } : false} animationDuration={900} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
+          <div className="h-72 min-w-0 flex-1 overflow-hidden rounded-xl border border-borde/70 bg-superficie-2/40">
+            {cargando ? (
+              <Esqueleto className="h-full rounded-xl" />
+            ) : serie.every((p) => !p.ingresos && !p.gastos) ? (
+              <Vacio icono={<Scale />} titulo="Sin movimientos en este período" descripcion="Cuando haya cobros o gastos, aquí verás cómo se comparan." />
+            ) : (
+              <CurvaEspejo
+                className="h-full"
+                puntos={serie.map((p) => ({ etiqueta: p.etiqueta, arriba: p.ingresos, abajo: p.gastos }))}
+                colores={COLORES_ESPEJO}
+                nombres={{ arriba: "Entró", abajo: "Salió" }}
+                formato={(v) => moneda(v)}
+                extraTooltip={(p) => ({ etiqueta: "Quedó", valor: moneda(p.arriba - p.abajo) })}
+                promedios={{ arriba: promEntro, abajo: promSalio }}
+                onElegir={(i) => serie[i] && abrirPeriodo(serie[i], serie[i].ingresos || !serie[i].gastos ? "ingresos" : "gastos")}
+              />
+            )}
+          </div>
         </div>
       </Tarjeta>
 
@@ -516,19 +558,6 @@ function Kpi({
         tarjeta
       )}
     </motion.div>
-  );
-}
-
-function Leyenda({ items }: { items: [string, string][] }) {
-  return (
-    <div className="flex flex-wrap gap-3">
-      {items.map(([t, c]) => (
-        <span key={t} className="flex items-center gap-1.5 text-xs text-texto-2">
-          <span className="size-2.5 rounded-[3px]" style={{ background: c }} />
-          {t}
-        </span>
-      ))}
-    </div>
   );
 }
 

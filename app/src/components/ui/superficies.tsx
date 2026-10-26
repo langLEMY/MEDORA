@@ -11,7 +11,7 @@ export function Tarjeta({ className, interactiva, ...p }: HTMLAttributes<HTMLDiv
   return (
     <div
       className={cn(
-        "rounded-2xl border border-borde bg-superficie shadow-sm",
+        "rounded-2xl border border-borde/70 bg-superficie shadow-sm",
         interactiva &&
           "cursor-pointer transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-borde-fuerte hover:shadow-md active:translate-y-0 active:scale-[0.99]",
         className,
@@ -33,7 +33,7 @@ export function EncabezadoPagina({
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[1.375rem] font-semibold tracking-[-0.02em] text-texto">{titulo}</h1>
+        <h1 className="text-[1.75rem] leading-tight font-bold tracking-[-0.03em] text-texto">{titulo}</h1>
         {descripcion && <p className="mt-1 text-sm text-texto-2">{descripcion}</p>}
       </div>
       {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}

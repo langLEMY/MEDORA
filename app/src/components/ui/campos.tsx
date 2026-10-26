@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const BASE =
-  "w-full rounded-[10px] border border-borde bg-superficie px-3 text-sm text-texto placeholder:text-texto-3 shadow-sm transition-[border-color,box-shadow] duration-150 outline-none hover:border-borde-fuerte focus:border-marca focus:[box-shadow:0_0_0_4px_var(--anillo)] disabled:opacity-60 aria-[invalid=true]:border-peligro aria-[invalid=true]:focus:[box-shadow:0_0_0_4px_color-mix(in_oklab,var(--peligro)_25%,transparent)]";
+  "w-full rounded-xl border border-borde bg-superficie px-3 text-sm text-texto placeholder:text-texto-3 transition-[border-color,box-shadow] duration-150 outline-none hover:border-borde-fuerte focus:border-marca focus:[box-shadow:0_0_0_4px_var(--anillo)] disabled:opacity-60 aria-[invalid=true]:border-peligro aria-[invalid=true]:focus:[box-shadow:0_0_0_4px_color-mix(in_oklab,var(--peligro)_25%,transparent)]";
 
 interface CampoProps {
   etiqueta?: ReactNode;
@@ -228,22 +228,22 @@ export function Segmentado<T extends string>({
   id: string;
 }) {
   return (
-    <div className="inline-flex rounded-[10px] border border-borde bg-superficie-2 p-0.5">
+    <div className="inline-flex rounded-[10px] bg-superficie-2 p-[2px]">
       {opciones.map((o) => (
         <button
           key={o.valor}
           type="button"
           onClick={() => onChange(o.valor)}
           className={cn(
-            "relative h-7 rounded-lg px-3 text-[0.8125rem] font-medium transition-colors duration-150",
+            "relative h-7 rounded-[8px] px-3 text-[0.8125rem] font-medium transition-colors duration-150",
             valor === o.valor ? "text-texto" : "text-texto-2 hover:text-texto",
           )}
         >
           {valor === o.valor && (
             <motion.span
               layoutId={`seg-${id}`}
-              className="absolute inset-0 rounded-lg bg-superficie shadow-sm"
-              transition={{ type: "spring", duration: 0.3, bounce: 0.15 }}
+              className="absolute inset-0 rounded-[8px] bg-superficie shadow-[0_1px_2px_rgb(0_0_0/0.08),0_3px_8px_-2px_rgb(0_0_0/0.1)] ring-1 ring-borde/60"
+              transition={{ type: "spring", duration: 0.35, bounce: 0.12 }}
             />
           )}
           <span className="relative">{o.etiqueta}</span>

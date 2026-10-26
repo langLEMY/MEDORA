@@ -16,12 +16,14 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { MedicosAhora, TurnosEnVivo } from "@/components/WidgetsInicio";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
+import { Segmentado } from "@/components/ui/campos";
+import { CifraWidget, CurvaArea, Widget } from "@/components/ui/widgets";
 import { ESTADO_CITA, nombrePaciente, useCitas, type CitaConRelaciones } from "@/lib/consultas";
 import { puede, puedeEscribir } from "@/lib/permisos";
 import { datos, supabase, type EstadoCita } from "@/lib/supabase";
@@ -34,10 +36,16 @@ interface Resumen {
   pacientes_mes: number;
   citas_hoy: number;
   citas_por_estado: Partial<Record<EstadoCita, number>>;
+  /** Valor de los servicios (incluye la parte de la ARS y el crédito). */
   ingresos_hoy: number;
   ingresos_mes: number;
+  /** Lo que entró en caja (sin ARS ni crédito al paciente). */
+  cobrado_hoy: number;
+  cobrado_mes: number;
+  ars_hoy: number;
+  credito_hoy: number;
   stock_bajo: number;
-  serie: { fecha: string; citas: number; ingresos: number }[];
+  serie: { fecha: string; citas: number; ingresos: number; cobrado: number }[];
 }
 
 interface EstadisticasMes {
@@ -215,40 +223,27 @@ function Indicador({
   tono?: "marca" | "aviso" | "exito" | "peligro";
 }) {
   const color = tono === "marca" ? "var(--marca)" : `var(--${tono})`;
-  const idGradiente = `mini${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const contenido = (
-    <Tarjeta interactiva={!!ruta} className="group relative h-full overflow-hidden p-5">
-      <div className="flex items-center justify-between">
-        <span className="text-[0.8125rem] font-medium text-texto-2">{etiqueta}</span>
+    <Widget interactiva={!!ruta} className="group flex h-full flex-col">
+      <div className="flex items-center gap-2">
         <span
-          className="grid size-8 place-items-center rounded-lg transition-transform duration-200 group-hover:scale-105"
-          style={{ background: `color-mix(in oklab, ${color} 13%, var(--superficie))`, color }}
+          className="grid size-7 place-items-center rounded-[9px] transition-transform duration-200 group-hover:scale-105"
+          style={{ background: `color-mix(in oklab, ${color} 14%, var(--superficie))`, color }}
         >
-          <Icono className="size-4" />
+          <Icono className="size-[15px]" />
         </span>
+        <span className="text-[0.8125rem] font-medium text-texto-2">{etiqueta}</span>
       </div>
-      <div className="mt-3 text-[1.75rem] font-semibold tracking-[-0.02em]">
-        {cargando ? <Esqueleto className="h-8 w-24" /> : <NumeroAnimado valor={valor} formato={formato} />}
-      </div>
-      <div className="mt-1 flex items-end justify-between gap-3">
-        <p className="min-w-0 truncate text-xs text-texto-3">{extra}</p>
+      <div className="mt-4 flex flex-1 items-end justify-between gap-3">
+        <div className="min-w-0">
+          <CifraWidget>{cargando ? <Esqueleto className="h-8 w-24" /> : <NumeroAnimado valor={valor} formato={formato} />}</CifraWidget>
+          <p className="mt-2 min-w-0 truncate text-xs text-texto-3">{extra}</p>
+        </div>
         {serie && serie.some((n) => n > 0) && (
-          <div className="h-8 w-24 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={serie.map((v, i) => ({ i, v }))} margin={{ top: 2, bottom: 2, left: 0, right: 0 }}>
-                <defs>
-                  <linearGradient id={idGradiente} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.75} fill={`url(#${idGradiente})`} isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <CurvaArea compacta color={color} puntos={serie.map((valor, i) => ({ etiqueta: String(i), valor }))} className="h-10 w-24 shrink-0" />
         )}
       </div>
-    </Tarjeta>
+    </Widget>
   );
   return (
     <motion.div variants={itemEscalonado} className="h-full">
@@ -265,9 +260,9 @@ function Indicador({
 
 function EncabezadoTarjeta({ titulo, descripcion, ruta, enlace, extra }: { titulo: string; descripcion?: string; ruta?: string; enlace?: string; extra?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-borde px-5 py-4">
+    <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-1">
       <div className="min-w-0">
-        <h2 className="text-[0.9375rem] font-semibold">{titulo}</h2>
+        <h2 className="text-[1.0625rem] font-semibold tracking-[-0.02em]">{titulo}</h2>
         {descripcion && <p className="text-xs text-texto-3">{descripcion}</p>}
       </div>
       {extra}
@@ -365,7 +360,7 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
   const verFinanzas = puede(roles, "caja", false, permisos);
   const verInventario = puede(roles, "inventario", false, permisos);
   const verRecepcion = puede(roles, "recepcion", false, permisos);
-  const [serieVista, setSerieVista] = useState<"citas" | "ingresos">("citas");
+  const [serieVista, setSerieVista] = useState<"citas" | "cobrado">("citas");
 
   const resumen = useQuery({
     queryKey: ["dashboard", sistemaId],
@@ -431,13 +426,18 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
         />
         {verFinanzas ? (
           <Indicador
-            etiqueta="Ingresos de hoy"
-            valor={Number(r?.ingresos_hoy ?? 0)}
+            etiqueta="Cobrado hoy"
+            valor={Number(r?.cobrado_hoy ?? 0)}
             formato={(n) => moneda(n)}
-            extra={`${moneda(r?.ingresos_mes)} este mes`}
+            extra={
+              <span title={`${moneda(r?.ingresos_hoy)} en servicios hoy · ${moneda(r?.cobrado_mes)} cobrado este mes`}>
+                {Number(r?.ars_hoy ?? 0) > 0 ? `${moneda(r?.ars_hoy)} por cobrar a ARS` : `${moneda(r?.cobrado_mes)} este mes`}
+                {Number(r?.credito_hoy ?? 0) > 0 && ` · ${moneda(r?.credito_hoy)} a crédito`}
+              </span>
+            }
             icono={TrendingUp}
             ruta="/caja"
-            serie={serie.map((s) => Number(s.ingresos))}
+            serie={serie.map((s) => Number(s.cobrado ?? s.ingresos))}
             cargando={resumen.isLoading}
             tono="exito"
           />
@@ -457,68 +457,36 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
         <Tarjeta className="flex flex-col">
           <EncabezadoTarjeta
             titulo="Últimos 14 días"
-            descripcion={serieVista === "citas" ? "Citas por día" : "Ingresos netos por día"}
+            descripcion={serieVista === "citas" ? "Citas por día" : "Cobrado en caja por día"}
             extra={
               verFinanzas && (
-                <div className="flex rounded-lg bg-superficie-2 p-0.5 text-xs font-medium">
-                  {(["citas", "ingresos"] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setSerieVista(v)}
-                      className={cn("rounded-md px-2.5 py-1 capitalize transition-colors", serieVista === v ? "bg-superficie text-texto shadow-sm" : "text-texto-3 hover:text-texto-2")}
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
+                <Segmentado
+                  id="dashboard-serie"
+                  valor={serieVista}
+                  onChange={setSerieVista}
+                  opciones={[
+                    { valor: "citas", etiqueta: "Citas" },
+                    { valor: "cobrado", etiqueta: "Cobrado" },
+                  ]}
+                />
               )
             }
           />
-          <div className="h-64 p-5 pt-4">
+          <div className="h-64 px-3 pt-2 pb-3">
             {resumen.isLoading ? (
               <Esqueleto className="h-full rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={serie} margin={{ left: -12, right: 4, top: 4 }}>
-                  <defs>
-                    <linearGradient id="g-serie" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={serieVista === "citas" ? "var(--marca)" : "var(--exito)"} stopOpacity={0.28} />
-                      <stop offset="100%" stopColor={serieVista === "citas" ? "var(--marca)" : "var(--exito)"} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} stroke="var(--borde)" strokeDasharray="3 4" />
-                  <XAxis
-                    dataKey="fecha"
-                    tickFormatter={(f: string) => new Date(f + "T00:00:00").getDate().toString()}
-                    tick={{ fontSize: 11, fill: "var(--texto-3)" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tickFormatter={(v: number) => (serieVista === "ingresos" ? (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)) : String(v))}
-                    tick={{ fontSize: 11, fill: "var(--texto-3)" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    cursor={{ stroke: "var(--borde-fuerte)" }}
-                    contentStyle={tooltipEstilo}
-                    labelFormatter={(f) => new Intl.DateTimeFormat("es-DO", { weekday: "short", day: "numeric", month: "short" }).format(new Date(String(f) + "T00:00:00"))}
-                    formatter={(v) => (serieVista === "ingresos" ? [moneda(Number(v)), "Ingresos"] : [v, "Citas"])}
-                  />
-                  <Area
-                    key={serieVista}
-                    type="monotone"
-                    dataKey={serieVista}
-                    stroke={serieVista === "citas" ? "var(--marca)" : "var(--exito)"}
-                    strokeWidth={2}
-                    fill="url(#g-serie)"
-                    animationDuration={600}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <CurvaArea
+                key={serieVista}
+                className="h-full"
+                nombre={serieVista === "citas" ? "Citas por día" : "Cobrado por día"}
+                color={serieVista === "citas" ? "var(--marca)" : "var(--exito)"}
+                formato={serieVista === "cobrado" ? (n) => moneda(n) : (n) => `${n} ${n === 1 ? "cita" : "citas"}`}
+                puntos={serie.map((s) => ({
+                  etiqueta: new Intl.DateTimeFormat("es-DO", { day: "numeric", month: "short" }).format(new Date(s.fecha + "T00:00:00")).replace(".", ""),
+                  valor: Number(serieVista === "citas" ? s.citas : (s.cobrado ?? s.ingresos)),
+                }))}
+              />
             )}
           </div>
         </Tarjeta>

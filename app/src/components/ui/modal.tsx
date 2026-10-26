@@ -50,7 +50,7 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
       {abierto && (
         <div className="fixed inset-0 z-50">
           <motion.div
-            className="absolute inset-0 bg-[rgb(10_13_18/0.45)] backdrop-blur-[2px]"
+            className="absolute inset-0 bg-[rgb(10_13_18/0.38)] backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -78,7 +78,7 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
               }
               transition={lateral ? { type: "spring", duration: 0.42, bounce: 0.05 } : { type: "spring", duration: 0.38, bounce: 0.24 }}
               className={cn(
-                "pointer-events-auto flex w-full flex-col bg-superficie shadow-lg outline-none",
+                "pointer-events-auto flex w-full flex-col overflow-hidden bg-superficie shadow-lg outline-none",
                 lateral
                   ? "h-full max-w-xl border-l border-borde"
                   : cn("max-h-[84vh] rounded-2xl border border-borde", ANCHOS[ancho]),
@@ -86,7 +86,7 @@ export function Modal({ abierto, onCerrar, titulo, descripcion, children, pie, a
             >
               <div className="flex items-start justify-between gap-4 border-b border-borde px-6 py-4">
                 <div>
-                  <h2 className="text-base font-semibold tracking-[-0.01em]">{titulo}</h2>
+                  <h2 className="text-[1.0625rem] font-semibold tracking-[-0.02em]">{titulo}</h2>
                   {descripcion && <p className="mt-0.5 text-sm text-texto-2">{descripcion}</p>}
                 </div>
                 <button

@@ -56,7 +56,7 @@ export function Menu({
                 ...pos.estilo,
                 transformOrigin: `${pos.arriba ? "bottom" : "top"} ${alinear === "izquierda" ? "left" : "right"}`,
               }}
-              className="z-[60] overflow-y-auto rounded-xl border border-borde bg-superficie p-1 shadow-lg"
+              className="z-[60] overflow-y-auto rounded-xl border border-borde/70 bg-[color-mix(in_oklab,var(--superficie)_86%,transparent)] p-1 shadow-lg backdrop-blur-xl"
             >
               {children(() => setAbierto(false))}
             </motion.div>
