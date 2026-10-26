@@ -382,7 +382,8 @@ export function Conversacion({
       ? `${solicitud.sistema?.nombre ?? ""} · #${solicitud.numero}`
       : `#${solicitud.numero} · ${ESTADO_SOLICITUD[solicitud.estado].etiqueta}`;
   const ctx = (solicitud.contexto ?? {}) as Record<string, unknown>;
-  const pantallas = NAVEGACION.filter((i) => puedeVer(i, roles, esSuperadmin, permisos, soloLoPropio(roles)));
+  // Pantallas que tiene sentido enviarle al hospital (sin las de plataforma ni la propia Ayuda).
+  const pantallas = NAVEGACION.filter((i) => !i.soloSuperadmin && i.ruta !== "/ayuda" && puedeVer(i, roles, esSuperadmin, permisos, soloLoPropio(roles)));
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -957,6 +958,21 @@ function Burbuja({
   const presion = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inicio = useRef({ x: 0, y: 0 });
   const enTactil = useMemo(tactil, []);
+  const selectorRef = useRef<HTMLDivElement>(null);
+
+  // El selector se cierra al tocar fuera o con Escape. (Una capa «fixed» no sirve aquí: la
+  // burbuja tiene transform por su animación y el fixed quedaría encerrado en ella.)
+  useEffect(() => {
+    if (!selectorAbierto) return;
+    const fuera = (e: PointerEvent) => !selectorRef.current?.contains(e.target as Node) && onSelector(false);
+    const tecla = (e: globalThis.KeyboardEvent) => e.key === "Escape" && onSelector(false);
+    document.addEventListener("pointerdown", fuera, true);
+    document.addEventListener("keydown", tecla);
+    return () => {
+      document.removeEventListener("pointerdown", fuera, true);
+      document.removeEventListener("keydown", tecla);
+    };
+  }, [selectorAbierto, onSelector]);
 
   // Mantener presionado (táctil) abre los tapbacks, como en Mensajes.
   const alPresionar = (e: EventoPuntero) => {
@@ -1025,8 +1041,8 @@ function Burbuja({
         <AnimatePresence>
           {selectorAbierto && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => onSelector(false)} aria-hidden />
               <motion.div
+                ref={selectorRef}
                 role="menu"
                 aria-label="Reaccionar"
                 initial={{ opacity: 0, scale: 0.85, y: 6 }}
@@ -1038,7 +1054,6 @@ function Burbuja({
                   "absolute bottom-full z-40 mb-2 flex gap-0.5 rounded-full border border-borde/70 bg-[color-mix(in_oklab,var(--superficie)_90%,transparent)] p-1 shadow-lg backdrop-blur-xl",
                   mio ? "right-0" : "left-0",
                 )}
-                onKeyDown={(e) => e.key === "Escape" && onSelector(false)}
               >
                 {TAPBACKS.map((t) => (
                   <button
@@ -1046,6 +1061,8 @@ function Burbuja({
                     type="button"
                     role="menuitem"
                     title={t.nombre}
+                    aria-label={t.nombre}
+                    aria-pressed={miReaccion === t.tipo}
                     onClick={() => onTapback(t.tipo)}
                     className={cn(
                       "grid size-9 place-items-center rounded-full text-[1.15rem] transition-transform duration-150 hover:scale-110 active:scale-95",

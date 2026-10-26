@@ -154,6 +154,14 @@ export default function Ayuda() {
                 <Esqueleto className="h-10" />
                 <Esqueleto className="h-10" />
               </div>
+            ) : solicitudes.isError ? (
+              <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
+                <p className="text-sm font-medium">No se pudieron cargar las conversaciones</p>
+                <p className="text-xs text-texto-3">{mensajeError(solicitudes.error)}</p>
+                <Boton tamano="sm" variante="secundario" className="mt-1" onClick={() => void solicitudes.refetch()}>
+                  Reintentar
+                </Boton>
+              </div>
             ) : resto.length === 0 && fijadas.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
                 <AvatarSoporte tamano={44} />

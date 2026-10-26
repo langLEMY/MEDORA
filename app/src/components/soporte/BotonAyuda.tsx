@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { CircleHelp } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { enEscritorio, enviar, escuchar } from "@/lib/escritorio";
 import { useAgenteSoporte, usePendientesSoporte } from "@/lib/soporte";
@@ -14,18 +14,19 @@ import { useSesion } from "@/sesion/SesionProvider";
  * sus guías y adjuntarla si se pide soporte). El globo rojo cuenta las conversaciones con
  * algo nuevo: respuestas de soporte o, para el superadmin, mensajes de los hospitales.
  *
- * Cuando ese número sube y MEDORA no está al frente, avisa con una notificación de
- * Windows (launcher) o del navegador si ya tiene permiso; al tocarla se abre Ayuda.
+ * Cada mensaje nuevo del otro lado avisa con una notificación de Windows (el launcher solo
+ * la muestra si MEDORA no está al frente) o del navegador si ya tiene permiso; al tocarla
+ * se abre esa conversación.
  */
 export function BotonAyuda() {
-  const { sistema } = useSesion();
+  const { sistema, sesion } = useSesion();
+  const yo = sesion?.user.id;
   const agente = useAgenteSoporte();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const qc = useQueryClient();
   const pendientes = usePendientesSoporte(!!sistema);
   const n = pendientes.data ?? 0;
-  const anterior = useRef<number | null>(null);
 
   // En vivo: cualquier cambio en una solicitud visible (el RLS filtra) recalcula el globo.
   useEffect(() => {
@@ -48,28 +49,39 @@ export function BotonAyuda() {
     [navigate],
   );
 
+  // Aviso por cada mensaje nuevo del otro lado (Realtime; el RLS solo entrega los de
+  // conversaciones visibles). Muestra el asunto, nunca el texto del mensaje: el centro de
+  // notificaciones de Windows no debe guardar nada que alguien haya escrito.
   useEffect(() => {
-    if (pendientes.data === undefined) return;
-    const antes = anterior.current;
-    anterior.current = n;
-    if (antes === null || n <= antes) return;
-    const titulo = agente ? "Nuevo mensaje en Ayuda" : "Soporte MEDORA te respondió";
-    const texto = agente
-      ? n === 1
-        ? "Tienes 1 conversación por responder."
-        : `Tienes ${n} conversaciones por responder.`
-      : "Toca para ver la respuesta.";
-    if (enEscritorio) {
-      enviar("notificar", { titulo, texto, ruta: "/ayuda" });
-    } else if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-      const aviso = new Notification(titulo, { body: texto, tag: "medora-soporte" });
-      aviso.onclick = () => {
-        window.focus();
-        navigate("/ayuda");
-        aviso.close();
-      };
-    }
-  }, [n, pendientes.data, agente, navigate]);
+    if (!sistema || !yo) return;
+    const canal = supabase
+      .channel(`soporte-avisos-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes_soporte" }, async ({ new: fila }) => {
+        const m = fila as { solicitud_id: string; de_soporte: boolean; evento: string | null };
+        if (m.evento || m.de_soporte === agente) return;
+        const { data: s } = await supabase
+          .from("solicitudes_soporte")
+          .select("autor_id, asunto, sistema:sistemas(nombre)")
+          .eq("id", m.solicitud_id)
+          .maybeSingle();
+        // Al hospital solo le avisan las respuestas a sus propias solicitudes.
+        if (!s || (!agente && s.autor_id !== yo)) return;
+        const titulo = agente ? `Nuevo mensaje · ${(s.sistema as { nombre?: string } | null)?.nombre ?? "Ayuda"}` : "Soporte MEDORA te respondió";
+        const ruta = `/ayuda?solicitud=${m.solicitud_id}`;
+        if (enEscritorio) {
+          enviar("notificar", { titulo, texto: s.asunto, ruta });
+        } else if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+          const aviso = new Notification(titulo, { body: s.asunto, tag: `medora-soporte-${m.solicitud_id}` });
+          aviso.onclick = () => {
+            window.focus();
+            navigate(ruta);
+            aviso.close();
+          };
+        }
+      })
+      .subscribe();
+    return () => void supabase.removeChannel(canal);
+  }, [sistema, yo, agente, navigate]);
 
   if (!sistema) return null;
   const enAyuda = pathname === "/ayuda";
