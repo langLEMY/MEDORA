@@ -88,7 +88,8 @@ export function CabeceraPerfil({ onEditar, acciones }: { onEditar: () => void; a
 
       <div className="px-6 pb-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="-mt-12 rounded-full ring-4 ring-superficie">
+          {/* relative z-10: la portada está posicionada y, sin esto, se pinta encima de la foto. */}
+          <div className="relative z-10 -mt-12 rounded-full ring-4 ring-superficie">
             <Avatar nombre={perfil?.nombre_completo} foto={perfil?.foto} tamano={96} className="shadow-md" />
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-3">
@@ -249,7 +250,7 @@ export function EditarPerfil({ abierto, onCerrar }: { abierto: boolean; onCerrar
         </div>
 
         {/* Foto */}
-        <div className="-mt-10 flex items-end gap-2 px-6">
+        <div className="relative z-10 -mt-10 flex items-end gap-2 px-6">
           <div className="relative rounded-full ring-4 ring-superficie">
             <Avatar nombre={nombre || perfil?.nombre_completo} foto={fotoVista} tamano={80} />
             <button
