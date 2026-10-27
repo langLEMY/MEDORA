@@ -74,9 +74,11 @@ jobs:
           exit 1
       - name: Baterías SQL (roles y aislamiento)
         run: |
-          # Con fallo, el CLI deja el motivo en la salida (que va al .json): mostrarlo.
-          supabase db query --local --output-format json -f supabase/tests/funcional_roles.sql > funcional.json || { cat funcional.json; exit 1; }
-          supabase db query --local --output-format json -f supabase/tests/rls_aislamiento.sql > rls.json || { cat rls.json; exit 1; }
+          # `supabase db query --local` no acepta varias sentencias por archivo: psycopg sí.
+          pip install --quiet "psycopg[binary]==3.2.10"
+          DSN=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          python3 scripts/correr-bateria.py $DSN supabase/tests/funcional_roles.sql funcional.json
+          python3 scripts/correr-bateria.py $DSN supabase/tests/rls_aislamiento.sql rls.json
           python3 scripts/verificar-baterias.py funcional.json rls.json
       - name: Lint de funciones (avisa, no bloquea todavía)
         continue-on-error: true
