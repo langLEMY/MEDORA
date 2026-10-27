@@ -52,8 +52,16 @@ jobs:
       - name: Tests del launcher
         run: dotnet test launcher/MEDORA.Actualizacion.Tests -c Release
 
+      # Firma opcional (Azure Trusted Signing): sin estas variables y secretos sale sin firmar.
       - name: Generar instalador
         shell: pwsh
+        env:
+          FIRMA_ENDPOINT: ${{ vars.FIRMA_ENDPOINT }}
+          FIRMA_CUENTA: ${{ vars.FIRMA_CUENTA }}
+          FIRMA_PERFIL: ${{ vars.FIRMA_PERFIL }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: ./scripts/generar-instalador.ps1
 
       - name: Verificar destino de la release

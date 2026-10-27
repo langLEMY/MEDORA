@@ -341,7 +341,8 @@ public sealed class FormPrincipal : Form
         Enviar(new { tipo = "actualizacion", version = info.VersionTag.TrimStart('v', 'V'), notas = info.Notas });
 
     /// <summary>
-    /// Descarga con progreso, verifica SHA256 y ejecuta el instalador en modo silencioso:
+    /// Descarga con progreso, verifica SHA256 (y la firma si este launcher está firmado) y
+    /// ejecuta el instalador en modo silencioso:
     /// instala por usuario (sin UAC) y vuelve a abrir MEDORA solo al terminar.
     /// </summary>
     private async Task InstalarAsync()
@@ -357,6 +358,7 @@ public sealed class FormPrincipal : Form
             var progreso = new Progress<int>(p => Enviar(new { tipo = "progreso", porcentaje = p }));
             using var cancelacion = new CancellationTokenSource(TimeSpan.FromMinutes(10));
             var ruta = await _actualizacion.DescargarAsync(_pendiente, progreso, cancelacion.Token);
+            FirmaCodigo.ExigirMismaFirma(ruta);
 
             Process.Start(new ProcessStartInfo
             {
