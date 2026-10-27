@@ -27,8 +27,8 @@ as $$
            'estado', u.status,
            'mensaje', left(u.return_message, 200),
            'fallas_24h', coalesce(f.n, 0),
-           -- Tolerancia: diarias 26 h, cada 10 min 1 h.
-           'atrasada', u.start_time is null or u.start_time < now() - case when j.schedule like '*/%' then interval '1 hour' else interval '26 hours' end
+           -- Tolerancia: diarias 26 h, cada 10 min 1 h. Una tarea recién creada que aún no corre no cuenta.
+           'atrasada', u.start_time < now() - case when j.schedule like '*/%' then interval '1 hour' else interval '26 hours' end
          ) order by j.jobname), '[]'::jsonb)
     from cron.job j
     left join lateral (select d.start_time, d.status, d.return_message from cron.job_run_details d
@@ -58,7 +58,7 @@ begin
       v := v || jsonb_build_object('tarea', t ->> 'tarea', 'titulo', 'Falló ' || (t ->> 'tarea'), 'detalle', t ->> 'mensaje');
     elsif (t ->> 'atrasada')::boolean then
       v := v || jsonb_build_object('tarea', t ->> 'tarea', 'titulo', (t ->> 'tarea') || ' no corre desde ' ||
-        coalesce(to_char((t ->> 'ultima')::timestamptz at time zone 'America/Santo_Domingo', 'DD/MM HH24:MI'), 'nunca'));
+        to_char((t ->> 'ultima')::timestamptz at time zone 'America/Santo_Domingo', 'DD/MM HH24:MI'));
     end if;
   end loop;
 
