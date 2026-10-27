@@ -21,7 +21,7 @@ insert into public.servicios (id, sistema_id, nombre, categoria, precio, duracio
   ('d0000000-0000-4000-8000-000000000102', 'd0000000-0000-4000-8000-000000000002', 'Consulta odontológica', 'consulta', 1200, 30, 'Odontología'),
   ('d0000000-0000-4000-8000-000000000103', 'd0000000-0000-4000-8000-000000000002', 'Hemograma', 'laboratorio', 450, 15, null),
   ('d0000000-0000-4000-8000-000000000104', 'd0000000-0000-4000-8000-000000000002', 'Curación', 'procedimiento', 800, 20, null),
-  ('d0000000-0000-4000-8000-000000000105', 'd0000000-0000-4000-8000-000000000002', 'Sonografía abdominal', 'estudio', 2500, 30, null)
+  ('d0000000-0000-4000-8000-000000000105', 'd0000000-0000-4000-8000-000000000002', 'Sonografía abdominal', 'imagen', 2500, 30, null)
 on conflict do nothing;
 
 insert into public.aseguradoras (id, sistema_id, nombre) values
