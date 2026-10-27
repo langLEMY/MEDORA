@@ -180,7 +180,7 @@ async function actualizar(admin: Admin, id: string, cambios: Record<string, unkn
 
 async function datosComprobante(
   admin: Admin,
-  doc: { cobro_id: string; sistema_id: string; tipo: string; encf: string },
+  doc: { cobro_id: string; sistema_id: string; tipo: string; encf: string; creado_en: string; nota_de: string | null; codigo_modificacion: number | null; motivo: string | null },
   emisor: DatosComprobante["emisor"],
 ): Promise<DatosComprobante> {
   const [{ data: cobro }, { data: detalles }, { data: pagos }, { data: secuencia }] = await Promise.all([
@@ -191,11 +191,21 @@ async function datosComprobante(
   ]);
   if (!cobro) throw new Error("Cobro no encontrado.");
   if (!emisor.rnc) throw new Error("El sistema no tiene RNC.");
+
+  // Nota de crédito (E34): se emite hoy y referencia al e-CF original (fecha del cobro).
+  let referencia: DatosComprobante["referencia"];
+  if (doc.tipo === "E34") {
+    const { data: original } = await admin.from("ecf_documentos").select("encf").eq("id", doc.nota_de ?? "").maybeSingle();
+    if (!original) throw new Error("La nota de crédito no encuentra el comprobante que modifica.");
+    referencia = { encf: original.encf, fecha: new Date(cobro.creado_en), codigo: doc.codigo_modificacion ?? 1, razon: doc.motivo ?? "Anulación" };
+  }
+
   return {
     tipo: doc.tipo,
     encf: doc.encf,
-    venceSecuencia: secuencia?.vence_en ?? null,
-    fecha: new Date(cobro.creado_en),
+    venceSecuencia: referencia ? null : (secuencia?.vence_en ?? null),
+    fecha: referencia ? new Date(doc.creado_en) : new Date(cobro.creado_en),
+    referencia,
     emisor,
     comprador: { rnc: cobro.cliente_rnc, nombre: cobro.cliente_nombre },
     items: (detalles ?? []).map((d) => ({

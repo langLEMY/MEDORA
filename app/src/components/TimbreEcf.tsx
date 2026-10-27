@@ -12,7 +12,10 @@ export function TimbreEcf({ cobroId }: { cobroId: string }) {
   const doc = useQuery({
     queryKey: ["ecf-timbre", cobroId],
     queryFn: async () =>
-      datos(await supabase.from("ecf_documentos").select("estado, codigo_seguridad, fecha_firma, qr_url").eq("cobro_id", cobroId).maybeSingle()),
+      // El comprobante del cobro, no su nota de crédito (E34) si la tiene.
+      datos(
+        await supabase.from("ecf_documentos").select("estado, codigo_seguridad, fecha_firma, qr_url").eq("cobro_id", cobroId).neq("tipo", "E34").maybeSingle(),
+      ),
     refetchInterval: (q) => (q.state.data?.qr_url || q.state.dataUpdateCount > 12 ? false : 3000),
   });
   const qr = useQuery({

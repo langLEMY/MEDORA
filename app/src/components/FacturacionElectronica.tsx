@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileCheck2, Send } from "lucide-react";
+import { Download, FileCheck2, FileMinus2, Send } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
-import { Interruptor } from "@/components/ui/campos";
+import { Entrada, Interruptor } from "@/components/ui/campos";
+import { Modal } from "@/components/ui/modal";
 import { FilasEsqueleto, Insignia, Tarjeta, Vacio, type Tono } from "@/components/ui/superficies";
 import { puedeEscribir } from "@/lib/permisos";
 import { datos, invocar, mensajeError, supabase } from "@/lib/supabase";
@@ -56,7 +58,7 @@ export function FacturacionElectronica() {
       datos(
         await supabase
           .from("ecf_documentos")
-          .select("id, encf, tipo, monto_total, estado, resumen, codigo_seguridad, mensajes, intentos, creado_en, ultimo_intento")
+          .select("id, cobro_id, encf, tipo, nota_de, motivo, monto_total, estado, resumen, codigo_seguridad, mensajes, intentos, creado_en, ultimo_intento")
           .eq("sistema_id", sistemaId)
           .order("creado_en", { ascending: false })
           .limit(60),
@@ -102,6 +104,22 @@ export function FacturacionElectronica() {
     },
     onError: (e) => toast.error(mensajeError(e)),
   });
+
+  const [nota, setNota] = useState<{ cobro_id: string; encf: string; monto_total: number } | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const emitirNota = useMutation({
+    mutationFn: async () => datos(await supabase.rpc("emitir_nota_credito", { p_cobro: nota!.cobro_id, p_motivo: motivo.trim() })) as { encf: string },
+    onSuccess: (r) => {
+      toast.success(`Nota de crédito ${r.encf} emitida`, { description: "El cobro quedó anulado. La E34 se envía a la DGII ahora." });
+      setNota(null);
+      setMotivo("");
+      refrescar();
+      enviar.mutate();
+    },
+    onError: (err) => toast.error(mensajeError(err)),
+  });
+  // e-CF que ya tienen su nota de crédito (no se ofrece emitir otra).
+  const conNota = new Set((docs.data ?? []).filter((d) => d.tipo === "E34").map((d) => d.nota_de));
 
   const e = estado.data;
   const conectado = e?.conexion === "conectado";
@@ -166,9 +184,21 @@ export function FacturacionElectronica() {
                     {est.etiqueta}
                   </Insignia>
                   {d.resumen && <span className="ml-2 text-xs text-texto-3">resumen de consumo</span>}
+                  {d.tipo === "E34" && (
+                    <span className="ml-2 text-xs text-texto-3">
+                      nota de crédito de {docs.data!.find((o) => o.id === d.nota_de)?.encf ?? "otro e-CF"}
+                      {d.motivo && ` · ${d.motivo}`}
+                    </span>
+                  )}
+                  {conNota.has(d.id) && <span className="ml-2 text-xs text-texto-3">anulado con nota de crédito</span>}
                   {msg && <p className="mt-0.5 truncate text-xs text-peligro" title={msg}>{msg}</p>}
                 </div>
                 <span className="hidden shrink-0 text-xs text-texto-3 sm:block">{fechaHora(d.creado_en)}</span>
+                {puedeEscribir.caja(roles) && d.tipo !== "E34" && !conNota.has(d.id) && (d.estado === "aceptado" || d.estado === "aceptado_condicional") && (
+                  <Boton tamano="sm" variante="fantasma" icono={<FileMinus2 className="size-4" />} onClick={() => setNota(d)}>
+                    Nota de crédito
+                  </Boton>
+                )}
                 {d.codigo_seguridad && (
                   <button
                     title="Descargar XML firmado"
@@ -183,6 +213,37 @@ export function FacturacionElectronica() {
           })}
         </ul>
       )}
+
+      <Modal
+        abierto={!!nota}
+        onCerrar={() => setNota(null)}
+        titulo="Nota de crédito (E34)"
+        pie={
+          <>
+            <Boton variante="secundario" onClick={() => setNota(null)}>
+              Cancelar
+            </Boton>
+            <Boton variante="peligro" cargando={emitirNota.isPending} disabled={motivo.trim().length < 3} onClick={() => emitirNota.mutate()}>
+              Emitir y anular el cobro
+            </Boton>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-texto-2">
+            Anula por completo el comprobante <span className="font-mono">{nota?.encf}</span> ({moneda(nota?.monto_total ?? 0)}): se emite una E34
+            de la secuencia autorizada, se envía a la DGII y el cobro queda anulado (asientos, comisiones y caja).
+          </p>
+          <Entrada
+            etiqueta="Motivo"
+            placeholder="Ej. Servicio no realizado"
+            value={motivo}
+            maxLength={90}
+            onChange={(x) => setMotivo(x.target.value)}
+            ayuda="Va en el comprobante (máximo 90 caracteres)."
+          />
+        </div>
+      </Modal>
     </Tarjeta>
   );
 }

@@ -1861,7 +1861,10 @@ export type Database = {
           fecha_firma: string | null
           id: string
           intentos: number
+          codigo_modificacion: number | null
           mensajes: Json | null
+          motivo: string | null
+          nota_de: string | null
           monto_total: number
           qr_url: string | null
           resumen: boolean
@@ -1882,7 +1885,10 @@ export type Database = {
           fecha_firma?: string | null
           id?: string
           intentos?: number
+          codigo_modificacion?: number | null
           mensajes?: Json | null
+          motivo?: string | null
+          nota_de?: string | null
           monto_total: number
           qr_url?: string | null
           resumen?: boolean
@@ -1903,7 +1909,10 @@ export type Database = {
           fecha_firma?: string | null
           id?: string
           intentos?: number
+          codigo_modificacion?: number | null
           mensajes?: Json | null
+          motivo?: string | null
+          nota_de?: string | null
           monto_total?: number
           qr_url?: string | null
           resumen?: boolean
@@ -4858,6 +4867,10 @@ export type Database = {
       }
       eliminar_empleado: { Args: { p_empleado: string }; Returns: string }
       eliminar_item: { Args: { p_item: string }; Returns: string }
+      emitir_nota_credito: {
+        Args: { p_cobro: string; p_motivo: string }
+        Returns: Json
+      }
       eliminar_miembro: {
         Args: { p_sistema: string; p_usuario: string }
         Returns: string
