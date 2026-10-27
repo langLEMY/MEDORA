@@ -5336,6 +5336,7 @@ export type Database = {
       retirar_mensaje_soporte: { Args: { p_mensaje: string }; Returns: string }
       revocar_codigo_invitacion: { Args: { p_id: string }; Returns: undefined }
       soporte_pendientes: { Args: never; Returns: number }
+      salud_tareas: { Args: never; Returns: Json }
       soy_agente_soporte: { Args: never; Returns: boolean }
       verificar_codigo_instalacion: {
         Args: { p_codigo: string }
