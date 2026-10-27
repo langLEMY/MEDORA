@@ -61,8 +61,17 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.0
+      # Solo Postgres (las baterías son SQL): una imagen en vez de diez. El registro público de
+      # imágenes a veces limita las descargas ("toomanyrequests"), por eso se reintenta.
       - name: Supabase local (migraciones + semilla)
-        run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta
+        run: |
+          for intento in 1 2 3; do
+            supabase db start && exit 0
+            echo "Intento $intento falló; reintento en 60 s"
+            supabase stop --no-backup || true
+            sleep 60
+          done
+          exit 1
       - name: Baterías SQL (roles y aislamiento)
         run: |
           supabase db query --local --output-format json -f supabase/tests/funcional_roles.sql > funcional.json
