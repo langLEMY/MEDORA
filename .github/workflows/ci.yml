@@ -48,3 +48,26 @@ jobs:
           fi
       - run: dotnet build MEDORA.sln -c Release --no-restore
       - run: dotnet test MEDORA.sln -c Release --no-build
+
+  # La base desde cero: aplica las 90+ migraciones en orden sobre un Supabase local,
+  # carga la semilla (configuración de «FUNBIDE · Pruebas», sin personas) y corre las
+  # baterías de roles y aislamiento. Si una migración ya no aplica limpia, falla aquí
+  # y no en producción.
+  base:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Supabase local (migraciones + semilla)
+        run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta
+      - name: Baterías SQL (roles y aislamiento)
+        run: |
+          supabase db query --local --output-format json -f supabase/tests/funcional_roles.sql > funcional.json
+          supabase db query --local --output-format json -f supabase/tests/rls_aislamiento.sql > rls.json
+          python3 scripts/verificar-baterias.py funcional.json rls.json
+      - name: Lint de funciones (avisa, no bloquea todavía)
+        continue-on-error: true
+        run: supabase db lint --local --level error

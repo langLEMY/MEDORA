@@ -2,7 +2,8 @@
 -- MEDORA · Batería funcional por roles (recepción, caja, médico, farmacia,
 -- contabilidad, auditor, gerencia, enfermería, quiosco) + nómina e impuestos.
 --
--- Corre sobre el sistema de pruebas "FUNBIDE · Pruebas" con usuarios QA creados
+-- Corre sobre el sistema de pruebas "FUNBIDE · Pruebas" (o el «Hospital Demo · Pruebas» de
+-- supabase/tests/semilla_local.sql en la base local y el CI) con usuarios QA creados
 -- dentro de la transacción y termina en ROLLBACK: no deja nada en la base.
 --   supabase db query --linked --agent no -f supabase/tests/funcional_roles.sql
 -- Cada fila del resultado es una prueba (OK / FALLA).
@@ -38,7 +39,9 @@ grant execute on all functions in schema pg_temp to authenticated;
 -- ---------------------------------------------------------------- preparación
 do $$
 declare
-  v_s uuid := (select id from public.sistemas where es_pruebas and nombre like 'FUNBIDE%' limit 1);
+  -- En producción: «FUNBIDE · Pruebas». En la base local / CI: el «Hospital Demo · Pruebas» de la semilla.
+  v_s uuid := coalesce((select id from public.sistemas where es_pruebas and nombre like 'FUNBIDE%' limit 1),
+                       (select id from public.sistemas where es_pruebas and slug = 'demo-pruebas'));
   v_rol text;
   v_uid uuid;
 begin
