@@ -61,9 +61,46 @@ export const GUIAS: Guia[] = [
     pasos: [
       "En la lista de cobros, pasa el mouse sobre el cobro y toca el ícono de Anular.",
       "Escribe el motivo. El cobro queda marcado como anulado y la contabilidad se revierte sola.",
-      "Un cobro con factura electrónica ya enviada a la DGII no se anula: necesita una nota de crédito.",
+      "Un cobro con factura electrónica ya enviada a la DGII no se anula aquí: necesita una nota de crédito (ver «Nota de crédito electrónica»).",
     ],
     claves: "cancelar devolver error cobro",
+  },
+  {
+    id: "nota-credito",
+    titulo: "Nota de crédito electrónica (E34)",
+    resumen: "Anular un cobro cuya factura electrónica ya aceptó la DGII.",
+    rutas: ["/contabilidad", "/caja"],
+    pasos: [
+      "Ve a Contabilidad → Comprobantes fiscales y busca el comprobante del cobro.",
+      "Toca Nota de crédito (solo aparece si la DGII ya lo aceptó).",
+      "Escribe el motivo y toca Emitir y anular el cobro: se emite la E34, se envía a la DGII y el cobro queda anulado con su contabilidad revertida.",
+    ],
+    claves: "e34 anular factura electronica ecf dgii devolucion",
+  },
+  {
+    id: "pagar-medico",
+    titulo: "Registrar el pago a un médico",
+    resumen: "Después de liquidar sus comisiones, deja constancia de cómo se le pagó.",
+    rutas: ["/medicos"],
+    pasos: [
+      "En Médicos → Pago de médicos, liquida las comisiones pendientes del médico.",
+      "Cambia a la vista Liquidaciones y pagos y toca Pagar en la liquidación.",
+      "Elige transferencia, cheque o efectivo. En efectivo sale de tu turno de caja abierto; en los otros escribe la referencia o el número de cheque.",
+      "MEDORA registra el egreso y su asiento. Una liquidación no se puede pagar dos veces.",
+    ],
+    claves: "comisiones liquidacion honorarios egreso",
+  },
+  {
+    id: "exportar-fhir",
+    titulo: "Entregar el expediente a otro centro",
+    resumen: "Descargar el expediente completo en el formato internacional FHIR.",
+    rutas: ["/pacientes"],
+    pasos: [
+      "Abre la ficha del paciente y toca Exportar (FHIR).",
+      "Se descarga un archivo con datos, alergias, consultas, recetas, diagnósticos y resultados, que otro sistema clínico puede leer.",
+      "Cada exportación queda en la auditoría: entrégalo solo al paciente o a quien él autorice.",
+    ],
+    claves: "fhir hl7 expediente traslado referir exportar",
   },
   {
     id: "pagos-ars",
