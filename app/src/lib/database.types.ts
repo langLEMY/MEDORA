@@ -3430,6 +3430,50 @@ export type Database = {
           },
         ]
       }
+      pagos_liquidacion: {
+        Row: {
+          creado_en: string
+          creado_por: string
+          id: string
+          liquidacion_id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          movimiento_id: string
+          referencia: string | null
+          sistema_id: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string
+          id?: string
+          liquidacion_id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          movimiento_id: string
+          referencia?: string | null
+          sistema_id: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string
+          id?: string
+          liquidacion_id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"]
+          monto?: number
+          movimiento_id?: string
+          referencia?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_liquidacion_sistema_id_liquidacion_id_fkey"
+            columns: ["sistema_id", "liquidacion_id"]
+            isOneToOne: true
+            referencedRelation: "liquidaciones_comision"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       parametros_nomina: {
         Row: {
           actualizado_en: string
@@ -4995,6 +5039,15 @@ export type Database = {
         Returns: Json
       }
       pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
+      pagar_liquidacion: {
+        Args: {
+          p_liquidacion: string
+          p_metodo?: Database["public"]["Enums"]["metodo_pago"]
+          p_referencia?: string
+          p_sistema: string
+        }
+        Returns: Json
+      }
       partidas_sin_conciliar: {
         Args: { p_desde: string; p_hasta: string; p_sistema: string }
         Returns: {

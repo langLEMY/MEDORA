@@ -1680,6 +1680,8 @@ const CATEGORIAS_MOVIMIENTO: Record<string, string> = {
   servicios: "Servicios",
   mantenimiento: "Mantenimiento",
   deposito: "Depósito al banco",
+  // Solo la crea pagar_liquidacion (Comisiones → Liquidaciones y pagos); no se elige aquí.
+  pago_comision: "Pago de comisiones",
   reembolso: "Reembolso",
   otro: "Otro",
 };

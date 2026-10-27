@@ -309,6 +309,55 @@ begin
   end;
 end $$;
 
+-- ---------------------------------------------------------------- liquidación y pago de comisiones
+do $$
+declare v_s uuid := pg_temp.c('s')::uuid; j jsonb; p jsonb; e jsonb; n int;
+begin
+  perform pg_temp.como(pg_temp.c('contabilidad')::uuid);
+  j := public.liquidar_comisiones(v_s, pg_temp.c('odonto')::uuid, (now() at time zone 'America/Santo_Domingo')::date);
+  perform pg_temp.ok('Comisiones', 'Liquida lo pendiente del odontólogo (neto = total − retención)',
+    (j ->> 'neto')::numeric = (j ->> 'total')::numeric - (j ->> 'retencion')::numeric and (j ->> 'neto')::numeric > 0, j::text);
+  begin
+    perform public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'efectivo');
+    perform pg_temp.ok('Comisiones', 'Pago en efectivo exige turno de caja abierto', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'Pago en efectivo exige turno de caja abierto', sqlstate = 'P0001', sqlerrm);
+  end;
+  p := public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'transferencia', 'TRF-QA-1');
+  perform pg_temp.ok('Comisiones', 'Paga la liquidación por transferencia (monto = neto)', (p ->> 'monto')::numeric = (j ->> 'neto')::numeric, p::text);
+  perform pg_temp.yo_postgres();
+  select jsonb_build_object(
+           'por_pagar', sum(l.debe) filter (where l.cuenta_codigo = privado.cuenta(v_s, 'comisiones_por_pagar')),
+           'debe', sum(l.debe), 'haber', sum(l.haber)) into e
+    from public.asientos a join public.asiento_lineas l on l.asiento_id = a.id
+   where a.origen = 'movimiento' and a.origen_id = (p ->> 'movimiento_id')::uuid;
+  perform pg_temp.ok('Comisiones', 'Asiento del pago: debe comisiones por pagar = neto, cuadra',
+    (e ->> 'por_pagar')::numeric = (j ->> 'neto')::numeric and (e ->> 'debe')::numeric = (e ->> 'haber')::numeric, e::text);
+  perform pg_temp.como(pg_temp.c('contabilidad')::uuid);
+  begin
+    perform public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'transferencia');
+    perform pg_temp.ok('Comisiones', 'No se paga dos veces la misma liquidación', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'No se paga dos veces la misma liquidación', sqlstate = 'P0001', sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('recepcion')::uuid);
+  begin
+    perform public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'transferencia');
+    perform pg_temp.ok('Comisiones', 'Recepción no paga comisiones', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'Recepción no paga comisiones', sqlstate = '42501', sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  begin
+    perform public.registrar_movimiento(v_s, 'egreso', 'Truco', 10, 'efectivo', 'pago_comision');
+    perform pg_temp.ok('Comisiones', 'La categoría pago_comision está reservada', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'La categoría pago_comision está reservada', sqlerrm like 'Categoría reservada%', sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('odonto')::uuid);
+  select count(*) into n from public.pagos_liquidacion where liquidacion_id = (j ->> 'id')::uuid;
+  perform pg_temp.ok('Comisiones', 'El odontólogo ve el pago de su liquidación', n = 1, n::text);
+  perform pg_temp.como(pg_temp.c('medico')::uuid);
+  select count(*) into n from public.pagos_liquidacion where liquidacion_id = (j ->> 'id')::uuid;
+  perform pg_temp.ok('Comisiones', 'Otro médico no ve ese pago', n = 0, n::text);
+end $$;
+
 -- ---------------------------------------------------------------- farmacia / gastos / inventario
 do $$
 declare v_s uuid := pg_temp.c('s')::uuid; v_i uuid; j jsonb; n numeric; s numeric;
