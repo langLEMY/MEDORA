@@ -18,12 +18,11 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { MedicosAhora, TurnosEnVivo } from "@/components/WidgetsInicio";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { Segmentado } from "@/components/ui/campos";
-import { CifraWidget, CurvaArea, Widget } from "@/components/ui/widgets";
+import { Barras, CifraWidget, CurvaArea, Widget } from "@/components/ui/widgets";
 import { ESTADO_CITA, nombrePaciente, useCitas, type CitaConRelaciones } from "@/lib/consultas";
 import { puede, puedeEscribir } from "@/lib/permisos";
 import { datos, supabase, type EstadoCita } from "@/lib/supabase";
@@ -84,15 +83,6 @@ const COLOR_ESTADO: Record<EstadoCita, string> = {
   completada: "var(--exito)",
   cancelada: "var(--peligro)",
   no_asistio: "color-mix(in oklab, var(--peligro) 55%, var(--superficie))",
-};
-
-const tooltipEstilo = {
-  background: "var(--superficie)",
-  border: "1px solid var(--borde)",
-  borderRadius: 12,
-  boxShadow: "var(--sombra-md)",
-  fontSize: 12,
-  color: "var(--texto)",
 };
 
 export default function Dashboard() {
@@ -644,19 +634,12 @@ function InicioMedico({ yo, nombre, fecha, ahora }: { yo: string; nombre: string
               {est.isLoading ? (
                 <Esqueleto className="h-full rounded-xl" />
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={meses} margin={{ left: -18, right: 4, top: 4 }}>
-                    <CartesianGrid vertical={false} stroke="var(--borde)" strokeDasharray="3 4" />
-                    <XAxis dataKey="etiqueta" tick={{ fontSize: 11, fill: "var(--texto-3)" }} axisLine={false} tickLine={false} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-3)" }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      cursor={{ fill: "color-mix(in oklab, var(--marca) 8%, transparent)" }}
-                      contentStyle={tooltipEstilo}
-                      formatter={(v, n) => (n === "neto" ? [moneda(Number(v)), "Te correspondió"] : [v, "Pacientes"])}
-                    />
-                    <Bar dataKey="cobrados" fill="var(--marca)" radius={[5, 5, 0, 0]} maxBarSize={26} animationDuration={600} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Barras
+                  className="h-full"
+                  nombre="Pacientes por mes"
+                  puntos={meses.map((m) => ({ etiqueta: m.etiqueta, valor: Number(m.cobrados) }))}
+                  formato={(n) => `${n} paciente${n === 1 ? "" : "s"}`}
+                />
               )}
             </div>
           </Tarjeta>

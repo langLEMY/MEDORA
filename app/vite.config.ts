@@ -21,7 +21,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          if (id.includes("recharts") || id.includes("d3-")) return "graficos";
+          // recharts sin grupo propio: lo usan solo pantallas que se cargan al abrirlas (Finanzas,
+          // Estadísticas); en un grupo fijo arrastraba módulos compartidos al arranque.
           if (id.includes("@supabase") || id.includes("@tanstack")) return "datos";
           if (id.includes("node_modules/react")) return "react";
         },
