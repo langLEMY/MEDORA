@@ -74,8 +74,9 @@ jobs:
           exit 1
       - name: Baterías SQL (roles y aislamiento)
         run: |
-          supabase db query --local --output-format json -f supabase/tests/funcional_roles.sql > funcional.json
-          supabase db query --local --output-format json -f supabase/tests/rls_aislamiento.sql > rls.json
+          # Con fallo, el CLI deja el motivo en la salida (que va al .json): mostrarlo.
+          supabase db query --local --output-format json -f supabase/tests/funcional_roles.sql > funcional.json || { cat funcional.json; exit 1; }
+          supabase db query --local --output-format json -f supabase/tests/rls_aislamiento.sql > rls.json || { cat rls.json; exit 1; }
           python3 scripts/verificar-baterias.py funcional.json rls.json
       - name: Lint de funciones (avisa, no bloquea todavía)
         continue-on-error: true
