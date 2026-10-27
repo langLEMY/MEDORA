@@ -1,6 +1,6 @@
 ## ✨ MEDORA 1.9.0 — Pago de comisiones, notas de crédito y un arranque más rápido
 
-<!-- BORRADOR: renombrar a v1.9.0.md al publicar. Antes, aplicar las migraciones 20261027090000 a 20261027130000. -->
+<!-- BORRADOR: renombrar a v1.9.0.md al publicar. Antes, aplicar las migraciones 20261027090000 a 20261028090000. -->
 
 Ahora el pago a los médicos queda registrado con su asiento, los cobros con factura electrónica se pueden anular con nota de crédito y MEDORA abre más rápido. También llegan Laboratorio, Farmacia e Internamiento para las sedes que los usan.
 
@@ -10,6 +10,8 @@ Ahora el pago a los médicos queda registrado con su asiento, los cobros con fac
 
 ### ✨ Novedades
 
+- **👋 Bienvenida al entrar por primera vez.** Cada persona nueva elige su propio nombre de usuario (con el que entrará desde entonces), sube su foto si quiere, crea su contraseña y puede activar la verificación en dos pasos. Al final, un «¡Todo listo!» y directo al Inicio.
+- **💳 Planes de MEDORA.** El primer administrador de un hospital nuevo elige su plan al entrar, con **30 días gratis**; después se cobra por sede. Los hospitales que ya usan MEDORA no tienen que hacer nada.
 - **🤝 Pago de comisiones a los médicos.** En **Comisiones → Liquidaciones y pagos** registras cuándo y cómo se le pagó a cada médico (transferencia, cheque o efectivo de tu turno de caja). MEDORA hace el egreso y el asiento contable, y una liquidación no se puede pagar dos veces.
 - **🧾 Nota de crédito electrónica (E34).** Un cobro cuya factura electrónica ya aceptó la DGII se anula ahora desde **Contabilidad → Comprobantes fiscales → Nota de crédito**: se emite la E34, se envía a la DGII y el cobro queda anulado.
 - **🏥 Laboratorio, Farmacia e Internamiento.** Las sedes de tipo laboratorio, farmacia o clínica ven sus módulos: órdenes y resultados, lotes y vencimientos con libro de controlados, y camas. Si el hospital tiene varias sedes, se elige la sede en el menú.

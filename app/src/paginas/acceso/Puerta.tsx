@@ -5,6 +5,7 @@ import { Outlet } from "react-router-dom";
 import { Boton } from "@/components/ui/boton";
 import { supabase } from "@/lib/supabase";
 import { useSesion } from "@/sesion/SesionProvider";
+import { Bienvenida } from "./Bienvenida";
 import { CambiarPassword } from "./CambiarPassword";
 import { ConfiguracionInicial } from "./ConfiguracionInicial";
 import { Login } from "./Login";
@@ -38,6 +39,9 @@ export function Puerta() {
     },
   });
 
+  // Las cuentas de quiosco son de un equipo, no de una persona: no hacen la bienvenida.
+  const soloQuiosco = sistemas.length > 0 && sistemas.every((s) => s.roles.length > 0 && s.roles.every((r) => r === "quiosco"));
+
   let vista: { clave: string; nodo: React.ReactNode };
   if (cargando || (!sesion && instalacion.isLoading)) {
     vista = { clave: "splash", nodo: <Splash /> };
@@ -63,6 +67,10 @@ export function Puerta() {
         </PantallaAcceso>
       ),
     };
+  } else if (perfil?.bienvenida_en === null && (sistemas.length > 0 || esSuperadmin) && !soloQuiosco) {
+    // Primer acceso: usuario propio, foto, contraseña, dos pasos y (primer admin) el plan.
+    // `=== null`: si la base aún no tiene la columna (undefined), nadie queda atrapado aquí.
+    vista = { clave: "bienvenida", nodo: <Bienvenida /> };
   } else if (perfil?.debe_cambiar_password) {
     vista = { clave: "pwd", nodo: <CambiarPassword /> };
   } else if (plataforma.data?.mantenimiento && !esSuperadmin) {

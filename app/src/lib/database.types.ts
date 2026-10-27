@@ -3542,6 +3542,7 @@ export type Database = {
           actualizado_en: string
           actualizado_por: string | null
           avatar_url: string | null
+          bienvenida_en: string | null
           biografia: string | null
           correo_contacto: string | null
           creado_en: string
@@ -3562,6 +3563,7 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
+          bienvenida_en?: string | null
           biografia?: string | null
           correo_contacto?: string | null
           creado_en?: string
@@ -3582,6 +3584,7 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           avatar_url?: string | null
+          bienvenida_en?: string | null
           biografia?: string | null
           correo_contacto?: string | null
           creado_en?: string
@@ -3602,6 +3605,99 @@ export type Database = {
             foreignKeyName: "perfiles_ultimo_sistema_id_fkey"
             columns: ["ultimo_sistema_id"]
             isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planes: {
+        Row: {
+          activo: boolean
+          actualizado_en: string
+          caracteristicas: string[]
+          creado_en: string
+          descripcion: string | null
+          destacado: boolean
+          id: string
+          nombre: string
+          orden: number
+          precio_sede: number
+        }
+        Insert: {
+          activo?: boolean
+          actualizado_en?: string
+          caracteristicas?: string[]
+          creado_en?: string
+          descripcion?: string | null
+          destacado?: boolean
+          id?: string
+          nombre: string
+          orden?: number
+          precio_sede: number
+        }
+        Update: {
+          activo?: boolean
+          actualizado_en?: string
+          caracteristicas?: string[]
+          creado_en?: string
+          descripcion?: string | null
+          destacado?: boolean
+          id?: string
+          nombre?: string
+          orden?: number
+          precio_sede?: number
+        }
+        Relationships: []
+      }
+      suscripciones: {
+        Row: {
+          actualizado_en: string
+          creado_en: string
+          elegido_en: string | null
+          elegido_por: string | null
+          estado: string
+          plan_id: string | null
+          precio_sede: number | null
+          proximo_corte: string | null
+          prueba_hasta: string | null
+          sistema_id: string
+        }
+        Insert: {
+          actualizado_en?: string
+          creado_en?: string
+          elegido_en?: string | null
+          elegido_por?: string | null
+          estado: string
+          plan_id?: string | null
+          precio_sede?: number | null
+          proximo_corte?: string | null
+          prueba_hasta?: string | null
+          sistema_id: string
+        }
+        Update: {
+          actualizado_en?: string
+          creado_en?: string
+          elegido_en?: string | null
+          elegido_por?: string | null
+          estado?: string
+          plan_id?: string | null
+          precio_sede?: number | null
+          proximo_corte?: string | null
+          prueba_hasta?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suscripciones_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "planes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suscripciones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: true
             referencedRelation: "sistemas"
             referencedColumns: ["id"]
           },
@@ -5052,6 +5148,45 @@ export type Database = {
         Returns: Json
       }
       pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
+      asignar_suscripcion: {
+        Args: { p_estado: string; p_plan: string; p_proximo_corte?: string; p_sistema: string }
+        Returns: undefined
+      }
+      completar_bienvenida: { Args: never; Returns: undefined }
+      elegir_nombre_usuario: { Args: { p_usuario: string }; Returns: string }
+      elegir_plan: { Args: { p_plan: string; p_sistema: string }; Returns: Json }
+      guardar_plan: {
+        Args: {
+          p_activo?: boolean
+          p_caracteristicas: string[]
+          p_descripcion: string
+          p_destacado?: boolean
+          p_id: string
+          p_nombre: string
+          p_orden?: number
+          p_precio_sede: number
+        }
+        Returns: string
+      }
+      plan_por_elegir: { Args: never; Returns: Json }
+      resumen_suscripciones: {
+        Args: never
+        Returns: {
+          elegido_en: string
+          es_pruebas: boolean
+          estado: string
+          monto_mensual: number
+          plan: string
+          plan_id: string
+          precio_sede: number
+          prueba_hasta: string
+          proximo_corte: string
+          sedes: number
+          sistema: string
+          sistema_id: string
+        }[]
+      }
+      usuario_disponible: { Args: { p_usuario: string }; Returns: boolean }
       pagar_liquidacion: {
         Args: {
           p_liquidacion: string
