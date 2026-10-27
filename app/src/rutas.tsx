@@ -26,6 +26,9 @@ const PaginaFinanzas = lazy(() => import("./paginas/Secciones").then((m) => ({ d
 const CierresDetalle = lazy(() => import("./paginas/Finanzas").then((m) => ({ default: m.CierresDetalle })));
 const Estadisticas = lazy(() => import("./paginas/Estadisticas"));
 const Inventario = lazy(() => import("./paginas/Inventario"));
+const Laboratorio = lazy(() => import("./paginas/Laboratorio"));
+const Farmacia = lazy(() => import("./paginas/Farmacia"));
+const Internamiento = lazy(() => import("./paginas/Internamiento"));
 const Personal = lazy(() => import("./paginas/Personal"));
 const Plataforma = lazy(() => import("./paginas/Plataforma"));
 const Perfil = lazy(() => import("./paginas/Perfil"));
@@ -99,6 +102,9 @@ export const enrutador = createHashRouter([
           { path: "finanzas/cierres", element: s(<CierresDetalle />) },
           { path: "reportes", element: <Navigate to="/finanzas?vista=reportes" replace /> },
           { path: "inventario", element: s(<Inventario />) },
+          { path: "laboratorio", element: s(<Laboratorio />) },
+          { path: "farmacia", element: s(<Farmacia />) },
+          { path: "internamiento", element: s(<Internamiento />) },
           { path: "personal", element: s(<Personal />) },
           { path: "precios", element: s(<PaginaPrecios />) },
           { path: "administracion", element: s(<PaginaAdministracion />) },

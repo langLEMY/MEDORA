@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import {
+  Building2,
   Check,
   ChevronsUpDown,
   LogOut,
@@ -37,7 +38,7 @@ import { nombrePantalla, useAnunciarPresencia } from "@/lib/presencia";
 const CLAVE_COLAPSADO = "medora.nav-colapsada";
 
 export function AppShell() {
-  const { roles, permisos, esSuperadmin, sistema, perfil, sesion } = useSesion();
+  const { roles, permisos, esSuperadmin, sistema, perfil, sesion, sede, capacidades } = useSesion();
   const location = useLocation();
   // Presencia: el personal ve quién está conectado; la superadministración no se anuncia.
   useAnunciarPresencia(
@@ -75,7 +76,8 @@ export function AppShell() {
   }, []);
 
   const propio = soloLoPropio(roles);
-  const visibles = NAVEGACION.filter((i) => !i.soloBusqueda && puedeVer(i, roles, esSuperadmin, permisos, propio)).map((i) =>
+  // Gatea por la sede activa solo si ya se resolvió (si no, no oculta nada).
+  const visibles = NAVEGACION.filter((i) => !i.soloBusqueda && puedeVer(i, roles, esSuperadmin, permisos, propio, sede ? capacidades : undefined)).map((i) =>
     propio && i.etiquetaPropia ? { ...i, etiqueta: i.etiquetaPropia } : i,
   );
   const grupos = [...new Set(visibles.map((i) => i.grupo))];
@@ -124,6 +126,7 @@ export function AppShell() {
         </div>
 
         <SelectorSistema colapsada={colapsada} />
+        <SelectorSede colapsada={colapsada} />
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
           {grupos.map((g) => (
@@ -280,6 +283,72 @@ function SelectorSistema({ colapsada }: { colapsada: boolean }) {
                   derecha={s.id === sistema.id ? <Check className="size-4 text-marca" /> : null}
                 >
                   {s.nombre}
+                </ItemMenu>
+              ))}
+            </div>
+          </>
+        )}
+      </Menu>
+    </div>
+  );
+}
+
+/** Selector de la sede en la que se opera. Solo aparece si hay más de una. */
+function SelectorSede({ colapsada }: { colapsada: boolean }) {
+  const { sedes, sede, cambiarSede } = useSesion();
+  const navigate = useNavigate();
+  if (!sede || sedes.length <= 1) return null;
+
+  return (
+    <div className="px-3 pt-2">
+      <Menu
+        ancho={264}
+        disparador={(abierto) => (
+          <button
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-xl border border-borde bg-superficie p-1.5 text-left shadow-sm transition-colors hover:border-borde-fuerte",
+              abierto && "border-borde-fuerte",
+            )}
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-superficie-2 text-texto-3">
+              <Building2 className="size-4" />
+            </span>
+            {!colapsada && (
+              <>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[0.8125rem] font-semibold leading-tight">{sede.nombre}</span>
+                  <span className="block truncate text-[0.6875rem] text-texto-3 capitalize">{sede.tipo}</span>
+                </span>
+                <ChevronsUpDown className="size-4 shrink-0 text-texto-3" />
+              </>
+            )}
+          </button>
+        )}
+      >
+        {(cerrar) => (
+          <>
+            <div className="px-2.5 pt-1.5 pb-1 text-[0.6875rem] font-medium tracking-wide text-texto-3 uppercase">Sede</div>
+            <div className="max-h-72 overflow-y-auto">
+              {sedes.map((s) => (
+                <ItemMenu
+                  key={s.id}
+                  activo={s.id === sede.id}
+                  onClick={() => {
+                    cambiarSede(s.id);
+                    cerrar();
+                    navigate("/");
+                  }}
+                  icono={
+                    <span className="grid size-[22px] place-items-center rounded-md bg-superficie-2 text-texto-3">
+                      <Building2 className="size-3.5" />
+                    </span>
+                  }
+                  derecha={s.id === sede.id ? <Check className="size-4 text-marca" /> : null}
+                >
+                  <span className="flex flex-col">
+                    <span className="truncate">{s.nombre}</span>
+                    <span className="text-[0.6875rem] text-texto-3 capitalize">{s.tipo}</span>
+                  </span>
                 </ItemMenu>
               ))}
             </div>

@@ -40,7 +40,7 @@ function useDebounce<T>(valor: T, ms = 200) {
 }
 
 export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerrar: () => void }) {
-  const { sistema, roles, permisos, esSuperadmin, perfil } = useSesion();
+  const { sistema, roles, permisos, esSuperadmin, perfil, sede, capacidades } = useSesion();
   const navigate = useNavigate();
   const [texto, setTexto] = useState("");
   const busqueda = useDebounce(texto);
@@ -75,7 +75,7 @@ export function PaletaComandos({ abierta, onCerrar }: { abierta: boolean; onCerr
     navigate(ruta);
   };
 
-  const modulos = NAVEGACION.filter((i) => puedeVer(i, roles, esSuperadmin, permisos, soloLoPropio(roles)));
+  const modulos = NAVEGACION.filter((i) => puedeVer(i, roles, esSuperadmin, permisos, soloLoPropio(roles), sede ? capacidades : undefined));
 
   // Acciones rápidas: abren la ventana correspondiente (?accion=…, ver lib/accionUrl) o actúan aquí mismo.
   const { tema } = usePreferencias();

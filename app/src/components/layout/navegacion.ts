@@ -1,4 +1,5 @@
 import {
+  BedDouble,
   BookOpenCheck,
   CalendarDays,
   ChartColumn,
@@ -6,10 +7,12 @@ import {
 
   ChartPie,
   FileBarChart,
+  FlaskConical,
   LayoutDashboard,
   LifeBuoy,
   Network,
   Pill,
+  Tablets,
   Settings2,
   ReceiptText,
   Stethoscope,
@@ -21,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { puede, type Modulo, type Permisos } from "@/lib/permisos";
+import type { Capacidad } from "@/lib/capacidades";
 import type { Rol } from "@/lib/supabase";
 
 export interface ItemNav {
@@ -32,6 +36,8 @@ export interface ItemNav {
   modulo?: Modulo;
   /** Entrada que agrupa varias secciones: visible si puede ver al menos una. */
   modulos?: Modulo[];
+  /** Capacidad que la sede activa debe tener (según su tipo). Si falta, se oculta. */
+  capacidad?: Capacidad;
   soloSuperadmin?: boolean;
   /** No aparece en el menú, solo en el buscador (Ctrl+K): secciones dentro de una entrada agrupada. */
   soloBusqueda?: boolean;
@@ -50,12 +56,15 @@ export interface ItemNav {
  */
 export const NAVEGACION: ItemNav[] = [
   { ruta: "/", etiqueta: "Inicio", icono: LayoutDashboard, modulo: "dashboard", grupo: "Operación" },
-  { ruta: "/recepcion", etiqueta: "Recepción", etiquetaPropia: "Mi consulta", icono: ClipboardList, modulo: "recepcion", grupo: "Operación" },
-  { ruta: "/agenda", etiqueta: "Agenda", etiquetaPropia: "Mi agenda", icono: CalendarDays, modulo: "agenda", grupo: "Operación" },
-  { ruta: "/pacientes", etiqueta: "Pacientes", etiquetaPropia: "Mis pacientes", icono: Users, modulo: "pacientes", grupo: "Operación" },
+  { ruta: "/recepcion", etiqueta: "Recepción", etiquetaPropia: "Mi consulta", icono: ClipboardList, modulo: "recepcion", capacidad: "agenda", grupo: "Operación" },
+  { ruta: "/agenda", etiqueta: "Agenda", etiquetaPropia: "Mi agenda", icono: CalendarDays, modulo: "agenda", capacidad: "agenda", grupo: "Operación" },
+  { ruta: "/pacientes", etiqueta: "Pacientes", etiquetaPropia: "Mis pacientes", icono: Users, modulo: "pacientes", capacidad: "historia_clinica", grupo: "Operación" },
   { ruta: "/estadisticas", etiqueta: "Estadísticas", etiquetaPropia: "Mis estadísticas", icono: ChartColumn, modulo: "estadisticas", grupo: "Operación" },
-  { ruta: "/medicos", etiqueta: "Médicos", icono: Stethoscope, modulos: ["recepcion", "comisiones"], ocultoPropio: true, grupo: "Operación" },
+  { ruta: "/medicos", etiqueta: "Médicos", icono: Stethoscope, modulos: ["recepcion", "comisiones"], capacidad: "agenda", ocultoPropio: true, grupo: "Operación" },
   { ruta: "/inventario", etiqueta: "Inventario", icono: Pill, modulo: "inventario", grupo: "Operación" },
+  { ruta: "/laboratorio", etiqueta: "Laboratorio", icono: FlaskConical, modulo: "laboratorio", capacidad: "laboratorio", grupo: "Operación" },
+  { ruta: "/farmacia", etiqueta: "Farmacia", icono: Tablets, modulo: "farmacia", capacidad: "farmacia_pos", grupo: "Operación" },
+  { ruta: "/internamiento", etiqueta: "Internamiento", icono: BedDouble, modulo: "internamiento", capacidad: "internamiento", grupo: "Operación" },
   { ruta: "/caja", etiqueta: "Caja y facturación", icono: Wallet, modulo: "caja", grupo: "Finanzas" },
   { ruta: "/gastos", etiqueta: "Gastos", icono: ReceiptText, modulo: "compras", grupo: "Finanzas" },
   { ruta: "/nomina", etiqueta: "Nómina", icono: WalletCards, modulo: "nomina", grupo: "Finanzas" },
@@ -79,10 +88,22 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/administracion?vista=auditoria", etiqueta: "Auditoría", icono: Settings2, modulo: "auditoria", soloBusqueda: true, grupo: "Gestión" },
 ];
 
-/** ¿Esta persona ve esta entrada? Una sola regla para menú, buscador y Personalización. */
-export function puedeVer(i: ItemNav, roles: Rol[], esSuperadmin: boolean, permisos: Permisos | null | undefined, propio: boolean) {
+/**
+ * ¿Esta persona ve esta entrada? Una sola regla para menú, buscador y Personalización.
+ * `capacidades` (opcional) = capacidades de la sede activa; si se pasa, oculta las
+ * entradas cuya `capacidad` no esté activa en esa sede. Sin él, no filtra por sede.
+ */
+export function puedeVer(
+  i: ItemNav,
+  roles: Rol[],
+  esSuperadmin: boolean,
+  permisos: Permisos | null | undefined,
+  propio: boolean,
+  capacidades?: Partial<Record<Capacidad, boolean>>,
+) {
   if (i.soloSuperadmin) return esSuperadmin;
   if (i.ocultoPropio && propio) return false;
+  if (i.capacidad && capacidades && capacidades[i.capacidad] !== true) return false;
   if (i.modulos) return i.modulos.some((m) => puede(roles, m, esSuperadmin, permisos));
   return i.modulo ? puede(roles, i.modulo, esSuperadmin, permisos) : true;
 }

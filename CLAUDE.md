@@ -65,6 +65,16 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 - **Estilo Apple (1.8.0)**: tokens tipo iOS (tarjetas casi blancas sobre fondo agrupado; oscuro en grises neutros), colores de sistema de Apple en `--exito/--aviso/--peligro` (variante accesible en claro), fuente `-apple-system` → Inter, radios de Tailwind ampliados en `@theme` (`--radius-*`), barra lateral translúcida con la sección activa rellena de `--marca`, botón `secundario` = gris translúcido y `fantasma` = texto de acento, `Interruptor` con proporciones y verde de iOS, `prefers-reduced-transparency` quita los desenfoques. Widgets y curvas en SVG en `components/ui/widgets.tsx`.
 - **Perfil** (`components/perfil/CabeceraPerfil.tsx`): portada en `perfiles_portada` (data URL 3:1 de 1200×400, solo el dueño; fuera de `perfiles` para no cargarla con la sesión), `perfiles.biografia` (180), foto en `perfiles.foto`; ambas imágenes con `RecorteFoto` (`forma` circulo/portada). La hoja «Editar perfil» guarda todo junto.
 
+## Tipos de establecimiento (diferenciación por sede)
+
+- **Modelo por sede**: cada `sedes.tipo` (hospital/clínica/consultorio/laboratorio/farmacia/otro) define un **preset de capacidades** (`privado.capacidades_tipo`, espejo en `app/src/lib/capacidades.ts`); `sedes.capacidades` (jsonb) permite overrides por sede. `public.capacidades_sede(sede)` da las efectivas. Las capacidades gobiernan **solo los módulos diferenciadores**; el ERP (caja, nómina, contabilidad, inventario…) sigue por rol.
+- **Sede activa**: `SesionProvider` expone `sede`/`sedes`/`capacidades`/`cambiarSede` (en `localStorage`, cae a la primera sede). El `SelectorSede` del menú aparece solo si hay >1 sede. `puedeVer(...,capacidades?)` oculta las entradas cuya `capacidad` no esté activa; **si la sede no se resuelve, no oculta nada** (FUNBIDE, una sola sede consultorio, ve lo mismo de siempre).
+- **Módulos nuevos** (aditivos, no afectan a quien no los use; cada tabla con `sistema_id`+RLS+`revoke anon`, escritura por RPC `security definer` que validan rol):
+  - **Laboratorio** (`laboratorio_pruebas`/`_ordenes`/`_orden_items`, rol `laboratorio`): `crear_orden_lab`, `registrar_resultado_lab` (firma del bioanalista, calcula fuera de rango, bloquea tras firmar). Pantalla `/laboratorio`.
+  - **Farmacia** (`farmacia_lotes`, `farmacia_controlados` append-only+auditado): `registrar_controlado` (libro DNCD; exige receta en salidas y responsable/regente). Pantalla `/farmacia`. **Pendiente**: dispensación con cobro (POS→caja).
+  - **Internamiento** (`habitaciones`/`camas`/`admisiones`): `admitir_paciente` (serializa la cama con advisory lock), `dar_egreso` (libera la cama). Pantalla `/internamiento`. **Pendiente**: cargos por estancia →caja/contabilidad.
+- Para **probar** los módulos nuevos: la sede de **FUNBIDE·Pruebas** es tipo "hospital" (los muestra todos); la de FUNBIDE real es "consultorio" (no los ve, por diseño).
+
 ## Continuidad, finanzas y trazabilidad
 
 - **Respaldos**: Edge Function `respaldo` (cifra con AES-256-GCM; clave `RESPALDO_CLAVE` y token `RESPALDO_TOKEN` como secretos de la función, token también en Vault `respaldo_cron`) → bucket privado `respaldos`, tabla `respaldos` (solo superadmin). pg_cron `medora-respaldo-diario` 07:00 UTC; conserva 30. Nunca poner esas claves en el repo.
