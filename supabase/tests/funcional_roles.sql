@@ -2,7 +2,8 @@
 -- MEDORA · Batería funcional por roles (recepción, caja, médico, farmacia,
 -- contabilidad, auditor, gerencia, enfermería, quiosco) + nómina e impuestos.
 --
--- Corre sobre el sistema de pruebas "FUNBIDE · Pruebas" con usuarios QA creados
+-- Corre sobre el sistema de pruebas "FUNBIDE · Pruebas" (o el «Hospital Demo · Pruebas» de
+-- supabase/tests/semilla_local.sql en la base local y el CI) con usuarios QA creados
 -- dentro de la transacción y termina en ROLLBACK: no deja nada en la base.
 --   supabase db query --linked --agent no -f supabase/tests/funcional_roles.sql
 -- Cada fila del resultado es una prueba (OK / FALLA).
@@ -38,7 +39,9 @@ grant execute on all functions in schema pg_temp to authenticated;
 -- ---------------------------------------------------------------- preparación
 do $$
 declare
-  v_s uuid := (select id from public.sistemas where es_pruebas and nombre like 'FUNBIDE%' limit 1);
+  -- En producción: «FUNBIDE · Pruebas». En la base local / CI: el «Hospital Demo · Pruebas» de la semilla.
+  v_s uuid := coalesce((select id from public.sistemas where es_pruebas and nombre like 'FUNBIDE%' limit 1),
+                       (select id from public.sistemas where es_pruebas and slug = 'demo-pruebas'));
   v_rol text;
   v_uid uuid;
 begin
@@ -304,6 +307,98 @@ begin
     perform pg_temp.ok('Anulación', 'No se anula dos veces', false, 'permitido');
   exception when others then perform pg_temp.ok('Anulación', 'No se anula dos veces', true, sqlerrm);
   end;
+end $$;
+
+-- ---------------------------------------------------------------- nota de crédito (E34)
+do $$
+declare v_s uuid := pg_temp.c('s')::uuid; j jsonb; v_c uuid; v_doc uuid; n int; e text;
+begin
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  j := public.registrar_cobro(v_s, pg_temp.c('pac')::uuid, jsonb_build_array(jsonb_build_object('servicio_id', pg_temp.c('serv'))),
+         '[{"metodo":"efectivo","monto":950}]');
+  v_c := (j ->> 'id')::uuid;
+  -- Simula un e-CF de consumo ya aceptado por la DGII y la secuencia E34 autorizada.
+  perform pg_temp.yo_postgres();
+  insert into public.ecf_documentos (sistema_id, cobro_id, encf, tipo, monto_total, resumen, estado)
+  values (v_s, v_c, 'E329999999999', 'E32', 950, true, 'aceptado') returning id into v_doc;
+  insert into public.secuencias_ncf (sistema_id, tipo, desde, hasta, siguiente) values (v_s, 'E34', 1, 100, 1)
+  on conflict do nothing;
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  begin
+    perform public.anular_cobro(v_c, 'Error de digitación');
+    perform pg_temp.ok('e-CF', 'Un cobro con e-CF aceptado no se anula sin nota de crédito', false, 'permitido');
+  exception when others then perform pg_temp.ok('e-CF', 'Un cobro con e-CF aceptado no se anula sin nota de crédito', sqlerrm like '%E34%', sqlerrm);
+  end;
+  j := public.emitir_nota_credito(v_c, 'Error de digitación');
+  perform pg_temp.ok('e-CF', 'Emite la nota de crédito E34 por el total del original',
+    j ->> 'encf' like 'E34%' and (j ->> 'monto')::numeric = 950 and j ->> 'modifica' = 'E329999999999', j::text);
+  perform pg_temp.yo_postgres();
+  select count(*) into n from public.ecf_documentos
+   where cobro_id = v_c and tipo = 'E34' and estado = 'pendiente' and nota_de = v_doc and codigo_modificacion = 1;
+  perform pg_temp.ok('e-CF', 'La E34 queda pendiente de envío y enlazada al original', n = 1, n::text);
+  select count(*) into n from public.anulaciones_cobro where cobro_id = v_c;
+  perform pg_temp.ok('e-CF', 'El cobro queda anulado junto con la nota de crédito', n = 1, n::text);
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  begin
+    perform public.emitir_nota_credito(v_c, 'Otra vez');
+    perform pg_temp.ok('e-CF', 'No se emite dos veces la nota de crédito', false, 'permitido');
+  exception when others then perform pg_temp.ok('e-CF', 'No se emite dos veces la nota de crédito', sqlstate = 'P0001', sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('recepcion')::uuid);
+  begin
+    perform public.emitir_nota_credito(v_c, 'Sin permiso');
+    perform pg_temp.ok('e-CF', 'Recepción no emite notas de crédito', false, 'permitido');
+  exception when others then perform pg_temp.ok('e-CF', 'Recepción no emite notas de crédito', sqlstate = '42501', sqlerrm);
+  end;
+end $$;
+
+-- ---------------------------------------------------------------- liquidación y pago de comisiones
+do $$
+declare v_s uuid := pg_temp.c('s')::uuid; j jsonb; p jsonb; e jsonb; n int;
+begin
+  perform pg_temp.como(pg_temp.c('contabilidad')::uuid);
+  j := public.liquidar_comisiones(v_s, pg_temp.c('odonto')::uuid, (now() at time zone 'America/Santo_Domingo')::date);
+  perform pg_temp.ok('Comisiones', 'Liquida lo pendiente del odontólogo (neto = total − retención)',
+    (j ->> 'neto')::numeric = (j ->> 'total')::numeric - (j ->> 'retencion')::numeric and (j ->> 'neto')::numeric > 0, j::text);
+  begin
+    perform public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'efectivo');
+    perform pg_temp.ok('Comisiones', 'Pago en efectivo exige turno de caja abierto', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'Pago en efectivo exige turno de caja abierto', sqlstate = 'P0001', sqlerrm);
+  end;
+  p := public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'transferencia', 'TRF-QA-1');
+  perform pg_temp.ok('Comisiones', 'Paga la liquidación por transferencia (monto = neto)', (p ->> 'monto')::numeric = (j ->> 'neto')::numeric, p::text);
+  perform pg_temp.yo_postgres();
+  select jsonb_build_object(
+           'por_pagar', sum(l.debe) filter (where l.cuenta_codigo = privado.cuenta(v_s, 'comisiones_por_pagar')),
+           'debe', sum(l.debe), 'haber', sum(l.haber)) into e
+    from public.asientos a join public.asiento_lineas l on l.asiento_id = a.id
+   where a.origen = 'movimiento' and a.origen_id = (p ->> 'movimiento_id')::uuid;
+  perform pg_temp.ok('Comisiones', 'Asiento del pago: debe comisiones por pagar = neto, cuadra',
+    (e ->> 'por_pagar')::numeric = (j ->> 'neto')::numeric and (e ->> 'debe')::numeric = (e ->> 'haber')::numeric, e::text);
+  perform pg_temp.como(pg_temp.c('contabilidad')::uuid);
+  begin
+    perform public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'transferencia');
+    perform pg_temp.ok('Comisiones', 'No se paga dos veces la misma liquidación', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'No se paga dos veces la misma liquidación', sqlstate = 'P0001', sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('recepcion')::uuid);
+  begin
+    perform public.pagar_liquidacion(v_s, (j ->> 'id')::uuid, 'transferencia');
+    perform pg_temp.ok('Comisiones', 'Recepción no paga comisiones', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'Recepción no paga comisiones', sqlstate = '42501', sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  begin
+    perform public.registrar_movimiento(v_s, 'egreso', 'Truco', 10, 'efectivo', 'pago_comision');
+    perform pg_temp.ok('Comisiones', 'La categoría pago_comision está reservada', false, 'permitido');
+  exception when others then perform pg_temp.ok('Comisiones', 'La categoría pago_comision está reservada', sqlerrm like 'Categoría reservada%', sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('odonto')::uuid);
+  select count(*) into n from public.pagos_liquidacion where liquidacion_id = (j ->> 'id')::uuid;
+  perform pg_temp.ok('Comisiones', 'El odontólogo ve el pago de su liquidación', n = 1, n::text);
+  perform pg_temp.como(pg_temp.c('medico')::uuid);
+  select count(*) into n from public.pagos_liquidacion where liquidacion_id = (j ->> 'id')::uuid;
+  perform pg_temp.ok('Comisiones', 'Otro médico no ve ese pago', n = 0, n::text);
 end $$;
 
 -- ---------------------------------------------------------------- farmacia / gastos / inventario

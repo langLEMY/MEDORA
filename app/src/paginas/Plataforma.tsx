@@ -14,12 +14,13 @@ import { cn, fecha, slugificar } from "@/lib/utils";
 import { useSesion } from "@/sesion/SesionProvider";
 import { COLORES_MARCA } from "./Configuracion";
 import { CodigosInvitacion } from "./plataforma/CodigosInvitacion";
+import { Planes } from "./plataforma/Planes";
 import { CrearPruebas, LimpiarOperaciones, ReiniciarPruebas } from "./plataforma/EntornoPruebas";
 import { UsuariosPlataforma } from "./plataforma/UsuariosPlataforma";
 
-type Pestana = "sistemas" | "usuarios" | "codigos";
+type Pestana = "sistemas" | "planes" | "usuarios" | "codigos";
 
-/** Superadministración: sistemas hospitalarios, usuarios y códigos de invitación. */
+/** Superadministración: sistemas hospitalarios, planes, usuarios y códigos de invitación. */
 export default function Plataforma() {
   const { esSuperadmin } = useSesion();
   const [pestana, setPestana] = useState<Pestana>("sistemas");
@@ -29,7 +30,7 @@ export default function Plataforma() {
     <>
       <EncabezadoPagina
         titulo="Plataforma"
-        descripcion="Administración global de MEDORA: sistemas hospitalarios, cuentas de usuario y códigos de invitación."
+        descripcion="Administración global de MEDORA: sistemas hospitalarios, planes, cuentas de usuario y códigos de invitación."
       />
       <div className="mb-5">
         <Segmentado
@@ -38,6 +39,7 @@ export default function Plataforma() {
           onChange={setPestana}
           opciones={[
             { valor: "sistemas", etiqueta: "Sistemas hospitalarios" },
+            { valor: "planes", etiqueta: "Planes" },
             { valor: "usuarios", etiqueta: "Usuarios" },
             { valor: "codigos", etiqueta: "Códigos de invitación" },
           ]}
@@ -52,6 +54,7 @@ export default function Plataforma() {
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
         >
           {pestana === "sistemas" && <SistemasPlataforma />}
+          {pestana === "planes" && <Planes />}
           {pestana === "usuarios" && <UsuariosPlataforma />}
           {pestana === "codigos" && <CodigosInvitacion />}
         </motion.div>

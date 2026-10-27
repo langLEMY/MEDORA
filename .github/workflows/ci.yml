@@ -48,3 +48,67 @@ jobs:
           fi
       - run: dotnet build MEDORA.sln -c Release --no-restore
       - run: dotnet test MEDORA.sln -c Release --no-build
+
+  # La base desde cero: aplica las 90+ migraciones en orden sobre un Supabase local,
+  # carga la semilla (configuración de «FUNBIDE · Pruebas», sin personas) y corre las
+  # baterías de roles y aislamiento. Si una migración ya no aplica limpia, falla aquí
+  # y no en producción.
+  base:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      # Solo Postgres (las baterías son SQL): una imagen en vez de diez. El registro público de
+      # imágenes a veces limita las descargas ("toomanyrequests"), por eso se reintenta.
+      - name: Supabase local (migraciones + semilla)
+        run: |
+          for intento in 1 2 3; do
+            supabase db start && exit 0
+            echo "Intento $intento falló; reintento en 60 s"
+            supabase stop --no-backup || true
+            sleep 60
+          done
+          exit 1
+      - name: Baterías SQL (roles y aislamiento)
+        run: |
+          # `supabase db query --local` no acepta varias sentencias por archivo: psycopg sí.
+          pip install --quiet "psycopg[binary]==3.2.10"
+          DSN=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          python3 scripts/correr-bateria.py $DSN supabase/tests/funcional_roles.sql funcional.json
+          python3 scripts/correr-bateria.py $DSN supabase/tests/rls_aislamiento.sql rls.json
+          python3 scripts/verificar-baterias.py funcional.json rls.json
+      - name: Lint de funciones (avisa, no bloquea todavía)
+        continue-on-error: true
+        run: supabase db lint --local --level error
+
+  # Punta a punta (Playwright). Sin secretos solo prueba la pantalla de acceso; con
+  # E2E_USUARIO / E2E_CLAVE (cuenta que SOLO pertenezca a un sistema de pruebas) recorre la app.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Playwright
+        env:
+          E2E_USUARIO: ${{ secrets.E2E_USUARIO }}
+          E2E_CLAVE: ${{ secrets.E2E_CLAVE }}
+        run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trazas
+          path: app/test-results
+          retention-days: 7

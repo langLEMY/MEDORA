@@ -189,7 +189,7 @@ export function estadoMedora(estadoDgii: string | undefined): "aceptado" | "acep
 // XML del e-CF y del resumen (RFCE)
 // ---------------------------------------------------------------------------
 export interface DatosComprobante {
-  tipo: string; // E31, E32, E44, E45
+  tipo: string; // E31, E32, E34, E44, E45
   encf: string;
   venceSecuencia: string | null; // yyyy-mm-dd
   fecha: Date;
@@ -200,6 +200,8 @@ export interface DatosComprobante {
   total: number;
   credito: number;
   pagos: { metodo: string; monto: number }[];
+  /** Solo nota de crédito (E34): comprobante que modifica. */
+  referencia?: { encf: string; fecha: Date; codigo: number; razon: string };
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -226,6 +228,15 @@ function formasPago(d: DatosComprobante): string {
 
 function idDoc(d: DatosComprobante, resumen: boolean): string {
   const tipo = d.tipo.slice(1);
+  if (d.referencia) {
+    // Nota de crédito: sin vencimiento de secuencia ni formas de pago. IndicadorNotaCredito
+    // = 1 si pasaron más de 30 días desde el comprobante que modifica (no reversa ITBIS).
+    const dias = (d.fecha.getTime() - d.referencia.fecha.getTime()) / 86_400_000;
+    return (
+      `<IdDoc><TipoeCF>${tipo}</TipoeCF><eNCF>${d.encf}</eNCF><IndicadorNotaCredito>${dias > 30 ? 1 : 0}</IndicadorNotaCredito>` +
+      `<TipoIngresos>01</TipoIngresos><TipoPago>1</TipoPago></IdDoc>`
+    );
+  }
   const vence = d.venceSecuencia && !resumen ? (() => {
     const [a, m, dd] = d.venceSecuencia.split("-");
     return `<FechaVencimientoSecuencia>${dd}-${m}-${a}</FechaVencimientoSecuencia>`;
@@ -240,6 +251,17 @@ function comprador(d: DatosComprobante): string {
   if (!d.comprador.rnc) return "";
   const rnc = d.comprador.rnc.replace(/\D/g, "");
   return `<Comprador><RNCComprador>${rnc}</RNCComprador>${d.comprador.nombre ? `<RazonSocialComprador>${esc(d.comprador.nombre.slice(0, 150))}</RazonSocialComprador>` : ""}</Comprador>`;
+}
+
+/** InformacionReferencia de la nota de crédito (E34): e-NCF modificado, su fecha y el motivo. */
+function referencia(d: DatosComprobante): string {
+  if (!d.referencia) return "";
+  return (
+    `<InformacionReferencia><NCFModificado>${d.referencia.encf}</NCFModificado>` +
+    `<FechaNCFModificado>${rd(d.referencia.fecha).dia}</FechaNCFModificado>` +
+    `<CodigoModificacion>${d.referencia.codigo}</CodigoModificacion>` +
+    `<RazonModificacion>${esc(d.referencia.razon.slice(0, 90))}</RazonModificacion></InformacionReferencia>`
+  );
 }
 
 /** Servicios de salud: exentos de ITBIS (IndicadorFacturacion 4). */
@@ -269,7 +291,7 @@ export function xmlEcf(d: DatosComprobante): string {
     `<DireccionEmisor>${esc((d.emisor.direccion || "-").slice(0, 100))}</DireccionEmisor><FechaEmision>${f.dia}</FechaEmision></Emisor>` +
     comprador(d) +
     `<Totales><MontoExento>${m2(d.total)}</MontoExento><MontoTotal>${m2(d.total)}</MontoTotal></Totales></Encabezado>` +
-    `<DetallesItems>${items}</DetallesItems>${descuento}` +
+    `<DetallesItems>${items}</DetallesItems>${descuento}${referencia(d)}` +
     `<FechaHoraFirma>${f.dia} ${f.hora}</FechaHoraFirma></ECF>`
   );
 }

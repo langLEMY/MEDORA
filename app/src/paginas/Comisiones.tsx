@@ -11,14 +11,14 @@ import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento
 import { Avatar, EncabezadoPagina, FilasEsqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { CATEGORIAS_SERVICIO, usePersonal, useServicios } from "@/lib/consultas";
 import { ETIQUETA_ROL, puedeEscribir, ROLES } from "@/lib/permisos";
-import { datos, mensajeError, supabase, type Fila, type Rol } from "@/lib/supabase";
+import { datos, mensajeError, supabase, type Fila, type MetodoPago, type Rol } from "@/lib/supabase";
 import { cn, fecha, isoDia, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 import { AccionesDatos } from "@/components/AccionesDatos";
 import { IMPORTACIONES } from "@/lib/importaciones";
 
 export default function Comisiones() {
-  const [vista, setVista] = useState<"reporte" | "reglas">("reporte");
+  const [vista, setVista] = useState<"reporte" | "liquidaciones" | "reglas">("reporte");
   return (
     <>
       <EncabezadoPagina
@@ -32,13 +32,14 @@ export default function Comisiones() {
           onChange={setVista}
           opciones={[
             { valor: "reporte", etiqueta: "Reporte y liquidación" },
+            { valor: "liquidaciones", etiqueta: "Liquidaciones y pagos" },
             { valor: "reglas", etiqueta: "Reglas" },
           ]}
         />
       </div>
       <AnimatePresence mode="wait">
         <motion.div key={vista} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
-          {vista === "reporte" ? <Reporte /> : <Reglas />}
+          {vista === "reporte" ? <Reporte /> : vista === "liquidaciones" ? <Liquidaciones /> : <Reglas />}
         </motion.div>
       </AnimatePresence>
     </>
@@ -83,10 +84,11 @@ function Reporte() {
         neto: number;
       },
     onSuccess: (r) => {
-      toast.success(
-        `Liquidación ${r.numero}: pagar ${moneda(r.neto)}${Number(r.retencion) > 0 ? ` (retención ${moneda(r.retencion)})` : ""}. Asiento contable generado.`,
-      );
+      toast.success(`Liquidación ${r.numero}: pagar ${moneda(r.neto)}${Number(r.retencion) > 0 ? ` (retención ${moneda(r.retencion)})` : ""}.`, {
+        description: "Cuando le entregues el dinero, regístralo en «Liquidaciones y pagos».",
+      });
       void qc.invalidateQueries({ queryKey: ["reporte-comisiones", sistemaId] });
+      void qc.invalidateQueries({ queryKey: ["liquidaciones", sistemaId] });
     },
     onError: (e) => toast.error(mensajeError(e)),
   });
@@ -189,6 +191,207 @@ function Reporte() {
       </Documento>
       <DetalleBeneficiario fila={detalle} desde={desde} hasta={hasta} onCerrar={() => setDetalle(null)} />
     </>
+  );
+}
+
+interface PagoLiquidacion {
+  id: string;
+  metodo: MetodoPago;
+  monto: number;
+  referencia: string | null;
+  creado_en: string;
+}
+interface FilaLiquidacion {
+  id: string;
+  numero: string;
+  hasta: string;
+  total: number;
+  retencion: number;
+  neto: number | null;
+  creado_en: string;
+  beneficiario: { nombre_completo: string | null } | null;
+  pago: PagoLiquidacion | PagoLiquidacion[] | null;
+}
+
+const ETIQUETA_METODO_PAGO: Partial<Record<MetodoPago, string>> = { transferencia: "Transferencia", cheque: "Cheque", efectivo: "Efectivo" };
+/** El pago llega como objeto (relación 1:1) o como arreglo, según cómo lo detecte PostgREST. */
+const pagoDe = (l: FilaLiquidacion) => (Array.isArray(l.pago) ? (l.pago[0] ?? null) : l.pago);
+
+/** Liquidaciones hechas y su pago al médico (el pago genera el egreso y el asiento en el servidor). */
+function Liquidaciones() {
+  const { sistemaId, roles } = useSistema();
+  const [filtro, setFiltro] = useState<"pendientes" | "pagadas" | "todas">("pendientes");
+  const [pagar, setPagar] = useState<FilaLiquidacion | null>(null);
+  const q = useQuery({
+    queryKey: ["liquidaciones", sistemaId],
+    queryFn: async () =>
+      (datos(
+        await supabase
+          .from("liquidaciones_comision")
+          .select(
+            "id, numero, hasta, total, retencion, neto, creado_en, beneficiario:perfiles!liquidaciones_comision_beneficiario_id_fkey(nombre_completo), pago:pagos_liquidacion(id, metodo, monto, referencia, creado_en)",
+          )
+          .eq("sistema_id", sistemaId)
+          .order("creado_en", { ascending: false })
+          .limit(300),
+      ) ?? []) as unknown as FilaLiquidacion[],
+  });
+  const todas = q.data ?? [];
+  const filas = todas.filter((l) => (filtro === "todas" ? true : filtro === "pagadas" ? !!pagoDe(l) : !pagoDe(l)));
+  const porPagar = todas.filter((l) => !pagoDe(l)).reduce((s, l) => s + Number(l.neto ?? 0), 0);
+
+  return (
+    <Tarjeta className="overflow-hidden">
+      <div className="flex flex-wrap items-center gap-3 border-b border-borde p-3">
+        <Segmentado
+          id="liquidaciones-filtro"
+          valor={filtro}
+          onChange={setFiltro}
+          opciones={[
+            { valor: "pendientes", etiqueta: "Por pagar" },
+            { valor: "pagadas", etiqueta: "Pagadas" },
+            { valor: "todas", etiqueta: "Todas" },
+          ]}
+        />
+        <p className="text-xs text-texto-3">
+          Por pagar: <span className="font-semibold text-texto tabular">{moneda(porPagar)}</span>
+        </p>
+        <div className="ml-auto">
+          <AccionesDatos
+            titulo="Liquidaciones de comisiones"
+            columnas={[
+              { titulo: "Número", valor: (l: FilaLiquidacion) => l.numero },
+              { titulo: "Médico", valor: (l) => l.beneficiario?.nombre_completo ?? "" },
+              { titulo: "Hasta", valor: (l) => l.hasta, tipo: "fecha" },
+              { titulo: "Total", valor: (l) => l.total, tipo: "moneda" },
+              { titulo: "Retención ISR", valor: (l) => l.retencion, tipo: "moneda" },
+              { titulo: "Neto", valor: (l) => l.neto, tipo: "moneda" },
+              { titulo: "Pagada", valor: (l) => (pagoDe(l) ? fecha(pagoDe(l)!.creado_en) : "Pendiente") },
+              { titulo: "Método", valor: (l) => (pagoDe(l) ? (ETIQUETA_METODO_PAGO[pagoDe(l)!.metodo] ?? pagoDe(l)!.metodo) : "") },
+              { titulo: "Referencia", valor: (l) => pagoDe(l)?.referencia ?? "" },
+            ]}
+            obtener={async () => filas}
+          />
+        </div>
+      </div>
+      {q.isLoading ? (
+        <FilasEsqueleto />
+      ) : filas.length === 0 ? (
+        <Vacio
+          icono={<HandCoins />}
+          titulo={filtro === "pendientes" ? "Nada por pagar" : "Sin liquidaciones"}
+          descripcion="Liquida desde «Reporte y liquidación»; aquí registras cuándo y cómo se le pagó al médico."
+        />
+      ) : (
+        <ul className="divide-y divide-borde">
+          {filas.map((l) => {
+            const pago = pagoDe(l);
+            return (
+              <li key={l.id} className="flex items-center gap-4 px-5 py-3.5 text-sm">
+                <Avatar nombre={l.beneficiario?.nombre_completo ?? "?"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{l.beneficiario?.nombre_completo ?? "Médico"}</span>
+                  <span className="block text-xs text-texto-3">
+                    {l.numero} · hasta {fecha(l.hasta + "T00:00:00")}
+                    {Number(l.retencion) > 0 && ` · retención ${moneda(l.retencion)}`}
+                  </span>
+                </span>
+                <span className="w-32 text-right tabular">
+                  <span className="block text-[0.6875rem] text-texto-3">Neto</span>
+                  <span className="font-semibold">{moneda(l.neto ?? 0)}</span>
+                </span>
+                {pago ? (
+                  <Insignia tono="exito" punto>
+                    Pagada {fecha(pago.creado_en)} · {ETIQUETA_METODO_PAGO[pago.metodo] ?? pago.metodo}
+                  </Insignia>
+                ) : puedeEscribir.comisiones(roles) ? (
+                  <Boton tamano="sm" variante="suave" icono={<HandCoins className="size-3.5" />} onClick={() => setPagar(l)}>
+                    Registrar pago
+                  </Boton>
+                ) : (
+                  <Insignia tono="aviso">Por pagar</Insignia>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <PagarLiquidacion liquidacion={pagar} onCerrar={() => setPagar(null)} />
+    </Tarjeta>
+  );
+}
+
+function PagarLiquidacion({ liquidacion, onCerrar }: { liquidacion: FilaLiquidacion | null; onCerrar: () => void }) {
+  const { sistemaId } = useSistema();
+  const qc = useQueryClient();
+  const [metodo, setMetodo] = useState<"transferencia" | "cheque" | "efectivo">("transferencia");
+  const [referencia, setReferencia] = useState("");
+  useEffect(() => {
+    if (liquidacion) {
+      setMetodo("transferencia");
+      setReferencia("");
+    }
+  }, [liquidacion]);
+  const m = useMutation({
+    mutationFn: async () =>
+      datos(
+        await supabase.rpc("pagar_liquidacion", {
+          p_sistema: sistemaId,
+          p_liquidacion: liquidacion!.id,
+          p_metodo: metodo,
+          p_referencia: referencia.trim() || undefined,
+        }),
+      ),
+    onSuccess: () => {
+      toast.success(`Pago registrado: ${moneda(liquidacion?.neto ?? 0)}`, { description: "Egreso y asiento contable generados." });
+      void qc.invalidateQueries({ queryKey: ["liquidaciones", sistemaId] });
+      onCerrar();
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  return (
+    <Modal
+      abierto={!!liquidacion}
+      onCerrar={onCerrar}
+      titulo={`Pagar ${liquidacion?.numero ?? ""}`}
+      pie={
+        <>
+          <Boton variante="secundario" onClick={onCerrar}>
+            Cancelar
+          </Boton>
+          <Boton cargando={m.isPending} onClick={() => m.mutate()}>
+            Registrar pago de {moneda(liquidacion?.neto ?? 0)}
+          </Boton>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-texto-2">{liquidacion?.beneficiario?.nombre_completo}</p>
+        <div>
+          <p className="mb-1.5 text-[0.8125rem] font-medium text-texto-2">¿Cómo se le pagó?</p>
+          <Segmentado
+            id="metodo-pago-liquidacion"
+            valor={metodo}
+            onChange={setMetodo}
+            opciones={[
+              { valor: "transferencia", etiqueta: "Transferencia" },
+              { valor: "cheque", etiqueta: "Cheque" },
+              { valor: "efectivo", etiqueta: "Efectivo" },
+            ]}
+          />
+          {metodo === "efectivo" && <p className="mt-2 text-xs text-texto-3">Sale de tu turno de caja abierto y cuenta en el arqueo.</p>}
+        </div>
+        {metodo !== "efectivo" && (
+          <Entrada
+            etiqueta={metodo === "cheque" ? "Número de cheque" : "Referencia de la transferencia"}
+            value={referencia}
+            maxLength={120}
+            onChange={(e) => setReferencia(e.target.value)}
+            ayuda="Opcional. Ayuda en la conciliación bancaria."
+          />
+        )}
+      </div>
+    </Modal>
   );
 }
 

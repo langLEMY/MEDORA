@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Archive, Bug, Construction, DatabaseBackup, Eraser, FileClock, LogOut, Power, RefreshCw, ShieldAlert, Wallet } from "lucide-react";
+import { Archive, Bug, CalendarClock, Construction, DatabaseBackup, Eraser, FileClock, LogOut, Power, RefreshCw, ShieldAlert, Wallet } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { obtenerTodo } from "@/components/AccionesDatos";
@@ -63,6 +63,7 @@ export function Soporte() {
   return (
     <div className="space-y-4">
       <EstadoSistema />
+      <TareasAutomaticas />
       <Conectados />
       <CajasAbiertas />
       <ErroresRecientes />
@@ -70,6 +71,90 @@ export function Soporte() {
       <Herramientas puedeRespaldar={!!sistema} />
       <Avanzado />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+interface TareaCron {
+  tarea: string;
+  horario: string;
+  activa: boolean;
+  ultima: string | null;
+  estado: string | null;
+  mensaje: string | null;
+  fallas_24h: number;
+  atrasada: boolean;
+}
+interface SaludTareas {
+  tareas: TareaCron[];
+  problemas: { tarea: string; titulo: string; detalle?: string }[];
+  revisado_en: string;
+}
+
+const NOMBRE_TAREA: Record<string, string> = {
+  "medora-respaldo-diario": "Respaldo diario",
+  "medora-cierre-diario": "Cierre diario",
+  "medora-ecf-pendientes": "Envío de e-CF a la DGII",
+};
+
+/** ¿Corrieron las tareas automáticas? (pg_cron + el resultado real: respaldo, cierres, e-CF). */
+function TareasAutomaticas() {
+  const q = useQuery({
+    queryKey: ["salud-tareas"],
+    queryFn: async () => datos(await supabase.rpc("salud_tareas")) as unknown as SaludTareas,
+    refetchInterval: 5 * 60_000,
+  });
+  const problemas = q.data?.problemas ?? [];
+  return (
+    <Tarjeta className="p-6">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold">
+            <CalendarClock className="size-4 text-marca" /> Tareas automáticas
+          </h2>
+          <p className="text-xs text-texto-3">
+            {q.isError
+              ? mensajeError(q.error)
+              : problemas.length
+                ? `${problemas.length} con problemas. También aparece en la campana.`
+                : "Todo corrió a tiempo."}
+          </p>
+        </div>
+        <Boton tamano="sm" variante="fantasma" icono={<RefreshCw className={cn("size-4", q.isFetching && "animate-spin")} />} onClick={() => void q.refetch()}>
+          Revisar
+        </Boton>
+      </div>
+      {problemas.length > 0 && (
+        <ul className="mb-3 space-y-1">
+          {problemas.map((p) => (
+            <li key={p.tarea + p.titulo} className="rounded-lg bg-[color-mix(in_oklab,var(--peligro)_10%,transparent)] px-3 py-2 text-xs text-peligro">
+              {p.titulo}
+              {p.detalle && <span className="block text-texto-3">{p.detalle}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <ul className="divide-y divide-borde overflow-hidden rounded-xl border border-borde">
+        {(q.data?.tareas ?? []).map((t) => {
+          const mal = !t.activa || t.estado === "failed" || t.atrasada;
+          return (
+            <li key={t.tarea} className="flex items-center gap-3 px-3 py-2 text-sm">
+              <span className={cn("size-2 shrink-0 rounded-full", mal ? "bg-peligro" : "bg-exito")} />
+              <span className="min-w-0 flex-1">
+                <span className="block">{NOMBRE_TAREA[t.tarea] ?? t.tarea}</span>
+                <span className="block truncate text-xs text-texto-3">
+                  {t.ultima ? `Última: ${relativo(t.ultima)}` : "Nunca ha corrido"}
+                  {t.fallas_24h > 0 && ` · ${t.fallas_24h} fallas en 24 h`}
+                  {!t.activa && " · desactivada"}
+                </span>
+              </span>
+              <span className="font-mono text-xs text-texto-3">{t.horario}</span>
+            </li>
+          );
+        })}
+        {q.isLoading && <li className="px-3 py-6 text-center text-xs text-texto-3">Revisando…</li>}
+      </ul>
+    </Tarjeta>
   );
 }
 

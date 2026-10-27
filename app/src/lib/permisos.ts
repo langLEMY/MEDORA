@@ -23,6 +23,9 @@ export type Modulo =
   | "aseguradoras"
   | "auditoria"
   | "integraciones"
+  | "laboratorio"
+  | "farmacia"
+  | "internamiento"
   | "configuracion";
 
 const CLINICOS: Rol[] = ["medico", "enfermeria", "psicologia", "nutricion", "terapia"];
@@ -45,6 +48,10 @@ const MATRIZ: Record<Modulo, Rol[]> = {
   catalogos: ["admin"],
   aseguradoras: ["admin"],
   auditoria: ["admin", "auditor", "gerencia"],
+  // Módulos por tipo de establecimiento (la sede decide si aplican; ver capacidades).
+  laboratorio: ["admin", "laboratorio", "gerencia", "medico", "recepcion"],
+  farmacia: ["admin", "farmacia", "gerencia"],
+  internamiento: ["admin", "medico", "enfermeria", "recepcion", "gerencia"],
   // Conectores (WhatsApp, Azul, correo, SMS): la administración de cada hospital.
   integraciones: ["admin"],
   // Identidad del hospital y sedes: solo superadministración (ver migración accesos_superadmin).
@@ -138,15 +145,14 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
   recepcion: "Recepción",
   caja: "Caja",
   farmacia: "Farmacia",
+  laboratorio: "Laboratorio",
   auditor: "Auditoría",
   quiosco: "Quiosco de turnos",
-  // El rol existe en la base (módulo de Laboratorio, rama de capacidades por sede); aquí solo su nombre.
-  laboratorio: "Laboratorio",
 };
 
 export const ROLES: Rol[] = [
   "admin", "gerencia", "contabilidad", "medico", "enfermeria", "psicologia", "nutricion", "terapia",
-  "recepcion", "caja", "farmacia", "auditor", "quiosco",
+  "recepcion", "caja", "farmacia", "laboratorio", "auditor", "quiosco",
 ];
 
 /** Cuenta de la pantalla táctil de turnos: solo ve el quiosco (y la pantalla de la sala). */

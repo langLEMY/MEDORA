@@ -7,7 +7,17 @@ import { datos, supabase, type Fila, type Rol } from "@/lib/supabase";
 import type { Permisos } from "@/lib/permisos";
 import { sincronizarDesdePerfil } from "@/lib/preferencias";
 import { contextoMonitoreo } from "@/lib/monitoreo";
+import { capacidadesSede, type Capacidad } from "@/lib/capacidades";
 import { aplicarColorMarca } from "@/lib/tema";
+
+/** Sede (local físico) del sistema activo, con su tipo y capacidades. */
+export interface SedeAcceso {
+  id: string;
+  nombre: string;
+  tipo: string;
+  capacidades: Record<string, boolean> | null;
+  activo: boolean;
+}
 
 export interface SistemaAcceso {
   id: string;
@@ -32,6 +42,12 @@ interface ContextoSesion {
   perfil: Fila<"perfiles"> | null;
   sistemas: SistemaAcceso[];
   sistema: SistemaAcceso | null;
+  /** Sedes del sistema activo y la sede en la que se está operando. */
+  sedes: SedeAcceso[];
+  sede: SedeAcceso | null;
+  /** Capacidades efectivas de la sede activa (según su tipo + overrides). */
+  capacidades: Partial<Record<Capacidad, boolean>>;
+  cambiarSede: (id: string) => void;
   roles: Rol[];
   permisos: Permisos;
   esSuperadmin: boolean;
@@ -46,6 +62,7 @@ interface ContextoSesion {
 
 const Contexto = createContext<ContextoSesion | null>(null);
 const CLAVE_SISTEMA = "medora.sistema";
+const CLAVE_SEDE = "medora.sede";
 
 function leerSistemaGuardado() {
   try {
@@ -61,6 +78,13 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const [sesionLista, setSesionLista] = useState(false);
   const [sistemaId, setSistemaId] = useState<string | null>(leerSistemaGuardado);
   const saliendo = useRef(false);
+  const [sedeId, setSedeId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(CLAVE_SEDE);
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -119,6 +143,28 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     sistemas[0] ??
     null;
 
+  // Sedes del sistema activo y la sede en la que se opera (modelo por sede).
+  const sedesQ = useQuery({
+    queryKey: ["sedes", sistema?.id],
+    enabled: !!sistema?.id,
+    queryFn: async () =>
+      (datos(
+        await supabase.from("sedes").select("id, nombre, tipo, capacidades, activo").eq("sistema_id", sistema!.id).eq("activo", true).order("nombre"),
+      ) ?? []) as SedeAcceso[],
+  });
+  const sedes = useMemo(() => sedesQ.data ?? [], [sedesQ.data]);
+  const sede = sedes.find((s) => s.id === sedeId) ?? sedes[0] ?? null;
+  const capacidades = useMemo(() => capacidadesSede(sede), [sede]);
+
+  const cambiarSede = useCallback((id: string) => {
+    setSedeId(id);
+    try {
+      localStorage.setItem(CLAVE_SEDE, id);
+    } catch {
+      /* sin almacenamiento */
+    }
+  }, []);
+
   useEffect(() => {
     aplicarColorMarca(sistema?.color_marca);
   }, [sistema?.color_marca]);
@@ -167,6 +213,10 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     perfil: perfilQ.data ?? null,
     sistemas,
     sistema,
+    sedes,
+    sede,
+    capacidades,
+    cambiarSede,
     roles: sistema?.roles ?? [],
     permisos: sistema?.permisos ?? {},
     esSuperadmin: !!perfilQ.data?.es_superadmin,

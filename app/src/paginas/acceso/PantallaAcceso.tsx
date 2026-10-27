@@ -13,7 +13,12 @@ const SALIDA_SUAVE = [0.23, 1, 0.32, 1] as const;
  * centrada sobre el fondo, con la marca MEDORA arriba y una tarjeta limpia. Nunca muestra el nombre ni
  * el logo de un hospital. El halo de fondo es estático (sin animación continua) y respeta los temas.
  */
-export function PantallaAcceso({ children, ancho = "angosto" }: { children: ReactNode; ancho?: "angosto" | "amplio" }) {
+export function PantallaAcceso({ children, ancho = "angosto", fluido }: {
+  children: ReactNode;
+  ancho?: "angosto" | "amplio";
+  /** La tarjeta acompaña con suavidad los cambios de alto (pasos de la bienvenida). */
+  fluido?: boolean;
+}) {
   return (
     <div className="relative flex min-h-full flex-col overflow-y-auto bg-fondo">
       {/* Fondo con la paleta de MEDORA (turquesa #14B8A6 y petróleo #0E7490 del logo, nunca el color de un
@@ -39,9 +44,15 @@ export function PantallaAcceso({ children, ancho = "angosto" }: { children: Reac
             <Isotipo className="size-11 drop-shadow-[0_8px_20px_color-mix(in_oklab,#14b8a6_30%,transparent)]" />
             <span className="text-[0.9375rem] font-semibold tracking-[0.22em] text-texto">MEDORA</span>
           </div>
-          <div className="rounded-2xl border border-borde bg-superficie p-7 shadow-[0_1px_2px_rgb(16_24_40/0.04),0_12px_32px_-12px_rgb(16_24_40/0.18)] sm:p-8">
+          <motion.div
+            layout={fluido}
+            transition={{ layout: { type: "spring", duration: 0.45, bounce: 0.08 } }}
+            // Radio en style (= rounded-2xl, 1.375rem) para que Motion lo corrija durante el cambio de tamaño.
+            style={{ borderRadius: 22 }}
+            className="border border-borde bg-superficie p-7 shadow-[0_1px_2px_rgb(16_24_40/0.04),0_12px_32px_-12px_rgb(16_24_40/0.18)] sm:p-8"
+          >
             {children}
-          </div>
+          </motion.div>
         </motion.div>
       </main>
 

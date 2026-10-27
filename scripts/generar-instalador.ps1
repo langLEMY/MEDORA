@@ -9,6 +9,11 @@
     4. Compila instalacion\MEDORA.iss con Inno Setup
     5. Genera el SHA256 del .exe (el auto-update lo verifica antes de ejecutar nada)
 
+    Firma de código (opcional): si están FIRMA_ENDPOINT, FIRMA_CUENTA y FIRMA_PERFIL
+    (Azure Trusted Signing; credenciales en AZURE_TENANT_ID/AZURE_CLIENT_ID/AZURE_CLIENT_SECRET)
+    firma MEDORA.exe antes de empaquetarlo y el instalador antes de calcular el hash.
+    Sin esas variables genera todo sin firmar, igual que antes.
+
     El instalador no contiene ningún secreto: solo la URL y la clave publicable de
     Supabase (públicas por diseño). La seguridad la aplica el RLS de Postgres.
 
@@ -23,6 +28,22 @@ function Paso([string]$Descripcion, [scriptblock]$Accion) {
     Write-Host "==> $Descripcion" -ForegroundColor Cyan
     & $Accion
     if ($LASTEXITCODE -ne 0) { throw "Falló: $Descripcion (código $LASTEXITCODE)" }
+}
+
+# Firma Authenticode con Azure Trusted Signing (módulo TrustedSigning). No hace nada sin configuración.
+function Firmar([string[]]$Archivos) {
+    if (-not ($env:FIRMA_ENDPOINT -and $env:FIRMA_CUENTA -and $env:FIRMA_PERFIL)) { return }
+    if (-not (Get-Module -ListAvailable -Name TrustedSigning)) {
+        Install-Module -Name TrustedSigning -Scope CurrentUser -Force -AllowClobber | Out-Null
+    }
+    Write-Host "==> Firmando $($Archivos -join ', ')" -ForegroundColor Cyan
+    Invoke-TrustedSigning -Endpoint $env:FIRMA_ENDPOINT -CodeSigningAccountName $env:FIRMA_CUENTA `
+        -CertificateProfileName $env:FIRMA_PERFIL -Files ($Archivos -join ',') `
+        -FileDigest SHA256 -TimestampRfc3161 "http://timestamp.acs.microsoft.com" -TimestampDigest SHA256
+    foreach ($a in $Archivos) {
+        $firma = Get-AuthenticodeSignature $a
+        if ($firma.Status -ne "Valid") { throw "La firma de $a no es válida: $($firma.Status)" }
+    }
 }
 
 $raiz = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -41,6 +62,8 @@ Paso "Publicando el launcher $version" {
     dotnet publish (Join-Path $raiz "launcher\MEDORA.Launcher\MEDORA.Launcher.csproj") -c Release -o $dist -p:DebugType=none
 }
 
+Firmar @(Join-Path $dist "MEDORA.exe")
+
 Copy-Item -Recurse (Join-Path $raiz "app\dist") (Join-Path $dist "app")
 
 $candidatos = @(
@@ -55,6 +78,7 @@ Paso "Compilando el instalador" { & $iscc /Q (Join-Path $raiz "instalacion\MEDOR
 
 $exe = Join-Path $raiz "instalacion\Output\MEDORA-$version-Setup-x64.exe"
 if (-not (Test-Path $exe)) { throw "No se encontró $exe" }
+Firmar @($exe)
 
 $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash
 Set-Content -Path "$exe.sha256" -Value "$hash  $(Split-Path $exe -Leaf)" -Encoding ascii -NoNewline

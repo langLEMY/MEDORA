@@ -198,6 +198,97 @@ export function CurvaArea({
   );
 }
 
+/**
+ * Barras verticales con líneas guía y lectura al pasar el mouse (reemplaza a recharts en el
+ * Inicio, que así no carga la librería de gráficos al arrancar).
+ */
+export function Barras({
+  puntos,
+  color = "var(--marca)",
+  formato = (n) => n.toLocaleString("es-DO"),
+  nombre,
+  className,
+}: {
+  puntos: PuntoCurva[];
+  color?: string;
+  formato?: (n: number) => string;
+  nombre?: string;
+  className?: string;
+}) {
+  const [ref, { w: W, h: H }] = useTamano();
+  const [foco, setFoco] = useState<number | null>(null);
+  const n = puntos.length;
+  const max = Math.max(1, ...puntos.map((p) => p.valor));
+  const paso = Math.max(1, Math.ceil(pasoEje(max)));
+  const tope = Math.ceil(max / paso) * paso;
+  const [izq, der, arr, aba] = [28, 4, 8, 22];
+  const banda = n ? (W - izq - der) / n : 0;
+  const ancho = Math.min(26, banda * 0.6);
+  const Y = (v: number) => arr + (1 - v / tope) * (H - arr - aba);
+  const guias = Array.from({ length: Math.round(tope / paso) + 1 }, (_, i) => i * paso);
+  const cx = (i: number) => izq + banda * i + banda / 2;
+
+  return (
+    <div ref={ref} className={cn("relative min-h-0", className)}>
+      {W > 0 && H > 0 && n > 0 && (
+        <svg
+          width={W}
+          height={H}
+          className="block"
+          role="img"
+          aria-label={nombre ? `${nombre}: ${puntos.map((p) => `${p.etiqueta} ${formato(p.valor)}`).join(", ")}` : undefined}
+          onPointerLeave={() => setFoco(null)}
+        >
+          {guias.map((v) => (
+            <g key={v}>
+              <line x1={izq} x2={W - der} y1={Y(v)} y2={Y(v)} stroke="var(--borde)" strokeDasharray={v ? "3 4" : undefined} />
+              <text x={izq - 6} y={Y(v) + 3.5} textAnchor="end" fontSize={11} fill="var(--texto-3)" className="tabular-nums">
+                {compacto(v)}
+              </text>
+            </g>
+          ))}
+          {puntos.map((p, i) => {
+            const y = Y(p.valor);
+            const alto = Math.max(0, Y(0) - y);
+            const r = Math.min(5, ancho / 2, alto);
+            const x = cx(i) - ancho / 2;
+            return (
+              <g key={i} onPointerEnter={() => setFoco(i)}>
+                <rect x={izq + banda * i} y={arr} width={banda} height={H - arr - aba} fill={foco === i ? "color-mix(in oklab, var(--marca) 8%, transparent)" : "transparent"} />
+                {alto > 0 && (
+                  <motion.path
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: Math.min(i * 0.02, 0.2), ease: [0.23, 1, 0.32, 1] }}
+                    d={`M${x},${Y(0)}V${y + r}Q${x},${y} ${x + r},${y}H${x + ancho - r}Q${x + ancho},${y} ${x + ancho},${y + r}V${Y(0)}Z`}
+                    fill={color}
+                  />
+                )}
+                <text x={cx(i)} y={H - 6} textAnchor="middle" fontSize={11} fill={foco === i ? "var(--texto)" : "var(--texto-3)"}>
+                  {p.etiqueta}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      )}
+      {foco !== null && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute top-1 z-10 rounded-xl border border-borde bg-[color-mix(in_oklab,var(--superficie)_85%,transparent)] px-2.5 py-2 text-xs whitespace-nowrap shadow-lg backdrop-blur-md"
+          style={{ left: cx(foco), transform: `translateX(${cx(foco) > W * 0.7 ? "calc(-100% - 12px)" : "12px"})` }}
+        >
+          <div className="mb-0.5 text-texto-3">{puntos[foco].etiqueta}</div>
+          <div className="flex items-center gap-1.5 font-semibold text-texto tabular-nums">
+            <i className="inline-block size-2 rounded-[2px]" style={{ background: color }} />
+            {formato(puntos[foco].valor)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export interface PuntoEspejo {
   etiqueta: string;
   arriba: number;
