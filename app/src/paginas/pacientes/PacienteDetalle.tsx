@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, ArrowLeft, CalendarDays, Droplet, FileText, Pencil, Phone, Receipt, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarDays, Droplet, FileDown, FileText, Pencil, Phone, Receipt, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Boton } from "@/components/ui/boton";
@@ -9,7 +10,8 @@ import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento
 import { Avatar, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { claves, ESTADO_CITA, SELECT_CITA, type CitaConRelaciones } from "@/lib/consultas";
 import { puede, puedeEscribir } from "@/lib/permisos";
-import { datos, supabase } from "@/lib/supabase";
+import { exportarFhir } from "@/lib/fhir";
+import { datos, mensajeError, supabase } from "@/lib/supabase";
 import { edad, fecha, fechaHora, moneda } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
 import { AccesosExpediente, useRegistrarAcceso } from "@/components/AccesosExpediente";
@@ -28,6 +30,11 @@ export default function PacienteDetalle() {
   const verCobros = puede(roles, "caja", false, permisos);
   const [pestana, setPestana] = useState<Pestana>(verHistorial ? "historial" : "citas");
   const [editar, setEditar] = useState(false);
+  const exportar = useMutation({
+    mutationFn: () => exportarFhir(sistemaId, id),
+    onSuccess: (n) => toast.success("Expediente exportado en formato FHIR", { description: `${n} registros. La exportación quedó en la auditoría.` }),
+    onError: (e) => toast.error(mensajeError(e)),
+  });
   const tarjeta = useRef<HTMLDivElement>(null);
   // Queda en la auditoría quién abrió el expediente y, aparte, la historia clínica.
   useRegistrarAcceso(id, pestana === "historial" || pestana === "laboratorio" ? "historia clínica" : "expediente");
@@ -141,6 +148,18 @@ export default function PacienteDetalle() {
             {puedeEscribir.pacientes(roles) && (
               <Boton variante="secundario" icono={<Pencil className="size-3.5" />} onClick={() => setEditar(true)}>
                 Editar
+              </Boton>
+            )}
+            {verHistorial && (
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                icono={<FileDown className="size-3.5" />}
+                cargando={exportar.isPending}
+                onClick={() => exportar.mutate()}
+                title="Expediente completo en HL7 FHIR R4 (para otro centro, un laboratorio o el paciente)"
+              >
+                Exportar (FHIR)
               </Boton>
             )}
             <AccesosExpediente pacienteId={p.id} />
