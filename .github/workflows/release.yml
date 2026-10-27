@@ -144,3 +144,36 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+  # --- ¿Las PCs la van a ver? ---
+  # El launcher busca actualizaciones en el repo de ServicioActualizacion.RepositorioPorDefecto
+  # (leído del código, no de una variable). Si la release quedó en otro repo, o le falta el
+  # .exe o su .sha256, el workflow falla aquí en vez de salir en verde sin que nadie se actualice.
+  verificar-publicacion:
+    needs: [instalador, escritorio]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: La release está donde el launcher la busca
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repo=$(grep -oP 'RepositorioPorDefecto = "\K[^"]+' launcher/MEDORA.Actualizacion/ServicioActualizacion.cs)
+          echo "El launcher lee: $repo"
+          for intento in 1 2 3 4 5; do
+            json=$(curl -fsSL -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$repo/releases/latest" || true)
+            tag=$(echo "$json" | jq -r '.tag_name // empty')
+            [ "$tag" = "$GITHUB_REF_NAME" ] && break
+            sleep 20
+          done
+          if [ "$tag" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::La última release de $repo es '${tag:-ninguna}', no $GITHUB_REF_NAME. Las PCs NO verán esta versión. Configura RELEASES_REPO + RELEASES_TOKEN o cópiala a mano (gh release create $GITHUB_REF_NAME -R $repo ...)."
+            exit 1
+          fi
+          exe=$(echo "$json" | jq '[.assets[].name | select(endswith(".exe"))] | length')
+          sha=$(echo "$json" | jq '[.assets[].name | select(endswith(".exe.sha256"))] | length')
+          if [ "$exe" -lt 1 ] || [ "$sha" -lt 1 ]; then
+            echo "::error::$repo/$GITHUB_REF_NAME no tiene el .exe y su .sha256: el launcher no ofrecerá la actualización."
+            exit 1
+          fi
+          echo "OK: $repo/$GITHUB_REF_NAME con instalador y hash."
