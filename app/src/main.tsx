@@ -12,6 +12,7 @@ import { enrutador } from "./rutas";
 import { SesionProvider } from "./sesion/SesionProvider";
 import { guardarEnEquipo, MAX_EDAD, persistidor } from "./lib/sinConexion";
 import { iniciarMonitoreo } from "./lib/monitoreo";
+import { dibujaSinGpu } from "./lib/graficos";
 
 iniciarMonitoreo();
 aplicarPreferenciasIniciales();
@@ -29,10 +30,13 @@ const qc = new QueryClient({
   },
 });
 
-/** Movimiento según Windows ("user") o apagado si el usuario lo pidió en su perfil. */
+/** Movimiento según Windows ("user"), o apagado si el usuario lo pidió en su perfil o el
+ *  equipo dibuja sin tarjeta gráfica (ahí las animaciones se verían a saltos). */
 function Movimiento({ children }: { children: ReactNode }) {
   const { movimiento } = usePreferencias();
-  return <MotionConfig reducedMotion={movimiento === "reducido" ? "always" : "user"}>{children}</MotionConfig>;
+  return (
+    <MotionConfig reducedMotion={movimiento === "reducido" || dibujaSinGpu() ? "always" : "user"}>{children}</MotionConfig>
+  );
 }
 
 createRoot(document.getElementById("root")!).render(

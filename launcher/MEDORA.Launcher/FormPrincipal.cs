@@ -99,10 +99,9 @@ public sealed class FormPrincipal : Form
         {
             var opciones = new CoreWebView2EnvironmentOptions
             {
-                // --disable-gpu: en VMs/escritorios remotos con GPU floja WebView2 pinta negro
-                // en vez de caer a software (hallazgo de FUNBIDE). Autoplay: la TV de la sala
-                // anuncia los turnos con sonido y voz sin que nadie toque la pantalla.
-                AdditionalBrowserArguments = "--disable-gpu --autoplay-policy=no-user-gesture-required",
+                // Autoplay: la TV de la sala anuncia los turnos con sonido y voz sin que nadie
+                // toque la pantalla. GPU: ver DibujarSinGpu().
+                AdditionalBrowserArguments = (DibujarSinGpu() ? "--disable-gpu " : "") + "--autoplay-policy=no-user-gesture-required",
             };
             var entorno = await CoreWebView2Environment.CreateAsync(null, Path.Combine(Program.CarpetaDatos, "WebView2"), opciones);
             _webView.DefaultBackgroundColor = BackColor;
@@ -585,6 +584,43 @@ public sealed class FormPrincipal : Form
         else
         {
             _webView.CoreWebView2.PostWebMessageAsString(json);
+        }
+    }
+
+    // --- Tarjeta gráfica ----------------------------------------------------------------
+
+    /// <summary>
+    /// Hasta la 1.10 WebView2 iba siempre con --disable-gpu: en VMs y escritorios remotos con
+    /// GPU floja pintaba negro (hallazgo de FUNBIDE). El costo era que todo lo dibujaba la CPU
+    /// (~15 veces más trabajo por cuadro, medido) y en PCs modestas las animaciones caían a
+    /// ~10 fps. Ahora se usa la GPU salvo donde pintaba negro (escritorio remoto o máquina
+    /// virtual) o si se pide a mano: --sin-gpu, MEDORA_SIN_GPU=1 o un archivo «sin-gpu» en
+    /// la carpeta de datos (soporte lo puede crear en una PC que se vea negra).
+    /// </summary>
+    private static bool DibujarSinGpu()
+    {
+        if (SystemInformation.TerminalServerSession
+            || Environment.GetCommandLineArgs().Any(a => a.Equals("--sin-gpu", StringComparison.OrdinalIgnoreCase))
+            || Environment.GetEnvironmentVariable("MEDORA_SIN_GPU") == "1"
+            || File.Exists(Path.Combine(Program.CarpetaDatos, "sin-gpu")))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var bios = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\BIOS");
+            var equipo = $"{bios?.GetValue("SystemManufacturer")} {bios?.GetValue("SystemProductName")}";
+            return equipo.Contains("Virtual", StringComparison.OrdinalIgnoreCase) // Hyper-V, VirtualBox
+                || equipo.Contains("VMware", StringComparison.OrdinalIgnoreCase)
+                || equipo.Contains("QEMU", StringComparison.OrdinalIgnoreCase)
+                || equipo.Contains("KVM", StringComparison.OrdinalIgnoreCase)
+                || equipo.Contains("Xen", StringComparison.OrdinalIgnoreCase)
+                || equipo.Contains("Parallels", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
         }
     }
 
