@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
 import { ItemMenu, Menu, SeparadorMenu } from "../ui/menu";
 import { pagina } from "../ui/movimiento";
+import { precargarPantallas } from "@/lib/precarga";
 import { Avatar, Kbd } from "../ui/superficies";
 import { AvisoActualizacion } from "./AvisoActualizacion";
 import { Isotipo } from "./Logo";
@@ -74,6 +75,9 @@ export function AppShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Con el menú ya en pantalla, carga en reposo el código del resto de pantallas.
+  useEffect(() => precargarPantallas(), []);
 
   const propio = soloLoPropio(roles);
   // Gatea por la sede activa solo si ya se resolvió (si no, no oculta nada).
