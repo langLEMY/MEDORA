@@ -617,7 +617,7 @@ function Reparto({
                     style={{ width: `${(f.monto / top[0].monto) * 100}%`, background: PALETA[i % PALETA.length] }}
                     initial={{ scaleX: 0.02 }}
                     animate={{ scaleX: 1 }}
-                    transition={{ duration: 0.6, delay: i * 0.05, ease: EASE_SALIDA }}
+                    transition={{ duration: 0.45, delay: Math.min(i * 0.04, 0.16), ease: EASE_SALIDA }}
                   />
                 </div>
               </button>
@@ -689,7 +689,7 @@ function MetodosPago({ filas }: { filas: { metodo: string; monto: number }[] }) 
             style={{ width: `${(Math.max(0, f.monto) / total) * 100}%`, background: PALETA[i % PALETA.length] }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: i * 0.08 }}
+            transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.15) }}
           />
         ))}
       </div>

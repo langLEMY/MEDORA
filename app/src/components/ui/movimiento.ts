@@ -13,18 +13,24 @@ export const resorte: Transition = { type: "spring", duration: 0.35, bounce: 0.1
 export const resorteSuave: Transition = { type: "spring", duration: 0.5, bounce: 0.08 };
 export const rapido: Transition = { duration: 0.18, ease: EASE_SALIDA };
 
+// Cambiar de pantalla es lo que más se repite en el día: la entrada es corta para que
+// la pantalla nueva se sienta inmediata.
 export const pagina: Variants = {
-  inicial: { opacity: 0, y: 8 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: EASE_SALIDA } },
+  inicial: { opacity: 0, y: 4 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: EASE_SALIDA } },
   salida: { opacity: 0, y: -4, transition: { duration: 0.12 } },
 };
 
+/** Solo las primeras filas entran escalonadas; el resto llega con la sexta. Así una
+ *  lista de 25 o 100 renglones termina de aparecer en ≤ 0,35 s y no en más de un segundo. */
+const ESCALON_S = 0.025;
+const ESCALONES = 6;
 export const contenedorEscalonado: Variants = {
   inicial: {},
-  visible: { transition: { staggerChildren: 0.035, delayChildren: 0.04 } },
+  visible: { transition: { delayChildren: (i: number) => Math.min(i, ESCALONES) * ESCALON_S } },
 };
 
 export const itemEscalonado: Variants = {
-  inicial: { opacity: 0, y: 6 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: EASE_SALIDA } },
+  inicial: { opacity: 0, y: 4 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_SALIDA } },
 };

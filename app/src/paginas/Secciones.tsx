@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "motion/react";
-import { lazy, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { Segmentado } from "@/components/ui/campos";
 import { puede } from "@/lib/permisos";
 import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
+import { pantalla } from "@/lib/precarga";
 
 /**
  * Entradas del menú que agrupan varias pantallas relacionadas (ver
@@ -12,19 +13,19 @@ import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
  * las pestañas que su rol y sus permisos permiten.
  */
 
-const Medicos = lazy(() => import("./Medicos"));
-const Comisiones = lazy(() => import("./Comisiones"));
-const Servicios = lazy(() => import("./Catalogos"));
-const Aseguradoras = lazy(() => import("./Catalogos").then((m) => ({ default: m.PaginaAseguradoras })));
-const Configuracion = lazy(() => import("./Configuracion"));
-const Integraciones = lazy(() => import("./Integraciones"));
-const Auditoria = lazy(() => import("./Auditoria"));
-const Reportes = lazy(() => import("./Reportes"));
-const ResumenFinanciero = lazy(() => import("./Finanzas").then((m) => ({ default: m.ResumenFinanciero })));
-const MovimientosImportantes = lazy(() => import("./Finanzas").then((m) => ({ default: m.MovimientosImportantes })));
-const CierresDiarios = lazy(() => import("./Finanzas").then((m) => ({ default: m.CierresDiarios })));
-const Donaciones = lazy(() => import("./Finanzas").then((m) => ({ default: m.Donaciones })));
-const ConciliacionBancaria = lazy(() => import("@/components/ConciliacionBancaria").then((m) => ({ default: m.ConciliacionBancaria })));
+const Medicos = pantalla(() => import("./Medicos"));
+const Comisiones = pantalla(() => import("./Comisiones"));
+const Servicios = pantalla(() => import("./Catalogos"));
+const Aseguradoras = pantalla(() => import("./Catalogos").then((m) => ({ default: m.PaginaAseguradoras })));
+const Configuracion = pantalla(() => import("./Configuracion"));
+const Integraciones = pantalla(() => import("./Integraciones"));
+const Auditoria = pantalla(() => import("./Auditoria"));
+const Reportes = pantalla(() => import("./Reportes"));
+const ResumenFinanciero = pantalla(() => import("./Finanzas").then((m) => ({ default: m.ResumenFinanciero })));
+const MovimientosImportantes = pantalla(() => import("./Finanzas").then((m) => ({ default: m.MovimientosImportantes })));
+const CierresDiarios = pantalla(() => import("./Finanzas").then((m) => ({ default: m.CierresDiarios })));
+const Donaciones = pantalla(() => import("./Finanzas").then((m) => ({ default: m.Donaciones })));
+const ConciliacionBancaria = pantalla(() => import("@/components/ConciliacionBancaria").then((m) => ({ default: m.ConciliacionBancaria })));
 
 interface Seccion {
   clave: string;

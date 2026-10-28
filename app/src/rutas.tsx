@@ -7,34 +7,35 @@ import { Boton } from "./components/ui/boton";
 import { Esqueleto, Vacio } from "./components/ui/superficies";
 import { Puerta } from "./paginas/acceso/Puerta";
 import { useSesion } from "./sesion/SesionProvider";
+import { pantalla } from "./lib/precarga";
 
 // Hash router: el launcher sirve archivos estáticos desde disco, no hay
 // servidor que reescriba rutas profundas a index.html.
-const Dashboard = lazy(() => import("./paginas/Dashboard"));
-const Recepcion = lazy(() => import("./paginas/Recepcion"));
-const Agenda = lazy(() => import("./paginas/Agenda"));
-const Pacientes = lazy(() => import("./paginas/pacientes/Pacientes"));
-const PacienteDetalle = lazy(() => import("./paginas/pacientes/PacienteDetalle"));
-const Caja = lazy(() => import("./paginas/Caja"));
-const Compras = lazy(() => import("./paginas/Compras"));
-const Nomina = lazy(() => import("./paginas/Nomina"));
-const Contabilidad = lazy(() => import("./paginas/Contabilidad"));
-const PaginaMedicos = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaMedicos })));
-const PaginaPrecios = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaPrecios })));
-const PaginaAdministracion = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaAdministracion })));
-const PaginaFinanzas = lazy(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaFinanzas })));
-const CierresDetalle = lazy(() => import("./paginas/Finanzas").then((m) => ({ default: m.CierresDetalle })));
-const Estadisticas = lazy(() => import("./paginas/Estadisticas"));
-const Inventario = lazy(() => import("./paginas/Inventario"));
-const Laboratorio = lazy(() => import("./paginas/Laboratorio"));
-const Farmacia = lazy(() => import("./paginas/Farmacia"));
-const Internamiento = lazy(() => import("./paginas/Internamiento"));
-const Personal = lazy(() => import("./paginas/Personal"));
+const Dashboard = pantalla(() => import("./paginas/Dashboard"));
+const Recepcion = pantalla(() => import("./paginas/Recepcion"));
+const Agenda = pantalla(() => import("./paginas/Agenda"));
+const Pacientes = pantalla(() => import("./paginas/pacientes/Pacientes"));
+const PacienteDetalle = pantalla(() => import("./paginas/pacientes/PacienteDetalle"));
+const Caja = pantalla(() => import("./paginas/Caja"));
+const Compras = pantalla(() => import("./paginas/Compras"));
+const Nomina = pantalla(() => import("./paginas/Nomina"));
+const Contabilidad = pantalla(() => import("./paginas/Contabilidad"));
+const PaginaMedicos = pantalla(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaMedicos })));
+const PaginaPrecios = pantalla(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaPrecios })));
+const PaginaAdministracion = pantalla(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaAdministracion })));
+const PaginaFinanzas = pantalla(() => import("./paginas/Secciones").then((m) => ({ default: m.PaginaFinanzas })));
+const CierresDetalle = pantalla(() => import("./paginas/Finanzas").then((m) => ({ default: m.CierresDetalle })));
+const Estadisticas = pantalla(() => import("./paginas/Estadisticas"));
+const Inventario = pantalla(() => import("./paginas/Inventario"));
+const Laboratorio = pantalla(() => import("./paginas/Laboratorio"));
+const Farmacia = pantalla(() => import("./paginas/Farmacia"));
+const Internamiento = pantalla(() => import("./paginas/Internamiento"));
+const Personal = pantalla(() => import("./paginas/Personal"));
 const Plataforma = lazy(() => import("./paginas/Plataforma"));
-const Perfil = lazy(() => import("./paginas/Perfil"));
+const Perfil = pantalla(() => import("./paginas/Perfil"));
 const Quiosco = lazy(() => import("./paginas/Quiosco"));
 const Pantalla = lazy(() => import("./paginas/Pantalla"));
-const Ayuda = lazy(() => import("./paginas/Ayuda"));
+const Ayuda = pantalla(() => import("./paginas/Ayuda"));
 
 /** Pantallas completas sin menú (quiosco táctil y TV de la sala). */
 function PantallaCompleta({ children }: { children: ReactNode }) {
