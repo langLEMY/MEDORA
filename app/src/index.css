@@ -261,6 +261,16 @@ html[data-movimiento="reducido"] *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
+/* Sin tarjeta gráfica (lib/graficos.ts): cambios al instante y sin el pulso infinito, que
+   obliga a redibujar en cada cuadro. Ruedas de carga y esqueletos siguen moviéndose. */
+html[data-graficos="software"] *,
+html[data-graficos="software"] *::before,
+html[data-graficos="software"] *::after {
+  transition-duration: 0.01ms !important;
+}
+html[data-graficos="software"] .animate-ping {
+  animation: none !important;
+}
 
 /* Reducir transparencia (ajuste del sistema): sin desenfoques; las barras quedan sólidas. */
 @media (prefers-reduced-transparency: reduce) {
