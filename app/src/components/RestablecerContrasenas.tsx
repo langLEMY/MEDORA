@@ -173,7 +173,7 @@ export function RestablecerContrasenas() {
           </div>
           <TablaDocumento
             encabezados={["Nombre", "Usuario", "Contraseña temporal"]}
-            filas={resultado.lista.map((f) => [f.nombre, f.usuario ?? "—", <span className="font-mono">{f.password ?? "(error)"}</span>])}
+            filas={resultado.lista.map((f) => [f.nombre, f.usuario ?? "—", <span key="clave" className="font-mono">{f.password ?? "(error)"}</span>])}
           />
         </Documento>
       )}

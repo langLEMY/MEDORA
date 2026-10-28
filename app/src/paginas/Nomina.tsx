@@ -788,6 +788,8 @@ interface Tramo {
   fijo: number;
 }
 
+const ETIQUETA_TRAMO = { exceso_de: "Desde (excedente de)", hasta: "Hasta", tasa: "Tasa %", fijo: "Fijo" } as const;
+
 function Parametros() {
   const { sistemaId, roles } = useSistema();
   const qc = useQueryClient();
@@ -909,6 +911,7 @@ function Parametros() {
                       type="number"
                       step="0.01"
                       disabled={!editable}
+                      aria-label={`${ETIQUETA_TRAMO[k]}, tramo ${i + 1}`}
                       placeholder={k === "hasta" ? "En adelante" : ""}
                       value={t[k] ?? ""}
                       onChange={(e) => setEscala((s) => s.map((x, j) => (j === i ? { ...x, [k]: e.target.value === "" ? null : Number(e.target.value) } : x)))}

@@ -1059,10 +1059,10 @@ function Burbuja({
                   <button
                     key={t.tipo}
                     type="button"
-                    role="menuitem"
+                    role="menuitemradio"
                     title={t.nombre}
                     aria-label={t.nombre}
-                    aria-pressed={miReaccion === t.tipo}
+                    aria-checked={miReaccion === t.tipo}
                     onClick={() => onTapback(t.tipo)}
                     className={cn(
                       "grid size-9 place-items-center rounded-full text-[1.15rem] transition-transform duration-150 hover:scale-110 active:scale-95",

@@ -133,7 +133,7 @@ export function HistorialClinico({ pacienteId, pacienteNombre }: { pacienteId: s
 
   const escribir = puedeEscribir.historial(roles);
   const adendas = (id: string) => q.data?.filter((e) => e.corrige_a === id) ?? [];
-  const raiz = q.data?.filter((e) => !e.corrige_a) ?? [];
+  const raiz = useMemo(() => q.data?.filter((e) => !e.corrige_a) ?? [], [q.data]);
   const presentes = useMemo(() => [...new Set(raiz.map((e) => e.tipo))], [raiz]);
   const visibles = raiz.filter((e) => filtro === "todos" || e.tipo === filtro);
 
@@ -368,7 +368,7 @@ function NuevaEntrada({
       const subidos: Archivo[] = [];
       for (const [i, f] of archivos.entries()) {
         setProgreso(`Subiendo ${i + 1} de ${archivos.length}…`);
-        const ruta = `${sistemaId}/${pacienteId}/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]+/g, "_")}`;
+        const ruta = `${sistemaId}/${pacienteId}/${crypto.randomUUID()}-${f.name.replace(/[^\w.-]+/g, "_")}`;
         const { error } = await supabase.storage.from("anexos-clinicos").upload(ruta, f, { contentType: f.type });
         if (error) throw new Error(`No se pudo subir ${f.name}: ${error.message}`);
         subidos.push({ ruta, nombre: f.name, tipo: f.type, tamano: f.size });

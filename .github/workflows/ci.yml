@@ -24,6 +24,8 @@ jobs:
         run: npm audit --audit-level=high
       - name: Tipos
         run: npx tsc -b
+      - name: Lint (hooks de React, keys, accesibilidad)
+        run: npm run lint
       - name: Tests
         run: npm test -- --passWithNoTests
       - name: Build
@@ -80,9 +82,26 @@ jobs:
           python3 scripts/correr-bateria.py $DSN supabase/tests/funcional_roles.sql funcional.json
           python3 scripts/correr-bateria.py $DSN supabase/tests/rls_aislamiento.sql rls.json
           python3 scripts/verificar-baterias.py funcional.json rls.json
-      - name: Lint de funciones (avisa, no bloquea todavía)
-        continue-on-error: true
-        run: supabase db lint --local --level error
+      # Bloquea ante cualquier error real; solo ignora las tablas temporales que
+      # plpgsql_check no puede ver (ver scripts/verificar-lint.py).
+      - name: Lint de funciones SQL
+        run: |
+          supabase db lint --local --level error > lint.txt
+          python3 scripts/verificar-lint.py lint.txt
+
+  # Edge Functions (Deno): tipos de todas y pruebas de lo crítico (firma e-CF de la DGII,
+  # contraseñas heredadas, 2FA en el token, validación del laboratorio).
+  funciones:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.x
+      - name: Tipos
+        run: deno check supabase/functions/*/index.ts
+      - name: Pruebas
+        run: deno test --allow-env --allow-read --allow-net=jsr.io,registry.npmjs.org supabase/functions
 
   # Punta a punta (Playwright). Sin secretos solo prueba la pantalla de acceso; con
   # E2E_USUARIO / E2E_CLAVE (cuenta que SOLO pertenezca a un sistema de pruebas) recorre la app.

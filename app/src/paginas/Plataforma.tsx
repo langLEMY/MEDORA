@@ -385,6 +385,9 @@ function NuevoSistema({
             {COLORES_MARCA.map((c) => (
               <button
                 key={c}
+                type="button"
+                aria-label={`Color ${c}`}
+                aria-pressed={color === c}
                 onClick={() => setColor(c)}
                 className={cn("size-8 rounded-full ring-offset-2 ring-offset-superficie transition-shadow", color === c && "ring-2")}
                 style={{ background: c, ["--tw-ring-color" as string]: c }}

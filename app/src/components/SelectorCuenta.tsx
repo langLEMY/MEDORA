@@ -105,9 +105,9 @@ export function SelectorCuenta({
         id={id}
         type="button"
         onClick={() => setAbierto((a) => !a)}
-        aria-invalid={!!error}
+        data-invalido={error ? "" : undefined}
         className={cn(
-          "flex w-full items-center gap-2 rounded-[10px] border border-borde bg-superficie px-3 text-left text-sm shadow-sm transition-colors hover:border-borde-fuerte aria-[invalid=true]:border-peligro",
+          "flex w-full items-center gap-2 rounded-[10px] border border-borde bg-superficie px-3 text-left text-sm shadow-sm transition-colors hover:border-borde-fuerte data-invalido:border-peligro",
           compacto ? "h-8" : "h-9",
           abierto && "border-marca [box-shadow:0_0_0_4px_var(--anillo)]",
         )}

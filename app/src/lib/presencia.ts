@@ -71,8 +71,10 @@ export function useAnunciarPresencia(sistemaId: string | undefined, yo: { id: st
     };
   }, [sistemaId]);
 
+  const yoId = yo?.id;
+  const yoNombre = yo?.nombre ?? "";
   useEffect(() => {
-    if (!sistemaId || !yo) return;
+    if (!sistemaId || !yoId) return;
     const c = canales.get(sistemaId);
     if (!c) return;
     if (!visible) {
@@ -80,9 +82,9 @@ export function useAnunciarPresencia(sistemaId: string | undefined, yo: { id: st
       void c.canal.untrack();
       return;
     }
-    c.propio = { id: yo.id, nombre: yo.nombre, pantalla, desde: c.propio?.desde ?? new Date().toISOString() };
+    c.propio = { id: yoId, nombre: yoNombre, pantalla, desde: c.propio?.desde ?? new Date().toISOString() };
     void c.canal.track(c.propio);
-  }, [sistemaId, yo?.id, yo?.nombre, pantalla, visible]);
+  }, [sistemaId, yoId, yoNombre, pantalla, visible]);
 }
 
 /** Lista de conectados en el sistema. */

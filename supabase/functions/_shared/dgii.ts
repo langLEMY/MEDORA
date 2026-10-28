@@ -59,7 +59,7 @@ export function leerCertificado(p12Base64: string, clave: string): Certificado {
     ...(p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[forge.pki.oids.pkcs8ShroudedKeyBag] ?? []),
     ...(p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag] ?? []),
   ];
-  const certs = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] ?? [];
+  const certs: forge.pkcs12.Bag[] = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] ?? [];
   const llave = llaves[0]?.key;
   // El certificado del emisor es el que corresponde a la llave privada (no las CA de la cadena).
   const cert =

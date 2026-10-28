@@ -19,7 +19,7 @@ async function clave(): Promise<CryptoKey> {
   return crypto.subtle.importKey("raw", cruda, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-async function comprimir(datos: Uint8Array): Promise<Uint8Array> {
+async function comprimir(datos: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   const flujo = new Blob([datos]).stream().pipeThrough(new CompressionStream("gzip"));
   return new Uint8Array(await new Response(flujo).arrayBuffer());
 }

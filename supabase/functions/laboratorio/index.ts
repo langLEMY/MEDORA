@@ -16,8 +16,11 @@
 // Si la cédula o el expediente coinciden, el resultado se asigna al paciente; si no,
 // queda en la bandeja de Laboratorio para asignarlo a mano.
 import { clienteServicio, cors, error, ipCliente, json, limitar } from "../_shared/comun.ts";
+import { resultado, type Resultado } from "./validar.ts";
 
 const MAX_PDF = 8 * 1024 * 1024;
+// El PDF en base64 ocupa 4/3 de su tamaño; con margen para el resto del JSON.
+const MAX_CUERPO = 12 * 1024 * 1024;
 
 function igualEnTiempoConstante(a: string, b: string): boolean {
   const x = new TextEncoder().encode(a);
@@ -42,15 +45,25 @@ Deno.serve(async (req) => {
   if (!integ || !esperado || !recibido || !igualEnTiempoConstante(recibido, String(esperado))) return error("No autorizado.", 401);
   if (!integ.activo) return error("La recepción de resultados está en pausa en este hospital.", 403);
 
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_CUERPO) return error("El envío pasa de 12 MB.", 413);
   let c: Record<string, unknown>;
   try {
     c = await req.json();
   } catch {
     return error("JSON inválido.");
   }
+  if (!c || typeof c !== "object" || Array.isArray(c)) return error("JSON inválido.");
   const paciente = (c.paciente ?? {}) as Record<string, string>;
-  const resultados = Array.isArray(c.resultados) ? c.resultados.slice(0, 500) : [];
+  if (c.resultados !== undefined && !Array.isArray(c.resultados)) return error("resultados debe ser una lista.");
+  const resultados: Resultado[] = [];
+  for (const r of ((c.resultados as unknown[]) ?? []).slice(0, 500)) {
+    const fila = resultado(r);
+    if (!fila) return error(`Resultado ${resultados.length + 1} inválido: cada uno necesita "prueba" y sus campos deben ser texto o número.`);
+    resultados.push(fila);
+  }
   if (resultados.length === 0 && !c.pdf_base64) return error("El envío no trae resultados ni PDF.");
+  const fecha = c.fecha ? new Date(String(c.fecha)) : new Date();
+  if (Number.isNaN(fecha.getTime())) return error("fecha inválida: usa ISO 8601, por ejemplo 2026-10-04T10:30:00-04:00.");
   const orden = c.orden ? String(c.orden).slice(0, 80) : null;
   const laboratorio = String((integ.config as Record<string, string>)?.nombre_laboratorio ?? "Laboratorio");
 
@@ -93,7 +106,7 @@ Deno.serve(async (req) => {
     identificacion: digitos || paciente.expediente || null,
     nombre_paciente: paciente.nombre ? String(paciente.nombre).slice(0, 150) : null,
     orden,
-    fecha_resultado: c.fecha ? new Date(String(c.fecha)).toISOString() : new Date().toISOString(),
+    fecha_resultado: fecha.toISOString(),
     resultados,
     observaciones: c.observaciones ? String(c.observaciones).slice(0, 4000) : null,
     pdf_ruta: pdfRuta,
