@@ -94,7 +94,7 @@ Sistema de gestión hospitalaria **multi‑sistema** (multi‑tenant). Todo en e
 - **Cobro sin duplicados**: `registrar_cobro` acepta `p_idempotencia`; la app manda una clave por intento (`clave_idempotencia`, índice único por sistema). Doble clic o reintento de red no cobra dos veces.
 - **Recetas y documentos clínicos**: tipos `receta` (renglones en `datos.items`), `certificado`, `referimiento`, `orden`; cada uno guarda `datos.medico` (nombre/especialidad/exequátur) e imprime con membrete (`DocumentoClinico.tsx`).
 - **Bloqueo por inactividad** (`components/BloqueoSesion.tsx`, montado en AppShell): preferencia `bloqueo` (nunca/15/25/30 min) en Mi perfil; cubre la pantalla y revalida la contraseña sin cerrar la sesión. Última actividad en localStorage (`medora.ultima-actividad`), así recargar no lo evade.
-- **Pruebas**: `npm test` (vitest, en CI) + `supabase/tests/funcional_roles.sql`.
+- **Pruebas**: `npm test` (vitest) + `npm run lint` (oxlint: hooks de React, keys, accesibilidad; ESLint no corre con TypeScript 7) + `supabase/tests/funcional_roles.sql`. Edge Functions: `deno check supabase/functions/*/index.ts` y `deno test supabase/functions` (firma e-CF, contraseñas heredadas, 2FA, laboratorio). El lint de funciones SQL bloquea el CI salvo las tablas temporales (`scripts/verificar-lint.py`). Todo corre en CI.
 
 ## Conectores externos
 

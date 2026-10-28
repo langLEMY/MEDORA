@@ -159,7 +159,7 @@ function NuevaOrden({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => v
     onError: (e) => toast.error(mensajeError(e)),
   });
 
-  const alternar = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const alternar = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
     <Modal

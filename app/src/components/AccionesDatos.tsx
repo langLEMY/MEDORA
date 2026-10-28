@@ -132,10 +132,16 @@ export function AccionesDatos<T>({
               </ItemMenu>
             ))}
             {!!importaciones?.length && <SeparadorMenu />}
-            <ItemMenu icono={<FileSpreadsheet />} onClick={() => (void exportar(), cerrar())}>
+            <ItemMenu icono={<FileSpreadsheet />} onClick={() => {
+              void exportar();
+              cerrar();
+            }}>
               Exportar a Excel
             </ItemMenu>
-            <ItemMenu icono={<Printer />} onClick={() => (void imprimir(), cerrar())}>
+            <ItemMenu icono={<Printer />} onClick={() => {
+              void imprimir();
+              cerrar();
+            }}>
               Imprimir / PDF
             </ItemMenu>
           </>

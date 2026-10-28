@@ -42,6 +42,8 @@ export function Menu({
 
   return (
     <div ref={raiz} className={cn("relative", className)}>
+      {/* El disparador es un botón: el teclado lo activa y el clic sube hasta aquí. */}
+      {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div onClick={() => setAbierto((a) => !a)}>{disparador(abierto)}</div>
       <Capa>
         <AnimatePresence>

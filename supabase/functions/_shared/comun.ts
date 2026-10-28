@@ -30,10 +30,15 @@ export function clienteAnon(): SupabaseClient {
   });
 }
 
-/** IP del cliente (detrás del proxy de Supabase). Para el limitador de intentos. */
+/**
+ * IP del cliente (detrás del proxy de Supabase). Para el limitador de intentos.
+ * Primero las cabeceras que fija el proxy (el cliente no puede escribirlas); la primera
+ * entrada de x-forwarded-for la manda el propio cliente y cambiándola se saltaría el límite.
+ */
 export function ipCliente(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  return (xff?.split(",")[0] ?? req.headers.get("cf-connecting-ip") ?? "0.0.0.0").trim();
+  const fija = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip");
+  if (fija?.trim()) return fija.trim();
+  return (req.headers.get("x-forwarded-for")?.split(",")[0] ?? "0.0.0.0").trim();
 }
 
 /**
@@ -53,7 +58,9 @@ export async function limitar(admin: SupabaseClient, clave: string, max: number,
 /** Nivel de garantía (aal) declarado en el token ya validado por getUser. */
 export function aalDeToken(token: string): string {
   try {
-    return JSON.parse(atob(token.split(".")[1])).aal ?? "aal1";
+    // El JWT va en base64url (- y _ en vez de + y /, sin relleno): atob solo lee base64.
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, "="))).aal ?? "aal1";
   } catch {
     return "aal1";
   }
@@ -82,8 +89,15 @@ export const MFA_REQUERIDO = "Esta acción requiere verificación en dos pasos: 
 const ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 export function passwordTemporal(longitud = 14): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(longitud));
-  return Array.from(bytes, (b) => ALFABETO[b % ALFABETO.length]).join("");
+  // Se descartan los bytes ≥ 224 (4 × 56) para que todas las letras salgan con la misma probabilidad.
+  const limite = 256 - (256 % ALFABETO.length);
+  const salida: string[] = [];
+  while (salida.length < longitud) {
+    for (const b of crypto.getRandomValues(new Uint8Array(longitud))) {
+      if (b < limite && salida.length < longitud) salida.push(ALFABETO[b % ALFABETO.length]);
+    }
+  }
+  return salida.join("");
 }
 
 /**
