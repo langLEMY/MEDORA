@@ -30,13 +30,17 @@ const qc = new QueryClient({
   },
 });
 
-/** Movimiento según Windows ("user"), o apagado si el usuario lo pidió en su perfil o el
- *  equipo dibuja sin tarjeta gráfica (ahí las animaciones se verían a saltos). */
+// Sin tarjeta gráfica (escritorio remoto, VM) los desplazamientos se verían a saltos: van
+// como «reducir movimiento» (sin deslizar ni mover, solo fundidos cortos) y sin transiciones
+// CSS (index.css). No skipAnimations/instantAnimations: con ellos AnimatePresence mode="wait"
+// no termina la salida y la Puerta se queda trabada.
+const sinGpu = dibujaSinGpu();
+if (sinGpu) document.documentElement.dataset.graficos = "software";
+
+/** Movimiento según Windows ("user") o reducido si el usuario lo pidió o no hay GPU. */
 function Movimiento({ children }: { children: ReactNode }) {
   const { movimiento } = usePreferencias();
-  return (
-    <MotionConfig reducedMotion={movimiento === "reducido" || dibujaSinGpu() ? "always" : "user"}>{children}</MotionConfig>
-  );
+  return <MotionConfig reducedMotion={movimiento === "reducido" || sinGpu ? "always" : "user"}>{children}</MotionConfig>;
 }
 
 createRoot(document.getElementById("root")!).render(
