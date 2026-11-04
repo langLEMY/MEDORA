@@ -52,6 +52,12 @@ Deno.serve(async (req) => {
   const resultados = Array.isArray(c.resultados) ? c.resultados.slice(0, 500) : [];
   if (resultados.length === 0 && !c.pdf_base64) return error("El envío no trae resultados ni PDF.");
   const orden = c.orden ? String(c.orden).slice(0, 80) : null;
+  // Fecha del resultado: si viene mal formada no debe tumbar el webhook (quedaría 500).
+  const fechaResultado = (() => {
+    if (!c.fecha) return new Date().toISOString();
+    const d = new Date(String(c.fecha));
+    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  })();
   const laboratorio = String((integ.config as Record<string, string>)?.nombre_laboratorio ?? "Laboratorio");
 
   // ¿De quién es? Por cédula (formato 000-0000000-0) o por expediente.
@@ -93,7 +99,7 @@ Deno.serve(async (req) => {
     identificacion: digitos || paciente.expediente || null,
     nombre_paciente: paciente.nombre ? String(paciente.nombre).slice(0, 150) : null,
     orden,
-    fecha_resultado: c.fecha ? new Date(String(c.fecha)).toISOString() : new Date().toISOString(),
+    fecha_resultado: fechaResultado,
     resultados,
     observaciones: c.observaciones ? String(c.observaciones).slice(0, 4000) : null,
     pdf_ruta: pdfRuta,

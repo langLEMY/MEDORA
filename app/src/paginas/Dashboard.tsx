@@ -7,6 +7,7 @@ import {
   ChartColumn,
   Clock,
   Hourglass,
+  LayoutGrid,
   PackageMinus,
   Stethoscope,
   TrendingUp,
@@ -20,6 +21,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { contenedorEscalonado, itemEscalonado } from "@/components/ui/movimiento";
 import { MedicosAhora, TurnosEnVivo } from "@/components/WidgetsInicio";
+import { TableroWidgets, type DefWidget } from "@/components/TableroWidgets";
 import { Avatar, EncabezadoPagina, Esqueleto, Insignia, NumeroAnimado, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { Segmentado } from "@/components/ui/campos";
 import { Barras, CifraWidget, CurvaArea, Widget } from "@/components/ui/widgets";
@@ -391,10 +393,7 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
     </>
   );
 
-  return (
-    <>
-      <Portada nombre={nombre} fecha={fecha} ahora={ahora} resumen={frase} acciones={acciones} />
-
+  const kpis = (
       <motion.div variants={contenedorEscalonado} initial="inicial" animate="visible" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Indicador
           etiqueta="Citas de hoy"
@@ -442,8 +441,9 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
           <Indicador etiqueta="Pacientes nuevos" valor={r?.pacientes_mes ?? 0} extra="Registrados este mes" icono={UserPlus} ruta="/pacientes" cargando={resumen.isLoading} />
         )}
       </motion.div>
+  );
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+  const grafico = (
         <Tarjeta className="flex flex-col">
           <EncabezadoTarjeta
             titulo="Últimos 14 días"
@@ -480,23 +480,34 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
             )}
           </div>
         </Tarjeta>
+  );
 
-        <RepartoDia porEstado={pe} cargando={resumen.isLoading} />
-      </div>
-
-      {verRecepcion ? (
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <TurnosEnVivo />
-          <MedicosAhora />
-        </div>
-      ) : (
-        <Tarjeta className="mt-4 flex flex-col">
+  // Cada bloque es un widget que el usuario reordena u oculta (TableroWidgets).
+  const widgets: DefWidget[] = [
+    { id: "indicadores", titulo: "Indicadores", icono: LayoutGrid, nodo: kpis },
+    { id: "grafico", titulo: "Últimos 14 días", icono: TrendingUp, nodo: grafico },
+    { id: "reparto", titulo: "Así va el día", icono: ChartColumn, nodo: <RepartoDia porEstado={pe} cargando={resumen.isLoading} /> },
+    verRecepcion && { id: "turnos", titulo: "Turnos en vivo", icono: Clock, nodo: <TurnosEnVivo /> },
+    verRecepcion && { id: "medicos", titulo: "Médicos ahora", icono: Stethoscope, nodo: <MedicosAhora /> },
+    !verRecepcion && {
+      id: "agenda",
+      titulo: "Agenda de hoy",
+      icono: CalendarCheck,
+      nodo: (
+        <Tarjeta className="flex flex-col">
           <EncabezadoTarjeta titulo="Agenda de hoy" ruta="/agenda" enlace="Ver agenda" />
           <div className="max-h-[320px] overflow-y-auto">
             <ListaCitas citas={citas.data ?? []} cargando={citas.isLoading} vacio="Sin citas para hoy" />
           </div>
         </Tarjeta>
-      )}
+      ),
+    },
+  ].filter(Boolean) as DefWidget[];
+
+  return (
+    <>
+      <Portada nombre={nombre} fecha={fecha} ahora={ahora} resumen={frase} acciones={acciones} />
+      <TableroWidgets vista="operacion" widgets={widgets} />
     </>
   );
 }

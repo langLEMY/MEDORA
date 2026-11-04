@@ -50,10 +50,30 @@ export function cambiarTemaAnimado(tema: Tema, alCambiar?: () => void) {
     .finished.finally(() => requestAnimationFrame(() => raiz.classList.remove("cambiando-tema")));
 }
 
+const MARCA_DEFECTO = "#0f766e";
+const esHex = (c?: string | null): c is string => !!c && /^#[0-9a-f]{6}$/i.test(c);
+
+// El color efectivo nace del hospital, pero cada usuario puede pisarlo con un
+// acento propio (solo en su sesión). Guardamos ambos y recomputamos --marca.
+let colorHospital: string | null = null;
+let acentoUsuario: string | null = null;
+
+function recomputarMarca() {
+  const efectivo = esHex(acentoUsuario) ? acentoUsuario : esHex(colorHospital) ? colorHospital : MARCA_DEFECTO;
+  document.documentElement.style.setProperty("--marca", efectivo);
+}
+
 /** Cada sistema hospitalario tiñe la interfaz con su color de marca. */
 export function aplicarColorMarca(color?: string | null) {
-  document.documentElement.style.setProperty(
-    "--marca",
-    color && /^#[0-9a-f]{6}$/i.test(color) ? color : "#0f766e",
-  );
+  colorHospital = color ?? null;
+  recomputarMarca();
+}
+
+/**
+ * Acento personal: lo elige cada usuario en Personalización y pisa el color del
+ * hospital solo para él. `"hospital"` (o vacío) vuelve al color del sistema.
+ */
+export function aplicarAcento(acento?: string | null) {
+  acentoUsuario = esHex(acento) ? acento : null;
+  recomputarMarca();
 }

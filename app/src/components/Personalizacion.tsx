@@ -1,15 +1,16 @@
-import { Monitor, Moon, Palette, RotateCcw, Sun } from "lucide-react";
+import { Building2, Check, Monitor, Moon, Palette, Pipette, RotateCcw, Sun } from "lucide-react";
 import { NAVEGACION, puedeVer } from "@/components/layout/navegacion";
 import { Boton } from "@/components/ui/boton";
 import { Interruptor, Segmentado, Selector } from "@/components/ui/campos";
 import { Tarjeta } from "@/components/ui/superficies";
 import { cambiarPreferencias, PREFERENCIAS_DEFECTO, usePreferencias, type Preferencias } from "@/lib/preferencias";
-import { soloLoPropio, useSesion } from "@/sesion/SesionProvider";
+import { soloLoPropio, useSesion, useSistema } from "@/sesion/SesionProvider";
 import { cn } from "@/lib/utils";
 
 /** Ajustes de interfaz de cada usuario (se guardan en su perfil y lo siguen a cualquier PC). */
 export function Personalizacion() {
   const { perfil, roles, permisos, esSuperadmin, sede, capacidades } = useSesion();
+  const { sistema } = useSistema();
   const p = usePreferencias();
   const cambiar = (c: Partial<Preferencias>) => cambiarPreferencias(c, perfil?.id);
   const propio = soloLoPropio(roles);
@@ -84,6 +85,7 @@ export function Personalizacion() {
             </div>
           </div>
         </div>
+        <AcentoColor valor={p.acento} colorHospital={sistema?.color_marca} onChange={(acento) => cambiar({ acento })} />
         {fila(
           "Tamaño del texto",
           "Agranda toda la interfaz en proporción. No cambia lo que se imprime.",
@@ -145,6 +147,81 @@ export function Personalizacion() {
         )}
       </div>
     </Tarjeta>
+  );
+}
+
+// Acentos sugeridos (se ven bien en claro y oscuro; todo lo demás se deriva con color-mix).
+const ACENTOS = [
+  { nombre: "Verde azulado", color: "#0F766E" },
+  { nombre: "Océano", color: "#0E7490" },
+  { nombre: "Añil", color: "#4F46E5" },
+  { nombre: "Violeta", color: "#7A5AF8" },
+  { nombre: "Magenta", color: "#C026D3" },
+  { nombre: "Rosa", color: "#E11D48" },
+  { nombre: "Ámbar", color: "#D97706" },
+  { nombre: "Esmeralda", color: "#059669" },
+];
+
+/** Acento personal: pisa el color del hospital solo para este usuario. */
+function AcentoColor({ valor, colorHospital, onChange }: { valor: string; colorHospital?: string | null; onChange: (v: string) => void }) {
+  const personalizado = valor !== "hospital" && !ACENTOS.some((a) => a.color.toLowerCase() === valor.toLowerCase());
+  return (
+    <div className="py-3.5">
+      <p className="text-sm font-medium">Color de acento</p>
+      <p className="mb-3 text-xs text-texto-3">Tiñe botones, enlaces y detalles. Solo para ti; no cambia el color del hospital para los demás.</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Volver al color del hospital */}
+        <button
+          type="button"
+          onClick={() => onChange("hospital")}
+          aria-pressed={valor === "hospital"}
+          title="Usar el color del hospital"
+          className={cn(
+            "flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium transition-shadow",
+            valor === "hospital" ? "border-marca ring-2 ring-marca" : "border-borde text-texto-2 hover:border-borde-fuerte",
+          )}
+        >
+          <span className="size-4 rounded-full ring-1 ring-black/10" style={{ background: colorHospital ?? "#0f766e" }} />
+          <Building2 className="size-3.5" /> Hospital
+        </button>
+        {ACENTOS.map((a) => {
+          const activo = valor.toLowerCase() === a.color.toLowerCase();
+          return (
+            <button
+              key={a.color}
+              type="button"
+              onClick={() => onChange(a.color)}
+              aria-pressed={activo}
+              title={a.nombre}
+              className={cn(
+                "grid size-9 place-items-center rounded-xl ring-1 transition-transform hover:scale-105 active:scale-95",
+                activo ? "ring-2 ring-offset-2 ring-offset-superficie" : "ring-black/10",
+              )}
+              style={{ background: a.color, ...(activo ? { ["--tw-ring-color" as string]: a.color } : {}) }}
+            >
+              {activo && <Check className="size-4 text-white drop-shadow" />}
+            </button>
+          );
+        })}
+        {/* Color a la medida */}
+        <label
+          className={cn(
+            "relative grid size-9 cursor-pointer place-items-center rounded-xl text-texto-2 ring-1 transition-transform hover:scale-105",
+            personalizado ? "ring-2 ring-marca" : "ring-borde",
+          )}
+          style={personalizado ? { background: valor } : undefined}
+          title="Elegir otro color"
+        >
+          <Pipette className={cn("size-4", personalizado && "text-white drop-shadow")} />
+          <input
+            type="color"
+            className="absolute inset-0 cursor-pointer opacity-0"
+            value={personalizado ? valor : (colorHospital ?? "#0f766e")}
+            onChange={(e) => onChange(e.target.value.toUpperCase())}
+          />
+        </label>
+      </div>
+    </div>
   );
 }
 

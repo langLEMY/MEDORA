@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { supabase } from "./supabase";
-import { aplicarTema, cambiarTemaAnimado, type Tema } from "./tema";
+import { aplicarAcento, aplicarTema, cambiarTemaAnimado, type Tema } from "./tema";
 
 /**
  * Preferencias de interfaz de cada usuario. Se guardan en perfiles.preferencias
@@ -24,6 +24,10 @@ export interface Preferencias {
   bloqueo: "nunca" | "15" | "25" | "30";
   /** Respuestas rápidas de Soporte MEDORA (solo las usa el superadmin en Ayuda). Vacío = las de fábrica. */
   respuestasSoporte: string[];
+  /** Acento personal (#rrggbb) que pisa el color del hospital; "hospital" = usar el del sistema. */
+  acento: string;
+  /** Orden y widgets ocultos del inicio, por rol de vista ("operacion" | "medico"). */
+  widgets: Partial<Record<"operacion" | "medico", { orden: string[]; ocultos: string[] }>>;
 }
 
 export const PREFERENCIAS_DEFECTO: Preferencias = {
@@ -37,6 +41,8 @@ export const PREFERENCIAS_DEFECTO: Preferencias = {
   inicio: "auto",
   bloqueo: "nunca",
   respuestasSoporte: [],
+  acento: "hospital",
+  widgets: {},
 };
 
 const CLAVE = "medora.preferencias";
@@ -69,7 +75,27 @@ function normalizar(p: Partial<Preferencias>): Preferencias {
     respuestasSoporte: Array.isArray(p.respuestasSoporte)
       ? p.respuestasSoporte.filter((r): r is string => typeof r === "string" && r.trim().length > 0).map((r) => r.slice(0, 500)).slice(0, 30)
       : [],
+    acento: typeof p.acento === "string" && (p.acento === "hospital" || /^#[0-9a-f]{6}$/i.test(p.acento)) ? p.acento : "hospital",
+    widgets: normalizarWidgets(p.widgets),
   };
+}
+
+/** Solo listas de ids de texto; descarta cualquier otra cosa que venga de la base. */
+function normalizarWidgets(w: unknown): Preferencias["widgets"] {
+  if (!w || typeof w !== "object") return {};
+  const out: Preferencias["widgets"] = {};
+  for (const vista of ["operacion", "medico"] as const) {
+    const v = (w as Record<string, unknown>)[vista];
+    if (v && typeof v === "object") {
+      const orden = (v as { orden?: unknown }).orden;
+      const ocultos = (v as { ocultos?: unknown }).ocultos;
+      out[vista] = {
+        orden: Array.isArray(orden) ? orden.filter((x): x is string => typeof x === "string") : [],
+        ocultos: Array.isArray(ocultos) ? ocultos.filter((x): x is string => typeof x === "string") : [],
+      };
+    }
+  }
+  return out;
 }
 
 let actuales = leer();
@@ -83,6 +109,7 @@ function aplicarAtributos(p: Preferencias) {
   d.movimiento = p.movimiento;
   d.claro = p.claro;
   d.oscuro = p.oscuro;
+  aplicarAcento(p.acento === "hospital" ? null : p.acento);
 }
 
 function publicar(p: Preferencias) {
@@ -117,7 +144,10 @@ export function aplicarPreferenciasIniciales() {
  */
 export function cambiarPreferencias(cambios: Partial<Preferencias>, usuarioId?: string) {
   const nuevas = normalizar({ ...actuales, ...cambios });
-  const cambiaEstilo = (cambios.claro && cambios.claro !== actuales.claro) || (cambios.oscuro && cambios.oscuro !== actuales.oscuro);
+  const cambiaEstilo =
+    (cambios.claro && cambios.claro !== actuales.claro) ||
+    (cambios.oscuro && cambios.oscuro !== actuales.oscuro) ||
+    (cambios.acento !== undefined && cambios.acento !== actuales.acento);
   if (cambios.tema && cambios.tema !== actuales.tema) {
     cambiarTemaAnimado(nuevas.tema, () => flushSync(() => publicar(nuevas)));
   } else if (cambiaEstilo) {
@@ -130,7 +160,19 @@ export function cambiarPreferencias(cambios: Partial<Preferencias>, usuarioId?: 
     publicar(nuevas);
   }
   aplicarAtributos(nuevas);
-  if (usuarioId) void supabase.from("perfiles").update({ preferencias: { ...nuevas } }).eq("id", usuarioId);
+  if (usuarioId) guardarRemoto(usuarioId, nuevas);
+}
+
+// La escritura en el perfil se agrupa: arrastrar un widget o alternar un ajuste
+// rápido dispara muchos cambios seguidos y no queremos una petición por cada uno.
+// Lo local (memoria + localStorage) ya se aplicó al instante; esto solo sincroniza.
+let tempGuardado: ReturnType<typeof setTimeout> | undefined;
+function guardarRemoto(usuarioId: string, p: Preferencias) {
+  if (tempGuardado) clearTimeout(tempGuardado);
+  tempGuardado = setTimeout(() => {
+    tempGuardado = undefined;
+    void supabase.from("perfiles").update({ preferencias: { ...p } }).eq("id", usuarioId);
+  }, 700);
 }
 
 /** Al iniciar sesión: lo guardado en el perfil manda sobre lo local. */
