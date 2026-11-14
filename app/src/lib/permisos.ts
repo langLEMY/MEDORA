@@ -26,6 +26,7 @@ export type Modulo =
   | "laboratorio"
   | "farmacia"
   | "internamiento"
+  | "enfermeria"
   | "configuracion";
 
 const CLINICOS: Rol[] = ["medico", "enfermeria", "psicologia", "nutricion", "terapia"];
@@ -52,6 +53,8 @@ const MATRIZ: Record<Modulo, Rol[]> = {
   laboratorio: ["admin", "laboratorio", "gerencia", "medico", "recepcion"],
   farmacia: ["admin", "farmacia", "gerencia"],
   internamiento: ["admin", "medico", "enfermeria", "recepcion", "gerencia"],
+  // Preconsulta, procedimientos y (con internamiento) Kardex. Lee la historia: solo roles clínicos.
+  enfermeria: ["enfermeria", "medico"],
   // Conectores (WhatsApp, Azul, correo, SMS): la administración de cada hospital.
   integraciones: ["admin"],
   // Identidad del hospital y sedes: solo superadministración (ver migración accesos_superadmin).
@@ -127,6 +130,9 @@ export const puedeEscribir = {
   estadoOrden: alguno(["medico", "enfermeria"]),
   /** Cerrar la consulta en curso (checkout_consulta). */
   checkout: alguno(["medico", "psicologia", "nutricion", "terapia"]),
+  /** Kardex: el médico indica/suspende (indicar_medicamento); enfermería o medicina registran cada dosis. */
+  indicar: alguno(["medico"]),
+  administrar: alguno(["enfermeria", "medico"]),
   caja: alguno(["admin", "caja"]),
   abonos: alguno(["admin", "caja", "contabilidad"]),
   inventario: alguno(["admin", "farmacia"]),

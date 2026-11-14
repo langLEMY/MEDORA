@@ -1,3 +1,4 @@
+import type { Capacidad } from "@/lib/capacidades";
 import type { TipoEntradaClinica } from "@/lib/supabase";
 
 /**
@@ -25,6 +26,12 @@ export interface DefFormulario {
   campos: CampoClinico[];
   /** Se imprime como documento con membrete y firma. */
   imprimible?: boolean;
+  /** Solo se ofrece si la sede activa tiene esta capacidad (p. ej. internamiento: no en un consultorio). */
+  requiere?: Capacidad;
+  /** Escala con puntaje: cada opción termina en "(n)" y se suma. */
+  escala?: { menorEsPeor?: boolean; rangos: { desde: number; etiqueta: string; riesgo: "alto" | "medio" | "bajo" }[] };
+  /** No se elige en el catálogo (lo escribe una RPC), pero se muestra con su nombre. */
+  oculto?: boolean;
 }
 
 const SI_NO = ["Sí", "No"];
@@ -120,6 +127,7 @@ export const FORMULARIOS: DefFormulario[] = [
     grupo: "clinicos",
     descripcion: "Resumen al alta: diagnóstico de ingreso y egreso, evolución, tratamiento y seguimiento.",
     imprimible: true,
+    requiere: "internamiento",
     campos: [
       { clave: "fecha_ingreso", etiqueta: "Fecha de ingreso", tipo: "fecha" },
       { clave: "fecha_egreso", etiqueta: "Fecha de egreso", tipo: "fecha" },
@@ -137,6 +145,7 @@ export const FORMULARIOS: DefFormulario[] = [
     grupo: "clinicos",
     descripcion: "El paciente o su responsable pide el alta contra el criterio médico.",
     imprimible: true,
+    requiere: "internamiento",
     campos: [
       { clave: "solicitante", etiqueta: "Quién la solicita", placeholder: "El paciente / su hija María Pérez" },
       { clave: "motivo", etiqueta: "Motivo expresado", tipo: "area" },
@@ -163,6 +172,7 @@ export const FORMULARIOS: DefFormulario[] = [
     nombre: "Riesgos epidemiológicos e IAAS",
     grupo: "clinicos",
     descripcion: "Riesgo de infecciones asociadas a la atención y medidas de aislamiento.",
+    requiere: "internamiento",
     campos: [
       { clave: "dispositivos", etiqueta: "Dispositivos invasivos", placeholder: "Catéter venoso, sonda vesical…" },
       { clave: "aislamiento", etiqueta: "Aislamiento", opciones: ["Ninguno", "Contacto", "Gotas", "Aéreo", "Protector"] },
@@ -207,10 +217,10 @@ export const FORMULARIOS: DefFormulario[] = [
     ],
   },
   {
-    clave: "kardex",
-    nombre: "Atención de enfermería (Kardex)",
+    clave: "aplicacion_medicamento",
+    nombre: "Aplicación de medicamento",
     grupo: "enfermeria",
-    descripcion: "Administración de un medicamento: dosis, vía, hora y quién lo aplicó.",
+    descripcion: "Una dosis puntual (inyección, nebulización…). Con internamiento, el horario de cada paciente va en Enfermería → Kardex.",
     campos: [
       { clave: "medicamento", etiqueta: "Medicamento", placeholder: "Ceftriaxona 1 g" },
       { clave: "dosis", etiqueta: "Dosis" },
@@ -224,6 +234,7 @@ export const FORMULARIOS: DefFormulario[] = [
     nombre: "Control hídrico",
     grupo: "enfermeria",
     descripcion: "Ingresos y egresos de líquidos del turno; el balance se calcula solo.",
+    requiere: "internamiento",
     campos: [
       { clave: "periodo", etiqueta: "Período", opciones: ["6 horas", "8 horas", "12 horas", "24 horas"] },
       { clave: "ingreso_oral", etiqueta: "Ingreso oral (ml)", tipo: "numero" },
@@ -237,6 +248,7 @@ export const FORMULARIOS: DefFormulario[] = [
     nombre: "Control de oxigenoterapia",
     grupo: "enfermeria",
     descripcion: "Dispositivo, flujo y saturación.",
+    requiere: "internamiento",
     campos: [
       { clave: "dispositivo", etiqueta: "Dispositivo", opciones: ["Cánula nasal", "Mascarilla simple", "Mascarilla con reservorio", "Venturi", "Alto flujo"] },
       { clave: "flujo", etiqueta: "Flujo (L/min)", tipo: "numero" },
@@ -245,9 +257,100 @@ export const FORMULARIOS: DefFormulario[] = [
       { clave: "sat_despues", etiqueta: "SatO₂ después (%)", tipo: "numero" },
     ],
   },
+  {
+    clave: "escala_morse",
+    nombre: "Riesgo de caídas (escala de Morse)",
+    grupo: "enfermeria",
+    descripcion: "Seis preguntas; el puntaje dice si el riesgo de caída es bajo, medio o alto.",
+    requiere: "internamiento",
+    escala: {
+      rangos: [
+        { desde: 45, etiqueta: "Riesgo alto de caída", riesgo: "alto" },
+        { desde: 25, etiqueta: "Riesgo medio de caída", riesgo: "medio" },
+        { desde: 0, etiqueta: "Riesgo bajo de caída", riesgo: "bajo" },
+      ],
+    },
+    campos: [
+      { clave: "caidas_previas", etiqueta: "Caídas en los últimos 3 meses", opciones: ["No (0)", "Sí (25)"] },
+      { clave: "dx_secundario", etiqueta: "Más de un diagnóstico", opciones: ["No (0)", "Sí (15)"] },
+      { clave: "ayuda_deambular", etiqueta: "Ayuda para caminar", opciones: ["Ninguna, reposo o enfermería (0)", "Muletas, bastón o andador (15)", "Se apoya en los muebles (30)"] },
+      { clave: "via_iv", etiqueta: "Vía venosa o heparina", opciones: ["No (0)", "Sí (20)"] },
+      { clave: "marcha", etiqueta: "Marcha", opciones: ["Normal, en reposo o inmóvil (0)", "Débil (10)", "Alterada (20)"] },
+      { clave: "estado_mental", etiqueta: "Estado mental", opciones: ["Conoce sus limitaciones (0)", "Olvida sus limitaciones (15)"] },
+    ],
+  },
+  {
+    clave: "escala_braden",
+    nombre: "Úlceras por presión (escala de Braden)",
+    grupo: "enfermeria",
+    descripcion: "Seis factores; mientras más bajo el puntaje, mayor el riesgo de úlcera.",
+    requiere: "internamiento",
+    escala: {
+      menorEsPeor: true,
+      rangos: [
+        { desde: 19, etiqueta: "Sin riesgo", riesgo: "bajo" },
+        { desde: 15, etiqueta: "Riesgo bajo", riesgo: "bajo" },
+        { desde: 13, etiqueta: "Riesgo moderado", riesgo: "medio" },
+        { desde: 0, etiqueta: "Riesgo alto", riesgo: "alto" },
+      ],
+    },
+    campos: [
+      { clave: "percepcion", etiqueta: "Percepción sensorial", opciones: ["Completamente limitada (1)", "Muy limitada (2)", "Levemente limitada (3)", "Sin limitación (4)"] },
+      { clave: "humedad", etiqueta: "Humedad de la piel", opciones: ["Constantemente húmeda (1)", "A menudo húmeda (2)", "Ocasionalmente húmeda (3)", "Rara vez húmeda (4)"] },
+      { clave: "actividad", etiqueta: "Actividad", opciones: ["En cama (1)", "En silla (2)", "Camina ocasionalmente (3)", "Camina con frecuencia (4)"] },
+      { clave: "movilidad", etiqueta: "Movilidad", opciones: ["Inmóvil (1)", "Muy limitada (2)", "Levemente limitada (3)", "Sin limitación (4)"] },
+      { clave: "nutricion", etiqueta: "Nutrición", opciones: ["Muy pobre (1)", "Probablemente inadecuada (2)", "Adecuada (3)", "Excelente (4)"] },
+      { clave: "friccion", etiqueta: "Fricción y cizallamiento", opciones: ["Es un problema (1)", "Problema potencial (2)", "Sin problema aparente (3)"] },
+    ],
+  },
+  // Los escribe una RPC (no se eligen en el catálogo): se muestran con su nombre.
+  {
+    clave: "indicacion_medicamento",
+    nombre: "Indicación de medicamento",
+    grupo: "clinicos",
+    descripcion: "Medicamento indicado para el Kardex de enfermería.",
+    oculto: true,
+    campos: [
+      { clave: "medicamento", etiqueta: "Medicamento" },
+      { clave: "dosis", etiqueta: "Dosis" },
+      { clave: "via", etiqueta: "Vía" },
+      { clave: "pauta", etiqueta: "Pauta" },
+      { clave: "frecuencia", etiqueta: "Frecuencia" },
+      { clave: "duracion", etiqueta: "Duración" },
+      { clave: "observaciones", etiqueta: "Observaciones", tipo: "area" },
+    ],
+  },
 ];
 
+/** ¿Se ofrece este formulario en la sede activa? Sin capacidades resueltas, se ofrece todo. */
+export const formularioDisponible = (f: DefFormulario, capacidades?: Partial<Record<Capacidad, boolean>> | null) =>
+  !f.oculto && (!f.requiere || !capacidades || Object.keys(capacidades).length === 0 || capacidades[f.requiere] === true);
+
+/** Puntaje de una escala: suma el "(n)" de cada respuesta; null si no hay respuestas. */
+export function puntajeEscala(f: DefFormulario | undefined, datos: Record<string, unknown>) {
+  if (!f?.escala) return null;
+  const puntos = f.campos.map((c) => /\((\d+)\)\s*$/.exec(String(datos[c.clave] ?? ""))?.[1]).filter((x): x is string => !!x).map(Number);
+  if (!puntos.length) return null;
+  const total = puntos.reduce((s, n) => s + n, 0);
+  const rango = f.escala.rangos.find((r) => total >= r.desde) ?? f.escala.rangos[f.escala.rangos.length - 1];
+  return { total, completo: puntos.length === f.campos.length, ...rango };
+}
+
 export const FORMULARIO_POR_CLAVE = Object.fromEntries(FORMULARIOS.map((f) => [f.clave, f])) as Record<string, DefFormulario>;
+
+/** Signos vitales (historia, triaje y preconsulta de enfermería). */
+export const CAMPOS_SIGNOS: CampoClinico[] = [
+  { clave: "pa", etiqueta: "Presión arterial", placeholder: "120/80" },
+  { clave: "fc", etiqueta: "Frec. cardíaca (lpm)", placeholder: "72", tipo: "numero" },
+  { clave: "fr", etiqueta: "Frec. respiratoria", placeholder: "16", tipo: "numero" },
+  { clave: "temp", etiqueta: "Temperatura (°C)", placeholder: "36.5", tipo: "numero" },
+  { clave: "sat", etiqueta: "SatO₂ (%)", placeholder: "98", tipo: "numero" },
+  { clave: "peso", etiqueta: "Peso (kg)", tipo: "numero" },
+  { clave: "talla", etiqueta: "Talla (cm)", tipo: "numero" },
+  { clave: "glucosa", etiqueta: "Glucosa (mg/dL)", tipo: "numero" },
+];
+
+export const NIVELES_ESI = ["1 · Reanimación", "2 · Emergencia", "3 · Urgente", "4 · Menos urgente", "5 · No urgente"];
 
 /** Cierre de la consulta (lo escribe checkout_consulta). */
 export const CAMPOS_CHECKOUT: CampoClinico[] = [
@@ -299,6 +402,53 @@ export function diasLicencia(desde?: unknown, hasta?: unknown): number | null {
   const b = new Date(hasta + "T12:00:00").getTime();
   if (Number.isNaN(a) || Number.isNaN(b) || b < a) return null;
   return Math.round((b - a) / 86_400_000) + 1;
+}
+
+/**
+ * Alertas de signos vitales (adultos). Orientativas: avisan, no diagnostican.
+ * grave = requiere atención inmediata (avisar al médico).
+ */
+export function alertasSignos(d: Record<string, unknown>): { texto: string; grave: boolean }[] {
+  const n = (k: string) => {
+    const v = Number(String(d[k] ?? "").replace(",", "."));
+    return d[k] === undefined || d[k] === "" || Number.isNaN(v) ? null : v;
+  };
+  const a: { texto: string; grave: boolean }[] = [];
+  const pa = /^\s*(\d{2,3})\s*\/\s*(\d{2,3})\s*$/.exec(String(d.pa ?? ""));
+  if (pa) {
+    const [s, di] = [Number(pa[1]), Number(pa[2])];
+    if (s >= 180 || di >= 120) a.push({ texto: `Crisis hipertensiva (${s}/${di})`, grave: true });
+    else if (s >= 140 || di >= 90) a.push({ texto: `Presión alta (${s}/${di})`, grave: false });
+    else if (s < 90) a.push({ texto: `Presión baja (${s}/${di})`, grave: true });
+  }
+  const fc = n("fc");
+  if (fc !== null) {
+    if (fc > 120) a.push({ texto: `Taquicardia (${fc} lpm)`, grave: true });
+    else if (fc > 100) a.push({ texto: `Taquicardia (${fc} lpm)`, grave: false });
+    else if (fc < 50) a.push({ texto: `Bradicardia (${fc} lpm)`, grave: true });
+  }
+  const fr = n("fr");
+  if (fr !== null) {
+    if (fr > 24) a.push({ texto: `Respiración rápida (${fr}/min)`, grave: fr > 30 });
+    else if (fr < 10) a.push({ texto: `Respiración lenta (${fr}/min)`, grave: true });
+  }
+  const t = n("temp");
+  if (t !== null) {
+    if (t >= 39) a.push({ texto: `Fiebre alta (${t} °C)`, grave: true });
+    else if (t >= 38) a.push({ texto: `Fiebre (${t} °C)`, grave: false });
+    else if (t < 35) a.push({ texto: `Hipotermia (${t} °C)`, grave: true });
+  }
+  const sat = n("sat");
+  if (sat !== null) {
+    if (sat < 90) a.push({ texto: `Saturación muy baja (${sat} %)`, grave: true });
+    else if (sat < 94) a.push({ texto: `Saturación baja (${sat} %)`, grave: false });
+  }
+  const g = n("glucosa");
+  if (g !== null) {
+    if (g < 70) a.push({ texto: `Hipoglucemia (${g} mg/dL)`, grave: true });
+    else if (g > 250) a.push({ texto: `Glucosa alta (${g} mg/dL)`, grave: g > 400 });
+  }
+  return a;
 }
 
 /** Balance del control hídrico: ingresos − egresos (ml). */

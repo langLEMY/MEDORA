@@ -35,7 +35,20 @@ import type { Json } from "@/lib/database.types";
 import { datos, mensajeError, supabase, type TipoEntradaClinica } from "@/lib/supabase";
 import { cn, fecha, fechaHora, relativo } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
-import { balanceHidrico, CAMPOS_TIPO, diasLicencia, FORMULARIO_POR_CLAVE, FORMULARIOS, type CampoClinico } from "./catalogoClinico";
+import {
+  alertasSignos,
+  balanceHidrico,
+  CAMPOS_SIGNOS,
+  CAMPOS_TIPO,
+  diasLicencia,
+  FORMULARIO_POR_CLAVE,
+  formularioDisponible,
+  FORMULARIOS,
+  NIVELES_ESI,
+  puntajeEscala,
+  type CampoClinico,
+} from "./catalogoClinico";
+import { NuevaIndicacion } from "./Indicaciones";
 import { DocumentoClinico, esDocumento, type ItemReceta, type MedicoFirma, type TipoDocumento } from "./DocumentoClinico";
 import { ItemsOrden, NuevaOrden, TIPO_ORDEN, useOrdenesPaciente, type OrdenMedica, type TipoOrden } from "./OrdenesMedicas";
 
@@ -65,16 +78,7 @@ const TIPOS: Record<TipoEntradaClinica, { etiqueta: string; tono: Tono }> = {
 
 // Campos estructurados de cada tipo (se guardan en historial_clinico.datos).
 const CAMPOS: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = {
-  signos_vitales: [
-    { clave: "pa", etiqueta: "Presión arterial", placeholder: "120/80" },
-    { clave: "fc", etiqueta: "Frec. cardíaca (lpm)", placeholder: "72", tipo: "numero" },
-    { clave: "fr", etiqueta: "Frec. respiratoria", placeholder: "16", tipo: "numero" },
-    { clave: "temp", etiqueta: "Temperatura (°C)", placeholder: "36.5", tipo: "numero" },
-    { clave: "sat", etiqueta: "SatO₂ (%)", placeholder: "98", tipo: "numero" },
-    { clave: "peso", etiqueta: "Peso (kg)", tipo: "numero" },
-    { clave: "talla", etiqueta: "Talla (cm)", tipo: "numero" },
-    { clave: "glucosa", etiqueta: "Glucosa (mg/dL)", tipo: "numero" },
-  ],
+  signos_vitales: CAMPOS_SIGNOS,
   nutricion: [
     { clave: "peso", etiqueta: "Peso (kg)", tipo: "numero" },
     { clave: "talla", etiqueta: "Talla (cm)", tipo: "numero" },
@@ -103,7 +107,8 @@ const CAMPOS: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = {
   ],
   ...CAMPOS_TIPO,
 };
-CAMPOS.triaje = CAMPOS.signos_vitales;
+// Triaje = signos vitales + nivel de prioridad (ESI), útil sobre todo en emergencia.
+CAMPOS.triaje = [{ clave: "nivel", etiqueta: "Prioridad (ESI)", opciones: NIVELES_ESI }, ...CAMPOS_SIGNOS];
 
 /** Campos de una entrada: los del formulario del catálogo o los de su tipo. */
 const camposDe = (tipo: TipoEntradaClinica, formulario?: unknown): CampoClinico[] =>
@@ -119,9 +124,10 @@ ETIQUETAS_CAMPO.diagnostico = "Diagnóstico";
 ETIQUETAS_CAMPO.proxima_cita = "Próxima cita";
 ETIQUETAS_CAMPO.referido_a = "Referido a";
 ETIQUETAS_CAMPO.indicaciones = "Indicaciones";
+ETIQUETAS_CAMPO.nivel = "Prioridad (ESI)";
 
 // Claves internas que nunca se muestran como dato suelto.
-const OCULTOS = new Set(["archivos", "items", "medico", "formulario", "orden_id", "tipo_orden"]);
+const OCULTOS = new Set(["archivos", "items", "medico", "formulario", "orden_id", "tipo_orden", "indicacion_id", "puntaje", "riesgo"]);
 
 interface Archivo {
   ruta: string;
@@ -142,7 +148,7 @@ export interface EntradaClinica {
 }
 
 /** Lo que se quiere crear desde el catálogo. */
-export type AccionClinica = { tipo: TipoEntradaClinica; formulario?: string } | { orden: TipoOrden };
+export type AccionClinica = { tipo: TipoEntradaClinica; formulario?: string } | { orden: TipoOrden } | { indicacion: true };
 
 function imc(peso?: unknown, talla?: unknown) {
   const p = Number(peso);
@@ -185,6 +191,7 @@ export function HistorialClinico({ pacienteId, pacienteNombre, documento }: { pa
   const { roles } = useSistema();
   const [nueva, setNueva] = useState<{ corrige?: EntradaClinica; inicial?: { tipo: TipoEntradaClinica; formulario?: string } } | null>(null);
   const [orden, setOrden] = useState<TipoOrden | null>(null);
+  const [indicacion, setIndicacion] = useState(false);
   const [selector, setSelector] = useState(false);
   const [filtro, setFiltro] = useState<string>("todos");
   const [busqueda, setBusqueda] = useState("");
@@ -236,6 +243,7 @@ export function HistorialClinico({ pacienteId, pacienteNombre, documento }: { pa
   const accion = (a: AccionClinica) => {
     setSelector(false);
     if ("orden" in a) setOrden(a.orden);
+    else if ("indicacion" in a) setIndicacion(true);
     else setNueva({ inicial: a });
   };
 
@@ -350,6 +358,7 @@ export function HistorialClinico({ pacienteId, pacienteNombre, documento }: { pa
 
       <NuevaEntrada abierto={!!nueva} corrige={nueva?.corrige} inicial={nueva?.inicial} pacienteId={pacienteId} onCerrar={() => setNueva(null)} />
       <NuevaOrden tipo={orden} pacienteId={pacienteId} onCerrar={() => setOrden(null)} />
+      <NuevaIndicacion abierto={indicacion} pacienteId={pacienteId} onCerrar={() => setIndicacion(false)} />
       <Modal abierto={selector} onCerrar={() => setSelector(false)} titulo="¿Qué quieres registrar?" ancho="md">
         <CatalogoClinico onElegir={accion} plano />
       </Modal>
@@ -369,6 +378,9 @@ interface ItemCatalogo {
 
 function CatalogoClinico({ onElegir, plano }: { onElegir: (a: AccionClinica) => void; plano?: boolean }) {
   const { roles } = useSistema();
+  const { capacidades } = useSesion();
+  // Sin sede resuelta no se oculta nada (mismo criterio que el menú).
+  const conInternamiento = !capacidades || Object.keys(capacidades).length === 0 || capacidades.internamiento === true;
   const [filtro, setFiltro] = useState("");
   const [cerrados, setCerrados] = useState<Set<string>>(new Set(["Formularios", "Enfermería"]));
 
@@ -391,14 +403,14 @@ function CatalogoClinico({ onElegir, plano }: { onElegir: (a: AccionClinica) => 
       {
         titulo: "Formularios",
         icono: ClipboardList,
-        items: FORMULARIOS.filter((f) => f.grupo === "clinicos").map((f) => ({ etiqueta: f.nombre, accion: { tipo: "formulario", formulario: f.clave } })),
+        items: FORMULARIOS.filter((f) => f.grupo === "clinicos" && formularioDisponible(f, capacidades)).map((f) => ({ etiqueta: f.nombre, accion: { tipo: "formulario", formulario: f.clave } })),
       },
       {
         titulo: "Enfermería",
         icono: HeartPulse,
         items: [
           { etiqueta: "Signos vitales", accion: { tipo: "signos_vitales" } },
-          ...FORMULARIOS.filter((f) => f.grupo === "enfermeria").map((f) => ({ etiqueta: f.nombre, accion: { tipo: "formulario" as const, formulario: f.clave } })),
+          ...FORMULARIOS.filter((f) => f.grupo === "enfermeria" && formularioDisponible(f, capacidades)).map((f) => ({ etiqueta: f.nombre, accion: { tipo: "formulario" as const, formulario: f.clave } })),
         ],
       },
       {
@@ -406,6 +418,7 @@ function CatalogoClinico({ onElegir, plano }: { onElegir: (a: AccionClinica) => 
         icono: Stethoscope,
         items: [
           { etiqueta: "Receta", accion: { tipo: "receta" } },
+          ...(puedeEscribir.indicar(roles) && conInternamiento ? [{ etiqueta: "Indicación de medicamento (Kardex)", accion: { indicacion: true as const } }] : []),
           ...(puedeEscribir.ordenar(roles)
             ? (["laboratorio", "imagen", "procedimiento"] as TipoOrden[]).map((t) => ({ etiqueta: `Orden de ${TIPO_ORDEN[t].etiqueta.toLowerCase()}`, accion: { orden: t } }))
             : []),
@@ -428,7 +441,7 @@ function CatalogoClinico({ onElegir, plano }: { onElegir: (a: AccionClinica) => 
     ];
     const t = sinTildes(filtro.trim());
     return g.map((x) => ({ ...x, items: t ? x.items.filter((i) => sinTildes(i.etiqueta).includes(t)) : x.items })).filter((x) => x.items.length);
-  }, [roles, filtro]);
+  }, [roles, filtro, capacidades, conInternamiento]);
 
   const alternar = (t: string) =>
     setCerrados((s) => {
@@ -519,6 +532,8 @@ function EntradaVista({ e, paciente, documento, orden, pacienteId }: { e: Entrad
   const indice = e.tipo === "nutricion" || e.tipo === "signos_vitales" || e.tipo === "triaje" || e.datos?.formulario === "curva_crecimiento" ? imc(e.datos.peso, e.datos.talla) : null;
   const dias = e.tipo === "licencia" ? diasLicencia(e.datos.desde, e.datos.hasta) : null;
   const balance = e.datos?.formulario === "control_hidrico" ? balanceHidrico(e.datos) : null;
+  const escala = e.tipo === "formulario" ? puntajeEscala(FORMULARIO_POR_CLAVE[String(e.datos?.formulario ?? "")], e.datos ?? {}) : null;
+  const alertas = e.tipo === "signos_vitales" || e.tipo === "triaje" ? alertasSignos(e.datos ?? {}) : [];
   // Una orden estructurada muestra sus pruebas con el estado actual; no repite el texto.
   const esOrdenViva = e.tipo === "orden" && !!orden;
 
@@ -542,14 +557,16 @@ function EntradaVista({ e, paciente, documento, orden, pacienteId }: { e: Entrad
           {e.autor?.nombre_completo} · {relativo(e.creado_en)}
         </span>
       </div>
+      {alertas.length > 0 && <AlertasSignos alertas={alertas} />}
       {(cortos.length > 0 || indice || dias || balance !== null) && !esOrdenViva && (
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {cortos.map(([k, v]) => (
             <div key={k} className="rounded-lg bg-superficie-2 px-3 py-2">
               <div className="text-[0.6875rem] text-texto-3">{ETIQUETAS_CAMPO[k] ?? k}</div>
-              <div className="text-sm font-semibold tabular">{esFecha(k) ? fecha(String(v)) : String(v)}</div>
+              <div className="text-sm font-semibold tabular">{esFecha(k) ? fecha(String(v)) : String(v).replace(/\s*\(\d+\)$/, "")}</div>
             </div>
           ))}
+          {escala && <Destacado etiqueta={`Puntaje${escala.completo ? "" : " (incompleto)"}`} valor={`${escala.total} · ${escala.etiqueta}`} />}
           {indice && <Destacado etiqueta="IMC" valor={`${indice.valor} · ${indice.clase}`} />}
           {dias && <Destacado etiqueta="Días de licencia" valor={`${dias} ${dias === 1 ? "día" : "días"}`} />}
           {balance !== null && <Destacado etiqueta="Balance hídrico" valor={`${balance > 0 ? "+" : ""}${balance} ml`} />}
@@ -627,6 +644,19 @@ function EntradaVista({ e, paciente, documento, orden, pacienteId }: { e: Entrad
         />
       )}
     </>
+  );
+}
+
+/** Valores de signos fuera de rango (orientativo; lo grave pide avisar al médico). */
+export function AlertasSignos({ alertas }: { alertas: { texto: string; grave: boolean }[] }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {alertas.map((a) => (
+        <Insignia key={a.texto} tono={a.grave ? "peligro" : "aviso"}>
+          {a.grave && <ShieldAlert className="size-3" />} {a.texto}
+        </Insignia>
+      ))}
+    </div>
   );
 }
 
@@ -724,7 +754,7 @@ export function NuevaEntrada({
   onCerrar: () => void;
 }) {
   const { sistemaId, roles } = useSistema();
-  const { perfil } = useSesion();
+  const { perfil, capacidades } = useSesion();
   const qc = useQueryClient();
   const [tipo, setTipo] = useState<TipoEntradaClinica>("consulta");
   const [formulario, setFormulario] = useState<string>(FORMULARIOS[0].clave);
@@ -754,6 +784,9 @@ export function NuevaEntrada({
   const dias = tipoEfectivo === "licencia" ? diasLicencia(campos.desde, campos.hasta) : null;
   const balance = tipoEfectivo === "formulario" && formulario === "control_hidrico" ? balanceHidrico(campos) : null;
   const defForm = tipoEfectivo === "formulario" ? FORMULARIO_POR_CLAVE[formulario] : undefined;
+  const escala = puntajeEscala(defForm, campos);
+  const alertas = tipoEfectivo === "signos_vitales" || tipoEfectivo === "triaje" ? alertasSignos(campos) : [];
+  const formulariosSede = FORMULARIOS.filter((f) => formularioDisponible(f, capacidades) || f.clave === formulario);
   const tiposDisponibles = (Object.keys(TIPOS) as TipoEntradaClinica[]).filter(
     // Las órdenes nuevas van por el formulario estructurado (crear_orden_medica).
     (k) => k !== "adenda" && k !== "orden" && (k !== "psicologia" || puedeEscribir.psicologia(roles)),
@@ -783,6 +816,10 @@ export function NuevaEntrada({
       const valores: Record<string, unknown> = Object.fromEntries(Object.entries(campos).filter(([, v]) => v.trim() !== ""));
       if (indice && (tipoEfectivo === "nutricion" || formulario === "curva_crecimiento")) valores.imc = indice.valor;
       if (tipoEfectivo === "formulario") valores.formulario = formulario;
+      if (escala) {
+        valores.puntaje = escala.total;
+        valores.riesgo = escala.etiqueta;
+      }
       // Receta: renglones estructurados. Documentos: foto del médico que firma (nombre/especialidad/exequátur).
       const itemsLimpios = items.map((i) => ({ nombre: i.nombre.trim(), detalle: i.detalle?.trim() || undefined, indicaciones: i.indicaciones?.trim() || undefined })).filter((i) => i.nombre);
       if (tipoEfectivo === "receta" && itemsLimpios.length) valores.items = itemsLimpios;
@@ -878,14 +915,14 @@ export function NuevaEntrada({
                 }}
               >
                 <optgroup label="Clínicos">
-                  {FORMULARIOS.filter((f) => f.grupo === "clinicos").map((f) => (
+                  {formulariosSede.filter((f) => f.grupo === "clinicos").map((f) => (
                     <option key={f.clave} value={f.clave}>
                       {f.nombre}
                     </option>
                   ))}
                 </optgroup>
                 <optgroup label="Enfermería">
-                  {FORMULARIOS.filter((f) => f.grupo === "enfermeria").map((f) => (
+                  {formulariosSede.filter((f) => f.grupo === "enfermeria").map((f) => (
                     <option key={f.clave} value={f.clave}>
                       {f.nombre}
                     </option>
@@ -953,9 +990,11 @@ export function NuevaEntrada({
               {indice && <Calculado texto={`IMC calculado: ${indice.valor} · ${indice.clase}`} />}
               {dias && <Calculado texto={`Licencia de ${dias} ${dias === 1 ? "día" : "días"}`} />}
               {balance !== null && <Calculado texto={`Balance hídrico: ${balance > 0 ? "+" : ""}${balance} ml`} />}
+              {escala && <Calculado texto={`Puntaje: ${escala.total} · ${escala.etiqueta}${escala.completo ? "" : " (faltan respuestas)"}`} />}
             </motion.div>
           )}
         </AnimatePresence>
+        {alertas.length > 0 && <AlertasSignos alertas={alertas} />}
 
         {CON_ADJUNTOS.includes(tipoEfectivo) && (
           <div>

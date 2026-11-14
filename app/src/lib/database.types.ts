@@ -120,6 +120,64 @@ export type Database = {
           },
         ]
       }
+      administraciones_medicamento: {
+        Row: {
+          estado: string
+          id: string
+          indicacion_id: string
+          motivo: string | null
+          observaciones: string | null
+          programada_para: string | null
+          registrado_en: string
+          registrado_por: string
+          sistema_id: string
+        }
+        Insert: {
+          estado: string
+          id?: string
+          indicacion_id: string
+          motivo?: string | null
+          observaciones?: string | null
+          programada_para?: string | null
+          registrado_en?: string
+          registrado_por: string
+          sistema_id: string
+        }
+        Update: {
+          estado?: string
+          id?: string
+          indicacion_id?: string
+          motivo?: string | null
+          observaciones?: string | null
+          programada_para?: string | null
+          registrado_en?: string
+          registrado_por?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "administraciones_medicamento_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "administraciones_medicamento_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "administraciones_medicamento_sistema_id_indicacion_id_fkey"
+            columns: ["sistema_id", "indicacion_id"]
+            isOneToOne: false
+            referencedRelation: "indicaciones_medicamento"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       admisiones: {
         Row: {
           cama_id: string
@@ -2385,6 +2443,105 @@ export type Database = {
             columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      indicaciones_medicamento: {
+        Row: {
+          admision_id: string | null
+          creado_en: string
+          dias: number | null
+          dosis: string
+          estado: string
+          frecuencia_horas: number | null
+          id: string
+          medicamento: string
+          medico_id: string
+          motivo_suspension: string | null
+          observaciones: string | null
+          paciente_id: string
+          pauta: string
+          primera_dosis: string
+          sistema_id: string
+          suspendida_en: string | null
+          suspendida_por: string | null
+          via: string
+        }
+        Insert: {
+          admision_id?: string | null
+          creado_en?: string
+          dias?: number | null
+          dosis: string
+          estado?: string
+          frecuencia_horas?: number | null
+          id?: string
+          medicamento: string
+          medico_id: string
+          motivo_suspension?: string | null
+          observaciones?: string | null
+          paciente_id: string
+          pauta: string
+          primera_dosis?: string
+          sistema_id: string
+          suspendida_en?: string | null
+          suspendida_por?: string | null
+          via: string
+        }
+        Update: {
+          admision_id?: string | null
+          creado_en?: string
+          dias?: number | null
+          dosis?: string
+          estado?: string
+          frecuencia_horas?: number | null
+          id?: string
+          medicamento?: string
+          medico_id?: string
+          motivo_suspension?: string | null
+          observaciones?: string | null
+          paciente_id?: string
+          pauta?: string
+          primera_dosis?: string
+          sistema_id?: string
+          suspendida_en?: string | null
+          suspendida_por?: string | null
+          via?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "indicaciones_medicamento_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "indicaciones_medicamento_sistema_id_admision_id_fkey"
+            columns: ["sistema_id", "admision_id"]
+            isOneToOne: false
+            referencedRelation: "admisiones"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "indicaciones_medicamento_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "indicaciones_medicamento_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "indicaciones_medicamento_suspendida_por_fkey"
+            columns: ["suspendida_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5356,9 +5513,47 @@ export type Database = {
         Args: { p_filas: Json; p_sistema: string }
         Returns: Json
       }
+      indicar_medicamento: {
+        Args: {
+          p_admision?: string
+          p_dias?: number
+          p_dosis: string
+          p_frecuencia_horas?: number
+          p_medicamento: string
+          p_observaciones?: string
+          p_paciente: string
+          p_pauta: string
+          p_primera_dosis?: string
+          p_sistema: string
+          p_via: string
+        }
+        Returns: string
+      }
       integracion_secreto: {
         Args: { p_campo: string; p_proveedor: string; p_sistema: string }
         Returns: string
+      }
+      kardex: {
+        Args: { p_desde: string; p_hasta: string; p_sistema: string }
+        Returns: {
+          administracion_id: string
+          cama: string
+          dosis: string
+          estado: string
+          estado_indicacion: string
+          frecuencia_horas: number
+          indicacion_id: string
+          medicamento: string
+          motivo: string
+          observaciones: string
+          paciente: string
+          paciente_id: string
+          pauta: string
+          programada_para: string
+          registrado_en: string
+          registrado_por: string
+          via: string
+        }[]
       }
       liquidar_comisiones: {
         Args: { p_beneficiario: string; p_hasta: string; p_sistema: string }
@@ -5518,6 +5713,16 @@ export type Database = {
       registrar_acceso_expediente: {
         Args: { p_paciente: string; p_recurso?: string }
         Returns: undefined
+      }
+      registrar_administracion: {
+        Args: {
+          p_estado: string
+          p_indicacion: string
+          p_motivo?: string
+          p_observaciones?: string
+          p_programada: string
+        }
+        Returns: string
       }
       registrar_anticipo: {
         Args: {
@@ -5772,6 +5977,10 @@ export type Database = {
       salud_tareas: { Args: never; Returns: Json }
       soporte_pendientes: { Args: never; Returns: number }
       soy_agente_soporte: { Args: never; Returns: boolean }
+      suspender_indicacion: {
+        Args: { p_indicacion: string; p_motivo: string }
+        Returns: undefined
+      }
       usuario_disponible: { Args: { p_usuario: string }; Returns: boolean }
       verificar_codigo_instalacion: {
         Args: { p_codigo: string }

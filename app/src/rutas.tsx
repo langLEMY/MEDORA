@@ -30,6 +30,7 @@ const Inventario = pantalla(() => import("./paginas/Inventario"));
 const Laboratorio = pantalla(() => import("./paginas/Laboratorio"));
 const Farmacia = pantalla(() => import("./paginas/Farmacia"));
 const Internamiento = pantalla(() => import("./paginas/Internamiento"));
+const Enfermeria = pantalla(() => import("./paginas/Enfermeria"));
 const Personal = pantalla(() => import("./paginas/Personal"));
 const Plataforma = lazy(() => import("./paginas/Plataforma"));
 const Perfil = pantalla(() => import("./paginas/Perfil"));
@@ -106,6 +107,7 @@ export const enrutador = createHashRouter([
           { path: "laboratorio", element: s(<Laboratorio />) },
           { path: "farmacia", element: s(<Farmacia />) },
           { path: "internamiento", element: s(<Internamiento />) },
+      { path: "enfermeria", element: s(<Enfermeria />) },
           { path: "personal", element: s(<Personal />) },
           { path: "precios", element: s(<PaginaPrecios />) },
           { path: "administracion", element: s(<PaginaAdministracion />) },

@@ -640,6 +640,48 @@ begin
   end;
 end $$;
 
+-- ---------------------------------------------------------------- enfermería: indicaciones y Kardex
+do $$
+declare
+  v_s uuid := pg_temp.c('s')::uuid;
+  v_p uuid := pg_temp.c('pac')::uuid;
+  v_ind uuid; v_t timestamptz; n int;
+begin
+  perform pg_temp.como(pg_temp.c('enfermeria')::uuid);
+  begin
+    perform public.indicar_medicamento(v_s, v_p, 'Ceftriaxona', '1 g', 'IV', 'horario', 8::smallint, now() - interval '1 hour', 2::smallint, null, null);
+    perform pg_temp.ok('Enfermería', 'Enfermería no indica medicamentos', false, 'indicó');
+  exception when others then perform pg_temp.ok('Enfermería', 'Enfermería no indica medicamentos', true, sqlerrm);
+  end;
+
+  perform pg_temp.como(pg_temp.c('medico')::uuid);
+  v_ind := public.indicar_medicamento(v_s, v_p, 'Ceftriaxona', '1 g', 'IV', 'horario', 8::smallint, now() - interval '1 hour', 2::smallint, null, null);
+  perform pg_temp.ok('Enfermería', 'El médico indica un medicamento', v_ind is not null, v_ind::text);
+
+  perform pg_temp.como(pg_temp.c('enfermeria')::uuid);
+  select count(*), min(programada_para) into n, v_t from public.kardex(v_s, now() - interval '2 hours', now() + interval '10 hours') where indicacion_id = v_ind;
+  perform pg_temp.ok('Enfermería', 'El Kardex calcula las dosis (cada 8 h)', n = 2, n::text);
+  perform public.registrar_administracion(v_ind, v_t, 'administrada', null, null);
+  select count(*) into n from public.administraciones_medicamento where indicacion_id = v_ind;
+  perform pg_temp.ok('Enfermería', 'Enfermería registra la dosis administrada', n = 1, n::text);
+  begin
+    perform public.registrar_administracion(v_ind, v_t, 'administrada', null, null);
+    perform pg_temp.ok('Enfermería', 'La misma dosis no se registra dos veces', false, 'duplicó');
+  exception when others then perform pg_temp.ok('Enfermería', 'La misma dosis no se registra dos veces', true, sqlerrm);
+  end;
+
+  perform pg_temp.como(pg_temp.c('recepcion')::uuid);
+  begin
+    perform public.registrar_administracion(v_ind, v_t + interval '8 hours', 'omitida', 'Prueba', null);
+    perform pg_temp.ok('Enfermería', 'Recepción no registra dosis', false, 'registró');
+  exception when others then perform pg_temp.ok('Enfermería', 'Recepción no registra dosis', true, sqlerrm);
+  end;
+
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  select count(*) into n from public.indicaciones_medicamento where sistema_id = v_s;
+  perform pg_temp.ok('Enfermería', 'Caja no ve las indicaciones', n = 0, n::text);
+end $$;
+
 -- ---------------------------------------------------------------- aislamiento con FUNBIDE real
 do $$
 declare v_real uuid := (select pruebas_de from public.sistemas where id = pg_temp.c('s')::uuid); n int;

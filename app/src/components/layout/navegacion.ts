@@ -8,6 +8,7 @@ import {
   ChartPie,
   FileBarChart,
   FlaskConical,
+  HeartPulse,
   LayoutDashboard,
   LifeBuoy,
   Network,
@@ -59,6 +60,7 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/recepcion", etiqueta: "Recepción", etiquetaPropia: "Mi consulta", icono: ClipboardList, modulo: "recepcion", capacidad: "agenda", grupo: "Operación" },
   { ruta: "/agenda", etiqueta: "Agenda", etiquetaPropia: "Mi agenda", icono: CalendarDays, modulo: "agenda", capacidad: "agenda", grupo: "Operación" },
   { ruta: "/pacientes", etiqueta: "Pacientes", etiquetaPropia: "Mis pacientes", icono: Users, modulo: "pacientes", capacidad: "historia_clinica", grupo: "Operación" },
+  { ruta: "/enfermeria", etiqueta: "Enfermería", icono: HeartPulse, modulo: "enfermeria", capacidad: "historia_clinica", grupo: "Operación" },
   { ruta: "/estadisticas", etiqueta: "Estadísticas", etiquetaPropia: "Mis estadísticas", icono: ChartColumn, modulo: "estadisticas", grupo: "Operación" },
   { ruta: "/medicos", etiqueta: "Médicos", icono: Stethoscope, modulos: ["recepcion", "comisiones"], capacidad: "agenda", ocultoPropio: true, grupo: "Operación" },
   { ruta: "/inventario", etiqueta: "Inventario", icono: Pill, modulo: "inventario", grupo: "Operación" },
@@ -118,7 +120,8 @@ export function inicioPorRol(roles: Rol[], esSuperadmin: boolean): string {
   if (esSuperadmin || tiene("admin", "gerencia", "contabilidad", "auditor")) return "/";
   if (tiene("recepcion")) return "/recepcion";
   if (tiene("caja")) return "/caja";
-  if (tiene("medico", "psicologia", "nutricion", "terapia", "enfermeria")) return "/recepcion";
+  if (tiene("medico", "psicologia", "nutricion", "terapia")) return "/recepcion";
+  if (tiene("enfermeria")) return "/enfermeria";
   if (tiene("farmacia")) return "/inventario";
   return "/";
 }
