@@ -484,14 +484,15 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
 
   // Cada bloque es un widget que el usuario reordena u oculta (TableroWidgets).
   const widgets: DefWidget[] = [
-    { id: "indicadores", titulo: "Indicadores", icono: LayoutGrid, nodo: kpis },
-    { id: "grafico", titulo: "Últimos 14 días", icono: TrendingUp, nodo: grafico },
-    { id: "reparto", titulo: "Así va el día", icono: ChartColumn, nodo: <RepartoDia porEstado={pe} cargando={resumen.isLoading} /> },
-    verRecepcion && { id: "turnos", titulo: "Turnos en vivo", icono: Clock, nodo: <TurnosEnVivo /> },
-    verRecepcion && { id: "medicos", titulo: "Médicos ahora", icono: Stethoscope, nodo: <MedicosAhora /> },
+    { id: "indicadores", titulo: "Indicadores", descripcion: "Citas, sala de espera, cobrado hoy y pacientes", icono: LayoutGrid, nodo: kpis },
+    { id: "grafico", titulo: "Últimos 14 días", descripcion: "Gráfica de citas o de lo cobrado por día", icono: TrendingUp, nodo: grafico },
+    { id: "reparto", titulo: "Así va el día", descripcion: "Citas de hoy por estado y porcentaje atendido", icono: ChartColumn, nodo: <RepartoDia porEstado={pe} cargando={resumen.isLoading} /> },
+    verRecepcion && { id: "turnos", titulo: "Turnos en vivo", descripcion: "A quién están atendiendo y quién sigue", icono: Clock, nodo: <TurnosEnVivo /> },
+    verRecepcion && { id: "medicos", titulo: "Médicos ahora", descripcion: "Quién está libre, en consulta y su cola", icono: Stethoscope, nodo: <MedicosAhora /> },
     !verRecepcion && {
       id: "agenda",
       titulo: "Agenda de hoy",
+      descripcion: "Las citas del día por hora",
       icono: CalendarCheck,
       nodo: (
         <Tarjeta className="flex flex-col">
