@@ -682,6 +682,53 @@ begin
   perform pg_temp.ok('Enfermería', 'Caja no ve las indicaciones', n = 0, n::text);
 end $$;
 
+-- ---------------------------------------------------------------- fundación: voluntarios, fondos y tarifa social
+do $$
+declare
+  v_s uuid := pg_temp.c('s')::uuid;
+  j jsonb; n numeric; v_f uuid;
+begin
+  -- Un médico voluntario no genera comisión (el mismo cobro a un médico normal sí: ver «Comisión 50 %»).
+  perform pg_temp.yo_postgres();
+  update public.membresias set voluntario = true where sistema_id = v_s and usuario_id = pg_temp.c('medico')::uuid;
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  j := public.registrar_cobro(v_s, pg_temp.c('pac')::uuid,
+         jsonb_build_array(jsonb_build_object('servicio_id', pg_temp.c('serv'))),
+         '[{"metodo":"efectivo","monto":950,"recibido":950}]', p_profesional => pg_temp.c('medico')::uuid);
+  perform pg_temp.yo_postgres();
+  select count(*) into n from public.comisiones where cobro_id = (j ->> 'id')::uuid;
+  perform pg_temp.ok('Fundación', 'Un médico voluntario no genera comisión', n = 0, n::text);
+  update public.membresias set voluntario = false where sistema_id = v_s and usuario_id = pg_temp.c('medico')::uuid;
+
+  -- Fondos: contabilidad crea y usa; caja no usa; un fondo restringido no pasa de su saldo.
+  perform pg_temp.como(pg_temp.c('contabilidad')::uuid);
+  insert into public.fondos (sistema_id, nombre, restringido) values (v_s, 'Fondo de prueba', true) returning id into v_f;
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  j := public.registrar_donacion(v_s, 'Donante Demo', 1000, 'efectivo', p_fondo => v_f);
+  begin
+    perform public.aplicar_fondo(v_s, v_f, 100, 'Intento de caja');
+    perform pg_temp.ok('Fundación', 'Caja no usa fondos', false, 'usó');
+  exception when others then perform pg_temp.ok('Fundación', 'Caja no usa fondos', true, sqlerrm);
+  end;
+  perform pg_temp.como(pg_temp.c('contabilidad')::uuid);
+  perform public.aplicar_fondo(v_s, v_f, 600, 'Compra de insumos');
+  begin
+    perform public.aplicar_fondo(v_s, v_f, 500, 'Pasa del saldo');
+    perform pg_temp.ok('Fundación', 'Un fondo restringido no se gasta por encima de su saldo', false, 'pasó');
+  exception when others then perform pg_temp.ok('Fundación', 'Un fondo restringido no se gasta por encima de su saldo', true, sqlerrm);
+  end;
+  select saldo into n from public.fondos_resumen(v_s) where id = v_f;
+  perform pg_temp.ok('Fundación', 'Saldo del fondo = donado − usado', n = 400, n::text);
+
+  -- Tarifa social: recepción hace el estudio; enfermería no lo ve.
+  perform pg_temp.como(pg_temp.c('recepcion')::uuid);
+  j := public.registrar_estudio_socioeconomico(v_s, pg_temp.c('pac')::uuid, 10000, 4::smallint);
+  perform pg_temp.ok('Fundación', 'Estudio socioeconómico: 2,500 por persona = categoría D', j ->> 'categoria' = 'D', j::text);
+  perform pg_temp.como(pg_temp.c('enfermeria')::uuid);
+  select count(*) into n from public.estudios_socioeconomicos where sistema_id = v_s;
+  perform pg_temp.ok('Fundación', 'Enfermería no ve los estudios socioeconómicos', n = 0, n::text);
+end $$;
+
 -- ---------------------------------------------------------------- aislamiento con FUNBIDE real
 do $$
 declare v_real uuid := (select pruebas_de from public.sistemas where id = pg_temp.c('s')::uuid); n int;

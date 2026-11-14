@@ -8,6 +8,7 @@ import {
   ChartPie,
   FileBarChart,
   FlaskConical,
+  HandHeart,
   HeartPulse,
   LayoutDashboard,
   LifeBuoy,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { puede, type Modulo, type Permisos } from "@/lib/permisos";
 import type { Capacidad } from "@/lib/capacidades";
+import type { Naturaleza } from "@/lib/fundacion";
 import type { Rol } from "@/lib/supabase";
 
 export interface ItemNav {
@@ -39,6 +41,8 @@ export interface ItemNav {
   modulos?: Modulo[];
   /** Capacidad que la sede activa debe tener (según su tipo). Si falta, se oculta. */
   capacidad?: Capacidad;
+  /** Solo para instituciones de esta naturaleza (p. ej. los módulos de fundación). */
+  naturaleza?: Naturaleza;
   soloSuperadmin?: boolean;
   /** No aparece en el menú, solo en el buscador (Ctrl+K): secciones dentro de una entrada agrupada. */
   soloBusqueda?: boolean;
@@ -67,6 +71,7 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/laboratorio", etiqueta: "Laboratorio", icono: FlaskConical, modulo: "laboratorio", capacidad: "laboratorio", grupo: "Operación" },
   { ruta: "/farmacia", etiqueta: "Farmacia", icono: Tablets, modulo: "farmacia", capacidad: "farmacia_pos", grupo: "Operación" },
   { ruta: "/internamiento", etiqueta: "Internamiento", icono: BedDouble, modulo: "internamiento", capacidad: "internamiento", grupo: "Operación" },
+  { ruta: "/fundacion", etiqueta: "Fundación", icono: HandHeart, modulo: "fundacion", naturaleza: "fundacion", grupo: "Operación" },
   { ruta: "/caja", etiqueta: "Caja y facturación", icono: Wallet, modulo: "caja", grupo: "Finanzas" },
   { ruta: "/gastos", etiqueta: "Gastos", icono: ReceiptText, modulo: "compras", grupo: "Finanzas" },
   { ruta: "/nomina", etiqueta: "Nómina", icono: WalletCards, modulo: "nomina", grupo: "Finanzas" },
@@ -102,9 +107,12 @@ export function puedeVer(
   permisos: Permisos | null | undefined,
   propio: boolean,
   capacidades?: Partial<Record<Capacidad, boolean>>,
+  naturaleza?: Naturaleza,
 ) {
   if (i.soloSuperadmin) return esSuperadmin;
   if (i.ocultoPropio && propio) return false;
+  // Sin naturaleza conocida no se muestran los módulos propios de una (a diferencia de la sede).
+  if (i.naturaleza && i.naturaleza !== naturaleza) return false;
   if (i.capacidad && capacidades && capacidades[i.capacidad] !== true) return false;
   if (i.modulos) return i.modulos.some((m) => puede(roles, m, esSuperadmin, permisos));
   return i.modulo ? puede(roles, i.modulo, esSuperadmin, permisos) : true;

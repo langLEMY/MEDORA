@@ -1486,8 +1486,15 @@ export function Donaciones() {
 function NuevaDonacion({ abierto, onCerrar, onRegistrada }: { abierto: boolean; onCerrar: () => void; onRegistrada: (d: Donacion) => void }) {
   const { sistemaId } = useSistema();
   const qc = useQueryClient();
-  const vacio = { donante: "", documento: "", contacto: "", anonima: false, monto: "", metodo: "efectivo", referencia: "", destino: "", notas: "" };
+  const vacio = { donante: "", documento: "", contacto: "", anonima: false, monto: "", metodo: "efectivo", referencia: "", destino: "", notas: "", fondo: "" };
   const [f, setF] = useState(vacio);
+  // Fondos de donantes (fundaciones): la donación puede quedar destinada a uno.
+  const { naturaleza } = useSesion();
+  const fondos = useQuery({
+    queryKey: ["fondos-activos", sistemaId],
+    enabled: abierto && naturaleza === "fundacion",
+    queryFn: async () => (datos(await supabase.from("fondos").select("id, nombre, restringido").eq("sistema_id", sistemaId).eq("activo", true).order("nombre")) ?? []) as { id: string; nombre: string; restringido: boolean }[],
+  });
   const [intentado, setIntentado] = useState(false);
   const m = useMutation({
     mutationFn: async () => {
@@ -1502,6 +1509,7 @@ function NuevaDonacion({ abierto, onCerrar, onRegistrada }: { abierto: boolean; 
           p_anonima: f.anonima,
           p_referencia: f.referencia || undefined,
           p_destino: f.destino || undefined,
+          p_fondo: f.fondo || undefined,
           p_notas: f.notas || undefined,
         }),
       ) as { id: string };
@@ -1572,7 +1580,18 @@ function NuevaDonacion({ abierto, onCerrar, onRegistrada }: { abierto: boolean; 
           ))}
         </Selector>
         {f.metodo !== "efectivo" && <Entrada etiqueta="Referencia" placeholder="Número de transferencia o cheque" value={f.referencia} onChange={(e) => setF({ ...f, referencia: e.target.value })} />}
-        <Entrada etiqueta="Destino (opcional)" contenedor={f.metodo === "efectivo" ? "col-span-2" : undefined} placeholder="Ej.: Jornada de cataratas" value={f.destino} onChange={(e) => setF({ ...f, destino: e.target.value })} />
+        {(fondos.data?.length ?? 0) > 0 && (
+          <Selector etiqueta="Fondo (opcional)" contenedor="col-span-2" value={f.fondo} onChange={(e) => setF({ ...f, fondo: e.target.value })}>
+            <option value="">Sin fondo (uso libre)</option>
+            {fondos.data!.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.nombre}
+                {x.restringido ? " · restringido" : ""}
+              </option>
+            ))}
+          </Selector>
+        )}
+        <Entrada etiqueta="Destino (opcional)" contenedor={f.metodo === "efectivo" ? "col-span-2" : undefined} placeholder={f.fondo ? "Si se deja vacío, se usa el nombre del fondo" : "Ej.: Jornada de cataratas"} value={f.destino} onChange={(e) => setF({ ...f, destino: e.target.value })} />
         <AreaTexto etiqueta="Notas" className="min-h-14" contenedor="col-span-2" value={f.notas} onChange={(e) => setF({ ...f, notas: e.target.value })} />
         <div className="col-span-2">
           <Interruptor activo={f.anonima} onChange={(anonima) => setF({ ...f, anonima })} etiqueta="Donación anónima (el nombre no aparece en los reportes)" />

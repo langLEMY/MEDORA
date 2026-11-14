@@ -9,6 +9,7 @@ import { Entrada, Interruptor, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
 import { claves, useSedes } from "@/lib/consultas";
+import { ETIQUETA_NATURALEZA, type Naturaleza } from "@/lib/fundacion";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
 import { aplicarColorMarca } from "@/lib/tema";
 import { cn, rnc } from "@/lib/utils";
@@ -83,6 +84,7 @@ export default function Configuracion() {
           telefono: f.telefono || null,
           email: f.email || null,
           direccion: f.direccion || null,
+          naturaleza: f.naturaleza ?? "privada",
           color_marca: f.color_marca,
           fondo_caja: Math.max(0, Number(f.fondo_caja) || 0),
           cobro_antes_consulta: f.cobro_antes_consulta ?? true,
@@ -95,6 +97,7 @@ export default function Configuracion() {
     onSuccess: async () => {
       toast.success("Configuración guardada");
       await qc.invalidateQueries({ queryKey: ["sistema", sistemaId] });
+      await qc.invalidateQueries({ queryKey: ["naturaleza", sistemaId] });
       await recargar();
     },
     onError: (e) => toast.error(mensajeError(e)),
@@ -122,6 +125,18 @@ export default function Configuracion() {
                 <Entrada etiqueta="Teléfono" {...campo("telefono")} />
                 <Entrada etiqueta="Correo" type="email" {...campo("email")} />
                 <Entrada etiqueta="Dirección" contenedor="col-span-2" {...campo("direccion")} />
+                <Selector etiqueta="Naturaleza de la institución" {...campo("naturaleza")}>
+                  {(Object.keys(ETIQUETA_NATURALEZA) as Naturaleza[]).map((n) => (
+                    <option key={n} value={n}>
+                      {ETIQUETA_NATURALEZA[n]}
+                    </option>
+                  ))}
+                </Selector>
+                <p className="self-end pb-2 text-xs text-texto-3">
+                  {f.naturaleza === "fundacion"
+                    ? "Activa la sección Fundación: fondos de donantes, tarifa social, voluntarios y jornadas."
+                    : "El tipo de cada sede (abajo) dice qué servicios da; esto dice cómo se financia."}
+                </p>
                 <Entrada
                   etiqueta="Fondo de caja (RD$)"
                   type="number"

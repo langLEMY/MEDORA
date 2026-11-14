@@ -39,7 +39,7 @@ import { nombrePantalla, useAnunciarPresencia } from "@/lib/presencia";
 const CLAVE_COLAPSADO = "medora.nav-colapsada";
 
 export function AppShell() {
-  const { roles, permisos, esSuperadmin, sistema, perfil, sesion, sede, capacidades } = useSesion();
+  const { roles, permisos, esSuperadmin, sistema, perfil, sesion, sede, capacidades, naturaleza } = useSesion();
   const location = useLocation();
   // Presencia: el personal ve quién está conectado; la superadministración no se anuncia.
   useAnunciarPresencia(
@@ -81,7 +81,7 @@ export function AppShell() {
 
   const propio = soloLoPropio(roles);
   // Gatea por la sede activa solo si ya se resolvió (si no, no oculta nada).
-  const visibles = NAVEGACION.filter((i) => !i.soloBusqueda && puedeVer(i, roles, esSuperadmin, permisos, propio, sede ? capacidades : undefined)).map((i) =>
+  const visibles = NAVEGACION.filter((i) => !i.soloBusqueda && puedeVer(i, roles, esSuperadmin, permisos, propio, sede ? capacidades : undefined, naturaleza)).map((i) =>
     propio && i.etiquetaPropia ? { ...i, etiqueta: i.etiquetaPropia } : i,
   );
   const grupos = [...new Set(visibles.map((i) => i.grupo))];

@@ -1,10 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { Lock, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { HandHeart, Lock, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SelectorPaciente, type PacienteBreve } from "@/components/SelectorPaciente";
 import { SelectorServicio } from "@/components/SelectorServicio";
+import { useTarifaPaciente } from "@/components/TarifaSocial";
+import { descuentoTarifa } from "@/lib/fundacion";
 import { Boton } from "@/components/ui/boton";
 import { Campo, Entrada, Interruptor, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
@@ -71,6 +73,9 @@ export function NuevoCobro({
   const [aseguradora, setAseguradora] = useState("");
   const [autorizacion, setAutorizacion] = useState("");
   const [descuento, setDescuento] = useState("0");
+  // Tarifa social (fundaciones): el descuento sugerido por el estudio socioeconómico vigente.
+  const tarifa = useTarifaPaciente(paciente?.id);
+  const [notaTarifa, setNotaTarifa] = useState<string | null>(null);
   const [conNcf, setConNcf] = useState(false);
   const [tipoNcf, setTipoNcf] = useState("B02");
   const [clienteRnc, setClienteRnc] = useState("");
@@ -90,6 +95,7 @@ export function NuevoCobro({
     setAseguradora("");
     setAutorizacion("");
     setDescuento("0");
+    setNotaTarifa(null);
     setTipoNcf("B02");
     setClienteRnc("");
     setClienteNombre("");
@@ -276,6 +282,7 @@ export function NuevoCobro({
           p_aseguradora: aseguradora || undefined,
           p_autorizacion: autorizacion || undefined,
           p_descuento: Number(descuento) || 0,
+          p_notas: notaTarifa ?? undefined,
           p_tipo_ncf: conNcf ? tipoNcf : undefined,
           p_cliente_rnc: clienteRnc || undefined,
           p_cliente_nombre: clienteNombre || undefined,
@@ -497,7 +504,32 @@ export function NuevoCobro({
             <option value="">Seleccionar…</option>
             <OpcionesMedicos medicos={medicos} />
           </Selector>
-          <Entrada etiqueta="Descuento" type="number" min={0} step="0.01" value={descuento} onChange={(e) => setDescuento(e.target.value)} />
+          <div>
+            <Entrada
+              etiqueta="Descuento"
+              type="number"
+              min={0}
+              step="0.01"
+              value={descuento}
+              onChange={(e) => {
+                setDescuento(e.target.value);
+                setNotaTarifa(null);
+              }}
+            />
+            {tarifa.data && tarifa.data.descuento_pct > 0 && subtotal - cobertura > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDescuento(String(descuentoTarifa(subtotal - cobertura, tarifa.data!.descuento_pct)));
+                  setNotaTarifa(`Tarifa social ${tarifa.data!.categoria} (${tarifa.data!.descuento_pct} %) · estudio ${tarifa.data!.numero}`);
+                }}
+                className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-marca-texto hover:underline"
+              >
+                <HandHeart className="size-3.5" />
+                {notaTarifa ? "Tarifa social aplicada" : `Aplicar tarifa social ${tarifa.data.categoria} (${tarifa.data.descuento_pct} %)`}
+              </button>
+            )}
+          </div>
           {/* Quien cobra es el vendedor/comisionista: lo fija el servidor con la sesión. */}
           <Campo etiqueta="Procesado por" className="col-span-2">
             {() => (

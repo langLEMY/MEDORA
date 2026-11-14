@@ -1863,6 +1863,7 @@ export type Database = {
           donante_documento: string | null
           donante_nombre: string
           fecha: string
+          fondo_id: string | null
           id: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
@@ -1881,6 +1882,7 @@ export type Database = {
           donante_documento?: string | null
           donante_nombre: string
           fecha?: string
+          fondo_id?: string | null
           id?: string
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
@@ -1899,6 +1901,7 @@ export type Database = {
           donante_documento?: string | null
           donante_nombre?: string
           fecha?: string
+          fondo_id?: string | null
           id?: string
           metodo?: Database["public"]["Enums"]["metodo_pago"]
           monto?: number
@@ -1922,6 +1925,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sistemas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donaciones_sistema_id_fondo_id_fkey"
+            columns: ["sistema_id", "fondo_id"]
+            isOneToOne: false
+            referencedRelation: "fondos"
+            referencedColumns: ["sistema_id", "id"]
           },
           {
             foreignKeyName: "donaciones_sistema_id_turno_id_fkey"
@@ -2170,6 +2180,91 @@ export type Database = {
           },
         ]
       }
+      estudios_socioeconomicos: {
+        Row: {
+          categoria: string
+          categoria_sugerida: string
+          creado_en: string
+          descuento_pct: number
+          id: string
+          ingreso_mensual: number
+          ingreso_per_capita: number
+          miembros: number
+          motivo_ajuste: string | null
+          numero: string
+          observaciones: string | null
+          ocupacion: string | null
+          paciente_id: string
+          realizado_por: string
+          sistema_id: string
+          tiene_seguro: boolean | null
+          vigente_hasta: string
+          vivienda: string | null
+        }
+        Insert: {
+          categoria: string
+          categoria_sugerida: string
+          creado_en?: string
+          descuento_pct: number
+          id?: string
+          ingreso_mensual: number
+          ingreso_per_capita: number
+          miembros: number
+          motivo_ajuste?: string | null
+          numero: string
+          observaciones?: string | null
+          ocupacion?: string | null
+          paciente_id: string
+          realizado_por: string
+          sistema_id: string
+          tiene_seguro?: boolean | null
+          vigente_hasta: string
+          vivienda?: string | null
+        }
+        Update: {
+          categoria?: string
+          categoria_sugerida?: string
+          creado_en?: string
+          descuento_pct?: number
+          id?: string
+          ingreso_mensual?: number
+          ingreso_per_capita?: number
+          miembros?: number
+          motivo_ajuste?: string | null
+          numero?: string
+          observaciones?: string | null
+          ocupacion?: string | null
+          paciente_id?: string
+          realizado_por?: string
+          sistema_id?: string
+          tiene_seguro?: boolean | null
+          vigente_hasta?: string
+          vivienda?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estudios_socioeconomicos_realizado_por_fkey"
+            columns: ["realizado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estudios_socioeconomicos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estudios_socioeconomicos_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       farmacia_controlados: {
         Row: {
           cantidad: number
@@ -2274,6 +2369,128 @@ export type Database = {
           },
           {
             foreignKeyName: "farmacia_lotes_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fondo_usos: {
+        Row: {
+          comprobante: string | null
+          concepto: string
+          creado_en: string
+          creado_por: string
+          fecha: string
+          fondo_id: string
+          id: string
+          monto: number
+          revierte_a: string | null
+          sistema_id: string
+        }
+        Insert: {
+          comprobante?: string | null
+          concepto: string
+          creado_en?: string
+          creado_por: string
+          fecha?: string
+          fondo_id: string
+          id?: string
+          monto: number
+          revierte_a?: string | null
+          sistema_id: string
+        }
+        Update: {
+          comprobante?: string | null
+          concepto?: string
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          fondo_id?: string
+          id?: string
+          monto?: number
+          revierte_a?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fondo_usos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fondo_usos_revierte_a_fkey"
+            columns: ["revierte_a"]
+            isOneToOne: true
+            referencedRelation: "fondo_usos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fondo_usos_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fondo_usos_sistema_id_fondo_id_fkey"
+            columns: ["sistema_id", "fondo_id"]
+            isOneToOne: false
+            referencedRelation: "fondos"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      fondos: {
+        Row: {
+          activo: boolean
+          creado_en: string
+          creado_por: string | null
+          descripcion: string | null
+          donante: string | null
+          id: string
+          meta: number | null
+          nombre: string
+          restringido: boolean
+          sistema_id: string
+        }
+        Insert: {
+          activo?: boolean
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          donante?: string | null
+          id?: string
+          meta?: number | null
+          nombre: string
+          restringido?: boolean
+          sistema_id: string
+        }
+        Update: {
+          activo?: boolean
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          donante?: string | null
+          id?: string
+          meta?: number | null
+          nombre?: string
+          restringido?: boolean
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fondos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fondos_sistema_id_fkey"
             columns: ["sistema_id"]
             isOneToOne: false
             referencedRelation: "sistemas"
@@ -2721,6 +2938,150 @@ export type Database = {
           },
         ]
       }
+      jornada_atenciones: {
+        Row: {
+          atendido_por: string
+          creado_en: string
+          diagnostico: string | null
+          documento: string | null
+          edad: number | null
+          id: string
+          jornada_id: string
+          medicamentos: string | null
+          motivo: string | null
+          nombre: string
+          observaciones: string | null
+          paciente_id: string | null
+          servicio: string | null
+          sexo: string | null
+          sistema_id: string
+        }
+        Insert: {
+          atendido_por: string
+          creado_en?: string
+          diagnostico?: string | null
+          documento?: string | null
+          edad?: number | null
+          id?: string
+          jornada_id: string
+          medicamentos?: string | null
+          motivo?: string | null
+          nombre: string
+          observaciones?: string | null
+          paciente_id?: string | null
+          servicio?: string | null
+          sexo?: string | null
+          sistema_id: string
+        }
+        Update: {
+          atendido_por?: string
+          creado_en?: string
+          diagnostico?: string | null
+          documento?: string | null
+          edad?: number | null
+          id?: string
+          jornada_id?: string
+          medicamentos?: string | null
+          motivo?: string | null
+          nombre?: string
+          observaciones?: string | null
+          paciente_id?: string | null
+          servicio?: string | null
+          sexo?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jornada_atenciones_atendido_por_fkey"
+            columns: ["atendido_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jornada_atenciones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jornada_atenciones_sistema_id_jornada_id_fkey"
+            columns: ["sistema_id", "jornada_id"]
+            isOneToOne: false
+            referencedRelation: "jornadas"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "jornada_atenciones_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      jornadas: {
+        Row: {
+          creado_en: string
+          creado_por: string | null
+          descripcion: string | null
+          estado: string
+          fecha: string
+          fondo_id: string | null
+          id: string
+          lugar: string | null
+          nombre: string
+          sistema_id: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          estado?: string
+          fecha: string
+          fondo_id?: string | null
+          id?: string
+          lugar?: string | null
+          nombre: string
+          sistema_id: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          estado?: string
+          fecha?: string
+          fondo_id?: string | null
+          id?: string
+          lugar?: string | null
+          nombre?: string
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jornadas_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jornadas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jornadas_sistema_id_fondo_id_fkey"
+            columns: ["sistema_id", "fondo_id"]
+            isOneToOne: false
+            referencedRelation: "fondos"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       laboratorio_orden_items: {
         Row: {
           bioanalista: string | null
@@ -3026,6 +3387,7 @@ export type Database = {
           sede_id: string | null
           sistema_id: string
           usuario_id: string
+          voluntario: boolean
         }
         Insert: {
           activo?: boolean
@@ -3044,6 +3406,7 @@ export type Database = {
           sede_id?: string | null
           sistema_id: string
           usuario_id: string
+          voluntario?: boolean
         }
         Update: {
           activo?: boolean
@@ -3062,6 +3425,7 @@ export type Database = {
           sede_id?: string | null
           sistema_id?: string
           usuario_id?: string
+          voluntario?: boolean
         }
         Relationships: [
           {
@@ -4643,11 +5007,13 @@ export type Database = {
           logo_factura: string | null
           logo_url: string | null
           moneda: string
+          naturaleza: string
           nombre: string
           pruebas_de: string | null
           razon_social: string | null
           rnc: string | null
           slug: string
+          tarifa_social: Json
           telefono: string | null
           zona_horaria: string
         }
@@ -4670,11 +5036,13 @@ export type Database = {
           logo_factura?: string | null
           logo_url?: string | null
           moneda?: string
+          naturaleza?: string
           nombre: string
           pruebas_de?: string | null
           razon_social?: string | null
           rnc?: string | null
           slug: string
+          tarifa_social?: Json
           telefono?: string | null
           zona_horaria?: string
         }
@@ -4697,11 +5065,13 @@ export type Database = {
           logo_factura?: string | null
           logo_url?: string | null
           moneda?: string
+          naturaleza?: string
           nombre?: string
           pruebas_de?: string | null
           razon_social?: string | null
           rnc?: string | null
           slug?: string
+          tarifa_social?: Json
           telefono?: string | null
           zona_horaria?: string
         }
@@ -5160,6 +5530,17 @@ export type Database = {
         Args: { p_donacion: string; p_motivo: string }
         Returns: undefined
       }
+      aplicar_fondo: {
+        Args: {
+          p_comprobante?: string
+          p_concepto: string
+          p_fecha?: string
+          p_fondo: string
+          p_monto: number
+          p_sistema: string
+        }
+        Returns: string
+      }
       aprobar_nomina: { Args: { p_nomina: string }; Returns: string }
       asignar_medico_cobro: {
         Args: { p_cobro: string; p_medico: string }
@@ -5392,6 +5773,22 @@ export type Database = {
         Args: { p_cita: string; p_motivo: string }
         Returns: string
       }
+      fondos_resumen: {
+        Args: { p_sistema: string }
+        Returns: {
+          activo: boolean
+          descripcion: string
+          donaciones: number
+          donante: string
+          id: string
+          meta: number
+          nombre: string
+          recibido: number
+          restringido: boolean
+          saldo: number
+          usado: number
+        }[]
+      }
       generar_codigo_invitacion: {
         Args: {
           p_descripcion: string
@@ -5445,6 +5842,10 @@ export type Database = {
           p_precio_sede: number
         }
         Returns: string
+      }
+      guardar_tarifa_social: {
+        Args: { p_config: Json; p_sistema: string }
+        Returns: undefined
       }
       ia_consumo_mes: { Args: { p_sistema: string }; Returns: number }
       identificar_turno: {
@@ -5745,6 +6146,21 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_atencion_jornada: {
+        Args: {
+          p_diagnostico?: string
+          p_documento?: string
+          p_edad?: number
+          p_jornada: string
+          p_medicamentos?: string
+          p_motivo?: string
+          p_nombre: string
+          p_observaciones?: string
+          p_servicio?: string
+          p_sexo?: string
+        }
+        Returns: string
+      }
       registrar_cobro: {
         Args: {
           p_aseguradora?: string
@@ -5801,6 +6217,7 @@ export type Database = {
           p_documento?: string
           p_donante: string
           p_fecha?: string
+          p_fondo?: string
           p_metodo: Database["public"]["Enums"]["metodo_pago"]
           p_monto: number
           p_notas?: string
@@ -5822,6 +6239,21 @@ export type Database = {
           p_version: string
         }
         Returns: undefined
+      }
+      registrar_estudio_socioeconomico: {
+        Args: {
+          p_categoria?: string
+          p_ingreso: number
+          p_miembros: number
+          p_motivo_ajuste?: string
+          p_observaciones?: string
+          p_ocupacion?: string
+          p_paciente: string
+          p_seguro?: boolean
+          p_sistema: string
+          p_vivienda?: string
+        }
+        Returns: Json
       }
       registrar_evento: {
         Args: { p_accion: string; p_detalle?: Json; p_sistema?: string }
@@ -5934,6 +6366,10 @@ export type Database = {
           retencion: number
         }[]
       }
+      reporte_fundacion: {
+        Args: { p_desde: string; p_hasta: string; p_sistema: string }
+        Returns: Json
+      }
       respaldo_tabla: { Args: { p_tabla: string }; Returns: Json }
       respaldo_tablas: { Args: never; Returns: string[] }
       responder_solicitud_soporte: {
@@ -5955,6 +6391,7 @@ export type Database = {
         }
         Returns: Json
       }
+      resumen_jornada: { Args: { p_jornada: string }; Returns: Json }
       resumen_suscripciones: {
         Args: never
         Returns: {
@@ -5973,6 +6410,10 @@ export type Database = {
         }[]
       }
       retirar_mensaje_soporte: { Args: { p_mensaje: string }; Returns: string }
+      revertir_uso_fondo: {
+        Args: { p_motivo: string; p_uso: string }
+        Returns: string
+      }
       revocar_codigo_invitacion: { Args: { p_id: string }; Returns: undefined }
       salud_tareas: { Args: never; Returns: Json }
       soporte_pendientes: { Args: never; Returns: number }
@@ -5980,6 +6421,17 @@ export type Database = {
       suspender_indicacion: {
         Args: { p_indicacion: string; p_motivo: string }
         Returns: undefined
+      }
+      tarifa_social_paciente: {
+        Args: { p_paciente: string; p_sistema: string }
+        Returns: {
+          categoria: string
+          creado_en: string
+          descuento_pct: number
+          id: string
+          numero: string
+          vigente_hasta: string
+        }[]
       }
       usuario_disponible: { Args: { p_usuario: string }; Returns: boolean }
       verificar_codigo_instalacion: {

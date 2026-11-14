@@ -25,6 +25,8 @@ export interface Miembro {
   sede_id: string | null;
   activo: boolean;
   atiende_agenda: boolean;
+  /** Fundaciones: profesional voluntario (no genera comisión). */
+  voluntario?: boolean;
   consultorio: string | null;
   permisos: Permisos;
   creado_en: string;
@@ -38,7 +40,7 @@ export function usePersonal(sistemaId: string) {
       datos(
         await supabase
           .from("membresias")
-          .select("id, usuario_id, roles, especialidad, exequatur, sede_id, activo, atiende_agenda, consultorio, permisos, creado_en, perfil:perfiles!membresias_usuario_id_fkey(nombre_completo, nombre_usuario, email, telefono, foto)")
+          .select("id, usuario_id, roles, especialidad, exequatur, sede_id, activo, atiende_agenda, voluntario, consultorio, permisos, creado_en, perfil:perfiles!membresias_usuario_id_fkey(nombre_completo, nombre_usuario, email, telefono, foto)")
           .eq("sistema_id", sistemaId)
           // Quitados del sistema con historial: la fila queda solo por integridad.
           .is("eliminado_en", null)

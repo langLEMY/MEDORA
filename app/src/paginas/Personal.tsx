@@ -510,11 +510,14 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
   const [sede, setSede] = useState("");
   const [activo, setActivo] = useState(true);
   const [agenda, setAgenda] = useState(false);
+  const [voluntario, setVoluntario] = useState(false);
   const [nombre, setNombre] = useState("");
   const [consultorio, setConsultorio] = useState("");
+  const { naturaleza } = useSesion();
 
   useEffect(() => {
     if (!miembro) return;
+    setVoluntario(!!miembro.voluntario);
     setNombre(miembro.perfil?.nombre_completo ?? "");
     setConsultorio(miembro.consultorio ?? "");
     setAgenda(miembro.atiende_agenda);
@@ -542,6 +545,7 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
           sede_id: sede || null,
           activo,
           atiende_agenda: agenda,
+          voluntario,
           consultorio: consultorio.trim() || null,
           // Solo la superadministración cambia permisos (lo exige un trigger en Postgres).
           ...(esSuperadmin ? { permisos } : {}),
@@ -596,6 +600,9 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
           </Selector>
         )}
         <Interruptor activo={agenda} onChange={setAgenda} etiqueta="Atiende citas (aparece como columna en la agenda)" />
+        {naturaleza === "fundacion" && (
+          <Interruptor activo={voluntario} onChange={setVoluntario} etiqueta="Voluntario (no genera comisión; cuenta en el reporte de la fundación)" />
+        )}
         {agenda && (
           <Entrada
             etiqueta="Consultorio"

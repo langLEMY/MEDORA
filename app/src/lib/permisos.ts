@@ -27,6 +27,7 @@ export type Modulo =
   | "farmacia"
   | "internamiento"
   | "enfermeria"
+  | "fundacion"
   | "configuracion";
 
 const CLINICOS: Rol[] = ["medico", "enfermeria", "psicologia", "nutricion", "terapia"];
@@ -55,6 +56,8 @@ const MATRIZ: Record<Modulo, Rol[]> = {
   internamiento: ["admin", "medico", "enfermeria", "recepcion", "gerencia"],
   // Preconsulta, procedimientos y (con internamiento) Kardex. Lee la historia: solo roles clínicos.
   enfermeria: ["enfermeria", "medico"],
+  // Fundaciones: reporte y fondos (dirección/finanzas), tarifa social (recepción/caja), jornadas (clínicos).
+  fundacion: ["admin", "gerencia", "contabilidad", "auditor", "caja", "recepcion", "medico", "enfermeria", "psicologia", "nutricion", "terapia"],
   // Conectores (WhatsApp, Azul, correo, SMS): la administración de cada hospital.
   integraciones: ["admin"],
   // Identidad del hospital y sedes: solo superadministración (ver migración accesos_superadmin).
@@ -133,6 +136,14 @@ export const puedeEscribir = {
   /** Kardex: el médico indica/suspende (indicar_medicamento); enfermería o medicina registran cada dosis. */
   indicar: alguno(["medico"]),
   administrar: alguno(["enfermeria", "medico"]),
+  /** Fundaciones (ver migración fundaciones). */
+  reporteFundacion: alguno(["admin", "gerencia", "contabilidad", "auditor"]),
+  fondos: alguno(["admin", "gerencia", "contabilidad"]),
+  verFondos: alguno(["admin", "gerencia", "contabilidad", "auditor"]),
+  estudioSocial: alguno(["admin", "recepcion", "caja"]),
+  verEstudios: alguno(["admin", "recepcion", "caja", "gerencia", "auditor"]),
+  jornadas: alguno(["admin", "gerencia"]),
+  atenderJornada: alguno(["medico", "enfermeria", "psicologia", "nutricion", "terapia"]),
   caja: alguno(["admin", "caja"]),
   abonos: alguno(["admin", "caja", "contabilidad"]),
   inventario: alguno(["admin", "farmacia"]),

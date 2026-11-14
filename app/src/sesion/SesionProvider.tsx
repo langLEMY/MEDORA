@@ -8,6 +8,7 @@ import type { Permisos } from "@/lib/permisos";
 import { sincronizarDesdePerfil } from "@/lib/preferencias";
 import { contextoMonitoreo } from "@/lib/monitoreo";
 import { capacidadesSede, type Capacidad } from "@/lib/capacidades";
+import type { Naturaleza, TarifaSocial } from "@/lib/fundacion";
 import { aplicarColorMarca } from "@/lib/tema";
 
 /** Sede (local físico) del sistema activo, con su tipo y capacidades. */
@@ -48,6 +49,10 @@ interface ContextoSesion {
   /** Capacidades efectivas de la sede activa (según su tipo + overrides). */
   capacidades: Partial<Record<Capacidad, boolean>>;
   cambiarSede: (id: string) => void;
+  /** Cómo se financia el sistema: privada, fundación (ASFL) o pública. Activa los módulos de fundación. */
+  naturaleza: Naturaleza;
+  /** Umbrales y descuentos de la tarifa social (fundaciones). */
+  tarifaSocial: TarifaSocial | null;
   roles: Rol[];
   permisos: Permisos;
   esSuperadmin: boolean;
@@ -156,6 +161,15 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const sede = sedes.find((s) => s.id === sedeId) ?? sedes[0] ?? null;
   const capacidades = useMemo(() => capacidadesSede(sede), [sede]);
 
+  // Naturaleza de la institución (no viene en mis_sistemas_detalle para no tocar el inicio de sesión).
+  const naturalezaQ = useQuery({
+    queryKey: ["naturaleza", sistema?.id],
+    enabled: !!sistema?.id,
+    staleTime: 5 * 60_000,
+    queryFn: async () =>
+      datos(await supabase.from("sistemas").select("naturaleza, tarifa_social").eq("id", sistema!.id).maybeSingle()) as { naturaleza: Naturaleza; tarifa_social: TarifaSocial } | null,
+  });
+
   const cambiarSede = useCallback((id: string) => {
     setSedeId(id);
     try {
@@ -217,6 +231,8 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     sede,
     capacidades,
     cambiarSede,
+    naturaleza: naturalezaQ.data?.naturaleza ?? "privada",
+    tarifaSocial: naturalezaQ.data?.tarifa_social ?? null,
     roles: sistema?.roles ?? [],
     permisos: sistema?.permisos ?? {},
     esSuperadmin: !!perfilQ.data?.es_superadmin,
