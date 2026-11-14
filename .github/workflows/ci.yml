@@ -87,7 +87,9 @@ jobs:
   # Punta a punta (Playwright). Sin secretos solo prueba la pantalla de acceso; con
   # E2E_USUARIO / E2E_CLAVE (cuenta que SOLO pertenezca a un sistema de pruebas) recorre la app.
   e2e:
-    runs-on: ubuntu-latest
+    # Fijo en 24.04: con la migración de ubuntu-latest a Ubuntu 26 (oct/2026) falla
+    # `playwright install --with-deps` (dependencias del navegador). Volver a latest cuando Playwright lo soporte.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
