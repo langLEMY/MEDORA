@@ -122,6 +122,11 @@ export const puedeEscribir = {
   historial: alguno(CLINICOS),
   verHistorial: alguno([...CLINICOS, "auditor"]),
   psicologia: alguno(["psicologia"]),
+  /** Órdenes médicas: las emite el médico (crear_orden_medica); su estado lo cambian medicina o enfermería (marcar_item_orden). */
+  ordenar: alguno(["medico"]),
+  estadoOrden: alguno(["medico", "enfermeria"]),
+  /** Cerrar la consulta en curso (checkout_consulta). */
+  checkout: alguno(["medico", "psicologia", "nutricion", "terapia"]),
   caja: alguno(["admin", "caja"]),
   abonos: alguno(["admin", "caja", "contabilidad"]),
   inventario: alguno(["admin", "farmacia"]),

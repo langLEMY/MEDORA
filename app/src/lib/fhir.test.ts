@@ -34,6 +34,10 @@ const base = (): DatosFhir => ({
     actualizado_en: "2026-01-01T00:00:00Z",
     actualizado_por: null,
     foto_documento: null,
+    habitos: {},
+    antecedentes: {},
+    condiciones_especiales: [],
+    medico_cabecera_id: null,
   },
   citas: [
     { id: "22222222-2222-4222-8222-222222222222", inicio: "2026-10-01T13:00:00Z", fin: "2026-10-01T13:30:00Z", estado: "completada", especialidad: "Medicina general", motivo: "Control", medico: { nombre_completo: "Dra. Demo" } },

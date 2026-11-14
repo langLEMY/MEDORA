@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, ArrowLeft, CalendarDays, Droplet, FileDown, FileText, Pencil, Phone, Receipt, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, FileDown, FileText, Pencil, Phone, Receipt, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -17,11 +17,17 @@ import { useSistema } from "@/sesion/SesionProvider";
 import { AccesosExpediente, useRegistrarAcceso } from "@/components/AccesosExpediente";
 import { FotoDocumento } from "@/components/FotoDocumento";
 import { ResultadosLaboratorio } from "@/components/ResultadosLaboratorio";
+import { CabeceraClinica } from "./CabeceraClinica";
+import { ANTECEDENTES, habitosActivos, type Antecedentes } from "./catalogoClinico";
+import { BotonCheckout } from "./Checkout";
 import { FormPaciente } from "./FormPaciente";
 import { HistorialClinico } from "./HistorialClinico";
+import { OrdenesMedicas } from "./OrdenesMedicas";
 import { BarraPacienteFija, ResumenPaciente } from "./ResumenPaciente";
+import { Vacunas } from "./Vacunas";
 
-type Pestana = "historial" | "laboratorio" | "citas" | "cobros" | "datos";
+type Pestana = "historial" | "ordenes" | "vacunas" | "laboratorio" | "citas" | "cobros" | "datos";
+const CLINICAS: Pestana[] = ["historial", "ordenes", "vacunas", "laboratorio"];
 
 export default function PacienteDetalle() {
   const { id = "" } = useParams();
@@ -37,7 +43,7 @@ export default function PacienteDetalle() {
   });
   const tarjeta = useRef<HTMLDivElement>(null);
   // Queda en la auditoría quién abrió el expediente y, aparte, la historia clínica.
-  useRegistrarAcceso(id, pestana === "historial" || pestana === "laboratorio" ? "historia clínica" : "expediente");
+  useRegistrarAcceso(id, CLINICAS.includes(pestana) ? "historia clínica" : "expediente");
 
   const paciente = useQuery({
     queryKey: claves.paciente(sistemaId, id),
@@ -45,7 +51,7 @@ export default function PacienteDetalle() {
       datos(
         await supabase
           .from("pacientes")
-          .select("*, aseguradora:aseguradoras!pacientes_sistema_id_aseguradora_id_fkey(nombre)")
+          .select("*, aseguradora:aseguradoras!pacientes_sistema_id_aseguradora_id_fkey(nombre), medico_cabecera:perfiles!pacientes_medico_cabecera_id_fkey(nombre_completo)")
           .eq("id", id)
           .eq("sistema_id", sistemaId)
           .single(),
@@ -87,6 +93,8 @@ export default function PacienteDetalle() {
   const nombre = `${p.nombres} ${p.apellidos}`;
   const opciones = [
     ...(verHistorial ? [{ valor: "historial" as const, etiqueta: "Historia clínica" }] : []),
+    ...(verHistorial ? [{ valor: "ordenes" as const, etiqueta: "Órdenes" }] : []),
+    ...(verHistorial ? [{ valor: "vacunas" as const, etiqueta: "Vacunas" }] : []),
     ...(verHistorial ? [{ valor: "laboratorio" as const, etiqueta: "Laboratorio" }] : []),
     { valor: "citas" as const, etiqueta: "Citas" },
     ...(verCobros ? [{ valor: "cobros" as const, etiqueta: "Cobros" }] : []),
@@ -129,22 +137,11 @@ export default function PacienteDetalle() {
                 </span>
               )}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {p.tipo_sangre && (
-                <Insignia tono="peligro">
-                  <Droplet className="size-3" /> {p.tipo_sangre}
-                </Insignia>
-              )}
-              {p.alergias && (
-                <Insignia tono="peligro">
-                  <AlertTriangle className="size-3" /> Alergias: {p.alergias}
-                </Insignia>
-              )}
-              {p.condiciones_cronicas && <Insignia tono="aviso">{p.condiciones_cronicas}</Insignia>}
-            </div>
+            <CabeceraClinica pacienteId={p.id} p={p} verHistorial={verHistorial} onEditar={puedeEscribir.pacientes(roles) ? () => setEditar(true) : undefined} />
           </div>
           <FotoDocumento pacienteId={p.id} ruta={p.foto_documento} editable={puedeEscribir.pacientes(roles)} />
           <div className="flex flex-col items-end gap-2">
+            <BotonCheckout pacienteId={p.id} pacienteNombre={nombre} />
             {puedeEscribir.pacientes(roles) && (
               <Boton variante="secundario" icono={<Pencil className="size-3.5" />} onClick={() => setEditar(true)}>
                 Editar
@@ -181,7 +178,9 @@ export default function PacienteDetalle() {
           exit={{ opacity: 0, transition: { duration: 0.08 } }}
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
         >
-          {pestana === "historial" && <HistorialClinico pacienteId={id} pacienteNombre={nombre} />}
+          {pestana === "historial" && <HistorialClinico pacienteId={id} pacienteNombre={nombre} documento={p.documento} />}
+          {pestana === "ordenes" && <OrdenesMedicas pacienteId={id} pacienteNombre={nombre} documento={p.documento} />}
+          {pestana === "vacunas" && <Vacunas pacienteId={id} pacienteNombre={nombre} documento={p.documento} fechaNacimiento={p.fecha_nacimiento} />}
           {pestana === "laboratorio" && <ResultadosLaboratorio pacienteId={id} />}
 
           {pestana === "citas" && (
@@ -236,7 +235,10 @@ export default function PacienteDetalle() {
                   ["Dirección", p.direccion],
                   ["Contacto de emergencia", [p.contacto_emergencia_nombre, p.contacto_emergencia_telefono].filter(Boolean).join(" · ")],
                   ["Número de afiliado", p.numero_afiliado],
+                  ["Médico de cabecera", p.medico_cabecera?.nombre_completo],
                   ["Condiciones crónicas", p.condiciones_cronicas],
+                  ["Hábitos", habitosActivos(p.habitos).map((h) => `${h.etiqueta}: ${h.nivel}`).join(" · ")],
+                  ...ANTECEDENTES.map((a) => [`Antecedentes ${a.etiqueta.toLowerCase()}`, (p.antecedentes as Antecedentes | null)?.[a.clave]] as const),
                   ["Notas", p.notas],
                   ["Registrado", fechaHora(p.creado_en)],
                 ] as const

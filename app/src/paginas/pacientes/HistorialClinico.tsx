@@ -1,8 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { FileImage, FilePlus2, FileText, Lock, NotebookPen, Paperclip, Pill, Plus, Printer, Reply, ShieldAlert, Upload, X } from "lucide-react";
+import {
+  ChevronDown,
+  ClipboardList,
+  FileImage,
+  FilePlus2,
+  FileSignature,
+  FileText,
+  HeartPulse,
+  Lock,
+  NotebookPen,
+  Paperclip,
+  Pill,
+  Plus,
+  Printer,
+  Reply,
+  Search,
+  ShieldAlert,
+  Stethoscope,
+  Syringe,
+  Upload,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Documento, EncabezadoDocumento } from "@/components/Documento";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
@@ -10,9 +33,11 @@ import { Esqueleto, Insignia, Tarjeta, Vacio, type Tono } from "@/components/ui/
 import { puedeEscribir } from "@/lib/permisos";
 import type { Json } from "@/lib/database.types";
 import { datos, mensajeError, supabase, type TipoEntradaClinica } from "@/lib/supabase";
-import { cn, fechaHora, relativo } from "@/lib/utils";
+import { cn, fecha, fechaHora, relativo } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
+import { balanceHidrico, CAMPOS_TIPO, diasLicencia, FORMULARIO_POR_CLAVE, FORMULARIOS, type CampoClinico } from "./catalogoClinico";
 import { DocumentoClinico, esDocumento, type ItemReceta, type MedicoFirma, type TipoDocumento } from "./DocumentoClinico";
+import { ItemsOrden, NuevaOrden, TIPO_ORDEN, useOrdenesPaciente, type OrdenMedica, type TipoOrden } from "./OrdenesMedicas";
 
 const TIPOS: Record<TipoEntradaClinica, { etiqueta: string; tono: Tono }> = {
   consulta: { etiqueta: "Consulta", tono: "marca" },
@@ -30,14 +55,16 @@ const TIPOS: Record<TipoEntradaClinica, { etiqueta: string; tono: Tono }> = {
   certificado: { etiqueta: "Certificado", tono: "info" },
   referimiento: { etiqueta: "Referimiento", tono: "marca" },
   orden: { etiqueta: "Orden médica", tono: "aviso" },
-  anexo: { etiqueta: "Anexo", tono: "neutro" },
+  anexo: { etiqueta: "Adjunto", tono: "neutro" },
   adenda: { etiqueta: "Adenda", tono: "neutro" },
+  formulario: { etiqueta: "Formulario", tono: "marca" },
+  vacuna: { etiqueta: "Vacuna", tono: "exito" },
+  licencia: { etiqueta: "Licencia médica", tono: "info" },
+  consentimiento: { etiqueta: "Consentimiento", tono: "violeta" },
 };
 
-type Campo = { clave: string; etiqueta: string; placeholder?: string; opciones?: string[]; tipo?: "texto" | "numero" | "fecha" | "area" };
-
 // Campos estructurados de cada tipo (se guardan en historial_clinico.datos).
-const CAMPOS: Partial<Record<TipoEntradaClinica, Campo[]>> = {
+const CAMPOS: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = {
   signos_vitales: [
     { clave: "pa", etiqueta: "Presión arterial", placeholder: "120/80" },
     { clave: "fc", etiqueta: "Frec. cardíaca (lpm)", placeholder: "72", tipo: "numero" },
@@ -74,13 +101,27 @@ const CAMPOS: Partial<Record<TipoEntradaClinica, Campo[]>> = {
     { clave: "plan", etiqueta: "Plan terapéutico", tipo: "area" },
     { clave: "proxima_sesion", etiqueta: "Próxima sesión", tipo: "fecha" },
   ],
+  ...CAMPOS_TIPO,
 };
 CAMPOS.triaje = CAMPOS.signos_vitales;
 
-const ETIQUETAS_CAMPO = Object.fromEntries(
-  Object.values(CAMPOS).flatMap((cs) => cs!.map((c) => [c.clave, c.etiqueta])),
-) as Record<string, string>;
+/** Campos de una entrada: los del formulario del catálogo o los de su tipo. */
+const camposDe = (tipo: TipoEntradaClinica, formulario?: unknown): CampoClinico[] =>
+  tipo === "formulario" ? (FORMULARIO_POR_CLAVE[String(formulario ?? "")]?.campos ?? []) : (CAMPOS[tipo] ?? []);
+
+const ETIQUETAS_CAMPO: Record<string, string> = Object.fromEntries(
+  [...Object.values(CAMPOS).flatMap((cs) => cs ?? []), ...FORMULARIOS.flatMap((f) => f.campos)].map((c) => [c.clave, c.etiqueta]),
+);
 ETIQUETAS_CAMPO.imc = "IMC";
+ETIQUETAS_CAMPO.numero = "No. de orden";
+ETIQUETAS_CAMPO.proveedor = "Proveedor";
+ETIQUETAS_CAMPO.diagnostico = "Diagnóstico";
+ETIQUETAS_CAMPO.proxima_cita = "Próxima cita";
+ETIQUETAS_CAMPO.referido_a = "Referido a";
+ETIQUETAS_CAMPO.indicaciones = "Indicaciones";
+
+// Claves internas que nunca se muestran como dato suelto.
+const OCULTOS = new Set(["archivos", "items", "medico", "formulario", "orden_id", "tipo_orden"]);
 
 interface Archivo {
   ruta: string;
@@ -89,7 +130,7 @@ interface Archivo {
   tamano: number;
 }
 
-interface Entrada_ {
+export interface EntradaClinica {
   id: string;
   tipo: TipoEntradaClinica;
   titulo: string | null;
@@ -100,6 +141,9 @@ interface Entrada_ {
   autor: { nombre_completo: string } | null;
 }
 
+/** Lo que se quiere crear desde el catálogo. */
+export type AccionClinica = { tipo: TipoEntradaClinica; formulario?: string } | { orden: TipoOrden };
+
 function imc(peso?: unknown, talla?: unknown) {
   const p = Number(peso);
   const t = Number(talla) / 100;
@@ -109,120 +153,374 @@ function imc(peso?: unknown, talla?: unknown) {
   return { valor: v.toFixed(1), clase };
 }
 
-/**
- * Historia clínica append-only: nada se edita ni se borra (lo impide Postgres).
- * Una corrección es una "adenda" enlazada a la entrada original. Las notas de
- * psicología solo las ve psicología (política RLS).
- */
-export function HistorialClinico({ pacienteId, pacienteNombre }: { pacienteId: string; pacienteNombre?: string }) {
-  const { sistemaId, roles } = useSistema();
-  const [nueva, setNueva] = useState<{ corrige?: Entrada_ } | null>(null);
-  const [filtro, setFiltro] = useState<TipoEntradaClinica | "todos">("todos");
+/** Nombre visible de una entrada (el formulario del catálogo si lo es). */
+export const nombreEntrada = (e: Pick<EntradaClinica, "tipo" | "datos">) =>
+  e.tipo === "formulario" ? (FORMULARIO_POR_CLAVE[String(e.datos?.formulario ?? "")]?.nombre ?? (e.datos?.formulario === "checkout" ? "Checkout de la consulta" : "Formulario")) : TIPOS[e.tipo].etiqueta;
 
-  const q = useQuery({
+const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
+export function useHistorial(pacienteId: string) {
+  const { sistemaId } = useSistema();
+  return useQuery({
     queryKey: ["historial", sistemaId, pacienteId],
     queryFn: async () =>
       datos(
         await supabase
           .from("historial_clinico")
           .select("id, tipo, titulo, contenido, datos, corrige_a, creado_en, autor:perfiles!historial_autor_perfil_fk(nombre_completo)")
+          .eq("sistema_id", sistemaId)
           .eq("paciente_id", pacienteId)
           .order("creado_en", { ascending: false }),
-      ) as unknown as Entrada_[],
+      ) as unknown as EntradaClinica[],
   });
+}
+
+/**
+ * Historia clínica append-only: nada se edita ni se borra (lo impide Postgres).
+ * Una corrección es una "adenda" enlazada a la entrada original. Las notas de
+ * psicología solo las ve psicología (política RLS). A la izquierda, el catálogo de
+ * todo lo que se puede registrar; a la derecha, la línea de tiempo por mes.
+ */
+export function HistorialClinico({ pacienteId, pacienteNombre, documento }: { pacienteId: string; pacienteNombre?: string; documento?: string | null }) {
+  const { roles } = useSistema();
+  const [nueva, setNueva] = useState<{ corrige?: EntradaClinica; inicial?: { tipo: TipoEntradaClinica; formulario?: string } } | null>(null);
+  const [orden, setOrden] = useState<TipoOrden | null>(null);
+  const [selector, setSelector] = useState(false);
+  const [filtro, setFiltro] = useState<string>("todos");
+  const [busqueda, setBusqueda] = useState("");
+  const [imprimir, setImprimir] = useState(false);
+
+  const q = useHistorial(pacienteId);
+  const ordenes = useOrdenesPaciente(pacienteId);
+  const porOrden = useMemo(() => new Map((ordenes.data ?? []).map((o) => [o.id, o])), [ordenes.data]);
 
   const escribir = puedeEscribir.historial(roles);
-  const adendas = (id: string) => q.data?.filter((e) => e.corrige_a === id) ?? [];
-  const raiz = q.data?.filter((e) => !e.corrige_a) ?? [];
+  const porRaiz = useMemo(() => {
+    const m = new Map<string, EntradaClinica[]>();
+    for (const e of q.data ?? []) if (e.corrige_a) m.set(e.corrige_a, [...(m.get(e.corrige_a) ?? []), e]);
+    return m;
+  }, [q.data]);
+  const adendas = (id: string) => porRaiz.get(id) ?? [];
+  const raiz = useMemo(() => q.data?.filter((e) => !e.corrige_a) ?? [], [q.data]);
   const presentes = useMemo(() => [...new Set(raiz.map((e) => e.tipo))], [raiz]);
-  const visibles = raiz.filter((e) => filtro === "todos" || e.tipo === filtro);
+
+  const visibles = useMemo(() => {
+    const t = sinTildes(busqueda.trim());
+    return raiz.filter((e) => {
+      if (filtro !== "todos" && e.tipo !== filtro) return false;
+      if (!t) return true;
+      const pajar = [
+        e.titulo,
+        e.contenido,
+        nombreEntrada(e),
+        e.autor?.nombre_completo,
+        ...Object.values(e.datos ?? {}).flatMap((v) => (typeof v === "string" || typeof v === "number" ? [String(v)] : Array.isArray(v) ? v.map((x) => (typeof x === "object" && x ? String((x as { nombre?: string }).nombre ?? "") : String(x))) : [])),
+        ...(porRaiz.get(e.id) ?? []).map((a) => a.contenido),
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return sinTildes(pajar).includes(t);
+    });
+  }, [raiz, filtro, busqueda, porRaiz]);
+
+  // Agrupadas por mes (la línea de tiempo del portal clínico).
+  const meses = useMemo(() => {
+    const g = new Map<string, EntradaClinica[]>();
+    for (const e of visibles) {
+      const k = e.creado_en.slice(0, 7);
+      g.set(k, [...(g.get(k) ?? []), e]);
+    }
+    return [...g.entries()];
+  }, [visibles]);
+
+  const accion = (a: AccionClinica) => {
+    setSelector(false);
+    if ("orden" in a) setOrden(a.orden);
+    else setNueva({ inicial: a });
+  };
 
   return (
-    <>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {presentes.length > 1 &&
-          (["todos", ...presentes] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setFiltro(t)}
-              className={cn(
-                "relative h-7 rounded-full px-3 text-xs font-medium transition-colors",
-                filtro === t ? "text-marca-texto" : "text-texto-2 hover:text-texto",
-              )}
-            >
-              {filtro === t && (
-                <motion.span layoutId="filtro-historial" className="absolute inset-0 rounded-full bg-marca-suave" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-              )}
-              <span className="relative">{t === "todos" ? "Todo" : TIPOS[t].etiqueta}</span>
-            </button>
-          ))}
-        <p className="ml-auto flex items-center gap-1.5 text-xs text-texto-3">
-          <Lock className="size-3.5" /> Entradas permanentes; las correcciones se agregan como adendas.
-        </p>
-        {escribir && (
-          <Boton icono={<FilePlus2 className="size-4" />} onClick={() => setNueva({})}>
-            Nueva entrada
+    <div className={cn("grid gap-5", escribir && "lg:grid-cols-[17rem_minmax(0,1fr)]")}>
+      {escribir && (
+        <aside className="hidden lg:block">
+          <div className="sticky top-4">
+            <CatalogoClinico onElegir={accion} />
+          </div>
+        </aside>
+      )}
+
+      <div className="min-w-0">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-52 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-texto-3" />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar en el historial: diagnóstico, medicamento, médico…"
+              aria-label="Buscar en el historial"
+              className="h-9 w-full rounded-[10px] border border-borde bg-superficie pr-8 pl-9 text-sm outline-none transition-colors placeholder:text-texto-3 focus:border-marca"
+            />
+            {busqueda && (
+              <button type="button" aria-label="Limpiar búsqueda" onClick={() => setBusqueda("")} className="absolute top-1/2 right-2 -translate-y-1/2 text-texto-3 hover:text-texto">
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+          <Boton variante="secundario" icono={<Printer className="size-4" />} disabled={!visibles.length} onClick={() => setImprimir(true)}>
+            Imprimir
           </Boton>
+          {escribir && (
+            <Boton className="lg:hidden" icono={<FilePlus2 className="size-4" />} onClick={() => setSelector(true)}>
+              Nueva entrada
+            </Boton>
+          )}
+        </div>
+
+        {presentes.length > 1 && (
+          <div className="mb-4 flex flex-wrap items-center gap-1">
+            {(["todos", ...presentes] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setFiltro(t)}
+                className={cn("relative h-7 rounded-full px-3 text-xs font-medium transition-colors", filtro === t ? "text-marca-texto" : "text-texto-2 hover:text-texto")}
+              >
+                {filtro === t && <motion.span layoutId="filtro-historial" className="absolute inset-0 rounded-full bg-marca-suave" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />}
+                <span className="relative">{t === "todos" ? "Todo" : TIPOS[t as TipoEntradaClinica].etiqueta}</span>
+              </button>
+            ))}
+            <p className="ml-auto flex items-center gap-1.5 text-xs text-texto-3">
+              <Lock className="size-3.5" /> Las correcciones se agregan como adendas.
+            </p>
+          </div>
+        )}
+
+        {q.isLoading ? (
+          <div className="space-y-3">{[0, 1].map((i) => <Esqueleto key={i} className="h-32 rounded-2xl" />)}</div>
+        ) : visibles.length === 0 ? (
+          <Tarjeta>
+            <Vacio
+              icono={busqueda ? <Search /> : <NotebookPen />}
+              titulo={busqueda ? "Nada coincide con la búsqueda" : "Historia clínica vacía"}
+              descripcion={busqueda ? "Prueba con otra palabra o quita el filtro." : "Consultas, formularios, órdenes, vacunas y documentos aparecerán aquí en orden cronológico."}
+            />
+          </Tarjeta>
+        ) : (
+          <div className="space-y-6">
+            {meses.map(([mes, entradas]) => (
+              <section key={mes}>
+                <h3 className="sticky top-0 z-10 mb-3 inline-flex rounded-full border border-borde bg-superficie/90 px-3 py-1 text-xs font-semibold text-texto-2 capitalize backdrop-blur">
+                  {new Intl.DateTimeFormat("es-DO", { month: "long", year: "numeric" }).format(new Date(mes + "-15T12:00:00"))}
+                  <span className="ml-1.5 font-normal text-texto-3">· {entradas.length}</span>
+                </h3>
+                <ol className="relative space-y-4 before:absolute before:top-2 before:bottom-2 before:left-[15px] before:w-px before:bg-borde">
+                  <AnimatePresence initial={false}>
+                    {entradas.map((e) => (
+                      <motion.li
+                        key={e.id}
+                        layout
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ type: "spring", duration: 0.4, bounce: 0.1 }}
+                        className="relative pl-11"
+                      >
+                        <span className="absolute top-4 left-2 size-[15px] rounded-full border-[3px] border-superficie bg-marca shadow-sm" />
+                        <Tarjeta className="p-5">
+                          <EntradaVista e={e} paciente={pacienteNombre} documento={documento} orden={porOrden.get(String(e.datos?.orden_id ?? ""))} pacienteId={pacienteId} />
+                          {adendas(e.id).map((a) => (
+                            <div key={a.id} className="mt-4 rounded-xl border border-dashed border-borde-fuerte bg-superficie-2/50 p-4">
+                              <EntradaVista e={a} paciente={pacienteNombre} documento={documento} pacienteId={pacienteId} />
+                            </div>
+                          ))}
+                          {escribir && (e.tipo !== "psicologia" || puedeEscribir.psicologia(roles)) && (
+                            <button onClick={() => setNueva({ corrige: e })} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-texto">
+                              <Reply className="size-3.5" /> Agregar adenda
+                            </button>
+                          )}
+                        </Tarjeta>
+                      </motion.li>
+                    ))}
+                  </AnimatePresence>
+                </ol>
+              </section>
+            ))}
+          </div>
         )}
       </div>
 
-      {q.isLoading ? (
-        <div className="space-y-3">{[0, 1].map((i) => <Esqueleto key={i} className="h-32 rounded-2xl" />)}</div>
-      ) : visibles.length === 0 ? (
-        <Tarjeta>
-          <Vacio icono={<NotebookPen />} titulo="Historia clínica vacía" descripcion="Consultas, evoluciones, nutrición, anestesia, psicología y anexos aparecerán aquí en orden cronológico." />
-        </Tarjeta>
-      ) : (
-        <ol className="relative space-y-4 before:absolute before:top-2 before:bottom-2 before:left-[15px] before:w-px before:bg-borde">
-          <AnimatePresence initial={false}>
-            {visibles.map((e) => (
-              <motion.li
-                key={e.id}
-                layout
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ type: "spring", duration: 0.4, bounce: 0.1 }}
-                className="relative pl-11"
-              >
-                <span className="absolute top-4 left-2 size-[15px] rounded-full border-[3px] border-superficie bg-marca shadow-sm" />
-                <Tarjeta className="p-5">
-                  <EntradaVista e={e} paciente={pacienteNombre} />
-                  {adendas(e.id).map((a) => (
-                    <div key={a.id} className="mt-4 rounded-xl border border-dashed border-borde-fuerte bg-superficie-2/50 p-4">
-                      <EntradaVista e={a} paciente={pacienteNombre} />
-                    </div>
-                  ))}
-                  {escribir && (e.tipo !== "psicologia" || puedeEscribir.psicologia(roles)) && (
-                    <button
-                      onClick={() => setNueva({ corrige: e })}
-                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-texto-3 transition-colors hover:text-texto"
-                    >
-                      <Reply className="size-3.5" /> Agregar adenda
-                    </button>
-                  )}
-                </Tarjeta>
-              </motion.li>
-            ))}
-          </AnimatePresence>
-        </ol>
-      )}
-
-      <NuevaEntrada abierto={!!nueva} corrige={nueva?.corrige} pacienteId={pacienteId} onCerrar={() => setNueva(null)} />
-    </>
+      <NuevaEntrada abierto={!!nueva} corrige={nueva?.corrige} inicial={nueva?.inicial} pacienteId={pacienteId} onCerrar={() => setNueva(null)} />
+      <NuevaOrden tipo={orden} pacienteId={pacienteId} onCerrar={() => setOrden(null)} />
+      <Modal abierto={selector} onCerrar={() => setSelector(false)} titulo="¿Qué quieres registrar?" ancho="md">
+        <CatalogoClinico onElegir={accion} plano />
+      </Modal>
+      <ImprimirHistorial abierto={imprimir} onCerrar={() => setImprimir(false)} entradas={visibles} adendas={adendas} paciente={pacienteNombre ?? "Paciente"} documento={documento} filtrado={!!busqueda || filtro !== "todos"} />
+    </div>
   );
 }
 
-function EntradaVista({ e, paciente }: { e: Entrada_; paciente?: string }) {
+/* ------------------------------------------------------------------------ */
+/* Catálogo: todo lo que se puede registrar en el expediente                */
+/* ------------------------------------------------------------------------ */
+
+interface ItemCatalogo {
+  etiqueta: string;
+  accion: AccionClinica;
+}
+
+function CatalogoClinico({ onElegir, plano }: { onElegir: (a: AccionClinica) => void; plano?: boolean }) {
+  const { roles } = useSistema();
+  const [filtro, setFiltro] = useState("");
+  const [cerrados, setCerrados] = useState<Set<string>>(new Set(["Formularios", "Enfermería"]));
+
+  const grupos = useMemo(() => {
+    const g: { titulo: string; icono: LucideIcon; items: ItemCatalogo[] }[] = [
+      {
+        titulo: "Notas clínicas",
+        icono: NotebookPen,
+        items: [
+          { etiqueta: "Consulta", accion: { tipo: "consulta" } },
+          { etiqueta: "Evolución", accion: { tipo: "evolucion" } },
+          { etiqueta: "Diagnóstico", accion: { tipo: "diagnostico" } },
+          { etiqueta: "Triaje", accion: { tipo: "triaje" } },
+          { etiqueta: "Procedimiento (nota)", accion: { tipo: "procedimiento" } },
+          { etiqueta: "Nutrición", accion: { tipo: "nutricion" } },
+          { etiqueta: "Anestesia", accion: { tipo: "anestesia" } },
+          ...(puedeEscribir.psicologia(roles) ? [{ etiqueta: "Psicología (confidencial)", accion: { tipo: "psicologia" as const } }] : []),
+        ],
+      },
+      {
+        titulo: "Formularios",
+        icono: ClipboardList,
+        items: FORMULARIOS.filter((f) => f.grupo === "clinicos").map((f) => ({ etiqueta: f.nombre, accion: { tipo: "formulario", formulario: f.clave } })),
+      },
+      {
+        titulo: "Enfermería",
+        icono: HeartPulse,
+        items: [
+          { etiqueta: "Signos vitales", accion: { tipo: "signos_vitales" } },
+          ...FORMULARIOS.filter((f) => f.grupo === "enfermeria").map((f) => ({ etiqueta: f.nombre, accion: { tipo: "formulario" as const, formulario: f.clave } })),
+        ],
+      },
+      {
+        titulo: "Órdenes médicas",
+        icono: Stethoscope,
+        items: [
+          { etiqueta: "Receta", accion: { tipo: "receta" } },
+          ...(puedeEscribir.ordenar(roles)
+            ? (["laboratorio", "imagen", "procedimiento"] as TipoOrden[]).map((t) => ({ etiqueta: `Orden de ${TIPO_ORDEN[t].etiqueta.toLowerCase()}`, accion: { orden: t } }))
+            : []),
+          { etiqueta: "Resultado de laboratorio (adjunto)", accion: { tipo: "laboratorio" } },
+          { etiqueta: "Resultado de imágenes (adjunto)", accion: { tipo: "imagen" } },
+        ],
+      },
+      { titulo: "Vacunas", icono: Syringe, items: [{ etiqueta: "Aplicar vacuna", accion: { tipo: "vacuna" } }] },
+      {
+        titulo: "Documentos",
+        icono: FileText,
+        items: [
+          { etiqueta: "Certificado médico", accion: { tipo: "certificado" } },
+          { etiqueta: "Licencia médica", accion: { tipo: "licencia" } },
+          { etiqueta: "Referimiento", accion: { tipo: "referimiento" } },
+          { etiqueta: "Adjuntos adicionales", accion: { tipo: "anexo" } },
+        ],
+      },
+      { titulo: "Consentimientos", icono: FileSignature, items: [{ etiqueta: "Consentimiento informado", accion: { tipo: "consentimiento" } }] },
+    ];
+    const t = sinTildes(filtro.trim());
+    return g.map((x) => ({ ...x, items: t ? x.items.filter((i) => sinTildes(i.etiqueta).includes(t)) : x.items })).filter((x) => x.items.length);
+  }, [roles, filtro]);
+
+  const alternar = (t: string) =>
+    setCerrados((s) => {
+      const n = new Set(s);
+      if (n.has(t)) n.delete(t);
+      else n.add(t);
+      return n;
+    });
+
+  const cuerpo = (
+    <>
+      <div className="relative mb-2">
+        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-texto-3" />
+        <input
+          value={filtro}
+          onChange={(e) => setFiltro(e.target.value)}
+          placeholder="Buscar formulario…"
+          aria-label="Buscar formulario"
+          className="h-8 w-full rounded-lg border border-borde bg-superficie-2/60 pr-2 pl-8 text-xs outline-none placeholder:text-texto-3 focus:border-marca"
+        />
+      </div>
+      <div className="space-y-1">
+        {grupos.map((g) => {
+          const abierto = !!filtro || !cerrados.has(g.titulo);
+          return (
+            <div key={g.titulo}>
+              <button
+                type="button"
+                onClick={() => alternar(g.titulo)}
+                aria-expanded={abierto}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[0.8125rem] font-semibold text-texto transition-colors hover:bg-superficie-2"
+              >
+                <g.icono className="size-4 text-marca" />
+                <span className="flex-1">{g.titulo}</span>
+                <span className="text-[0.6875rem] font-normal text-texto-3">{g.items.length}</span>
+                <ChevronDown className={cn("size-3.5 text-texto-3 transition-transform duration-200", !abierto && "-rotate-90")} />
+              </button>
+              <AnimatePresence initial={false}>
+                {abierto && (
+                  <motion.ul
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                    className="overflow-hidden"
+                  >
+                    {g.items.map((i) => (
+                      <li key={i.etiqueta}>
+                        <button
+                          type="button"
+                          onClick={() => onElegir(i.accion)}
+                          className="group flex w-full items-center gap-2 rounded-lg py-1.5 pr-2 pl-8 text-left text-[0.8125rem] text-texto-2 transition-colors hover:bg-marca-suave hover:text-marca-texto"
+                        >
+                          <span className="flex-1">{i.etiqueta}</span>
+                          <Plus className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+                        </button>
+                      </li>
+                    ))}
+                  </motion.ul>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  return plano ? cuerpo : <Tarjeta className="max-h-[calc(100vh-6rem)] overflow-y-auto p-3">{cuerpo}</Tarjeta>;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Una entrada de la línea de tiempo                                        */
+/* ------------------------------------------------------------------------ */
+
+function EntradaVista({ e, paciente, documento, orden, pacienteId }: { e: EntradaClinica; paciente?: string; documento?: string | null; orden?: OrdenMedica; pacienteId: string }) {
   const [imprimir, setImprimir] = useState(false);
   const items = (e.datos?.items as ItemReceta[] | undefined) ?? [];
   const medico = (e.datos?.medico as MedicoFirma | undefined) ?? (e.autor ? { nombre: e.autor.nombre_completo } : null);
-  const imprimible = esDocumento(e.tipo);
+  const imprimible = esDocumento(e.tipo, e.datos);
   const archivos = (e.datos?.archivos as Archivo[] | undefined) ?? [];
-  const valores = Object.entries(e.datos ?? {}).filter(([k, v]) => k !== "archivos" && v !== "" && v !== null && v !== undefined);
-  const cortos = valores.filter(([k]) => !CAMPOS[e.tipo]?.find((c) => c.clave === k && c.tipo === "area"));
-  const largos = valores.filter(([k]) => CAMPOS[e.tipo]?.find((c) => c.clave === k && c.tipo === "area"));
-  const indice = e.tipo === "nutricion" || e.tipo === "signos_vitales" || e.tipo === "triaje" ? imc(e.datos.peso, e.datos.talla) : null;
+  const definicion = camposDe(e.tipo, e.datos?.formulario);
+  const esArea = (k: string) => definicion.some((c) => c.clave === k && c.tipo === "area") || ["plan", "indicaciones"].includes(k);
+  const esFecha = (k: string) => definicion.some((c) => c.clave === k && c.tipo === "fecha") || k === "proxima_cita";
+  const valores = Object.entries(e.datos ?? {}).filter(([k, v]) => !OCULTOS.has(k) && v !== "" && v !== null && v !== undefined && typeof v !== "object");
+  const cortos = valores.filter(([k]) => !esArea(k));
+  const largos = valores.filter(([k]) => esArea(k));
+  const indice = e.tipo === "nutricion" || e.tipo === "signos_vitales" || e.tipo === "triaje" || e.datos?.formulario === "curva_crecimiento" ? imc(e.datos.peso, e.datos.talla) : null;
+  const dias = e.tipo === "licencia" ? diasLicencia(e.datos.desde, e.datos.hasta) : null;
+  const balance = e.datos?.formulario === "control_hidrico" ? balanceHidrico(e.datos) : null;
+  // Una orden estructurada muestra sus pruebas con el estado actual; no repite el texto.
+  const esOrdenViva = e.tipo === "orden" && !!orden;
 
   const abrir = async (a: Archivo) => {
     const { data, error } = await supabase.storage.from("anexos-clinicos").createSignedUrl(a.ruta, 120);
@@ -233,34 +531,42 @@ function EntradaVista({ e, paciente }: { e: Entrada_; paciente?: string }) {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <Insignia tono={TIPOS[e.tipo].tono}>{TIPOS[e.tipo].etiqueta}</Insignia>
+        <Insignia tono={TIPOS[e.tipo].tono}>{nombreEntrada(e)}</Insignia>
         {e.tipo === "psicologia" && (
           <Insignia tono="peligro">
             <ShieldAlert className="size-3" /> Confidencial
           </Insignia>
         )}
-        {e.titulo && <span className="text-sm font-semibold">{e.titulo}</span>}
+        {e.titulo && e.titulo !== nombreEntrada(e) && <span className="text-sm font-semibold">{e.titulo}</span>}
         <span className="ml-auto text-xs text-texto-3" title={fechaHora(e.creado_en)}>
           {e.autor?.nombre_completo} · {relativo(e.creado_en)}
         </span>
       </div>
-      {(cortos.length > 0 || indice) && (
+      {(cortos.length > 0 || indice || dias || balance !== null) && !esOrdenViva && (
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {cortos.map(([k, v]) => (
             <div key={k} className="rounded-lg bg-superficie-2 px-3 py-2">
               <div className="text-[0.6875rem] text-texto-3">{ETIQUETAS_CAMPO[k] ?? k}</div>
-              <div className="text-sm font-semibold tabular">{String(v)}</div>
+              <div className="text-sm font-semibold tabular">{esFecha(k) ? fecha(String(v)) : String(v)}</div>
             </div>
           ))}
-          {indice && (
-            <div className="rounded-lg bg-marca-suave px-3 py-2">
-              <div className="text-[0.6875rem] text-marca-texto">IMC</div>
-              <div className="text-sm font-semibold text-marca-texto tabular">
-                {indice.valor} · {indice.clase}
-              </div>
-            </div>
-          )}
+          {indice && <Destacado etiqueta="IMC" valor={`${indice.valor} · ${indice.clase}`} />}
+          {dias && <Destacado etiqueta="Días de licencia" valor={`${dias} ${dias === 1 ? "día" : "días"}`} />}
+          {balance !== null && <Destacado etiqueta="Balance hídrico" valor={`${balance > 0 ? "+" : ""}${balance} ml`} />}
         </div>
+      )}
+      {esOrdenViva && (
+        <>
+          {(orden.proveedor || orden.diagnostico) && (
+            <p className="mt-2 text-xs text-texto-3">
+              <span className="font-mono">{orden.numero}</span>
+              {orden.proveedor && <> · Proveedor: {orden.proveedor}</>}
+              {orden.diagnostico && <> · Diagnóstico: {orden.diagnostico}</>}
+            </p>
+          )}
+          <ItemsOrden orden={orden} pacienteId={pacienteId} compacto />
+          {orden.indicaciones && <p className="mt-3 text-sm whitespace-pre-wrap text-texto-2">{orden.indicaciones}</p>}
+        </>
       )}
       {largos.map(([k, v]) => (
         <div key={k} className="mt-3">
@@ -268,7 +574,7 @@ function EntradaVista({ e, paciente }: { e: Entrada_; paciente?: string }) {
           <p className="text-sm whitespace-pre-wrap">{String(v)}</p>
         </div>
       ))}
-      {items.length > 0 && (
+      {items.length > 0 && !esOrdenViva && (
         <ol className="mt-3 space-y-1.5">
           {items.map((it, i) => (
             <li key={i} className="flex gap-2 text-sm">
@@ -282,7 +588,9 @@ function EntradaVista({ e, paciente }: { e: Entrada_; paciente?: string }) {
           ))}
         </ol>
       )}
-      {e.contenido && <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-texto">{e.contenido}</p>}
+      {e.contenido && !esOrdenViva && !(e.tipo === "orden" && items.length && e.contenido === items.map((i) => i.nombre).join("\n")) && (
+        <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-texto">{e.contenido}</p>
+      )}
       {archivos.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {archivos.map((a) => (
@@ -299,10 +607,7 @@ function EntradaVista({ e, paciente }: { e: Entrada_; paciente?: string }) {
         </div>
       )}
       {imprimible && (
-        <button
-          onClick={() => setImprimir(true)}
-          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-marca-texto transition-colors hover:underline"
-        >
+        <button onClick={() => setImprimir(true)} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-marca-texto transition-colors hover:underline">
           <Printer className="size-3.5" /> Imprimir
         </button>
       )}
@@ -313,24 +618,108 @@ function EntradaVista({ e, paciente }: { e: Entrada_; paciente?: string }) {
           tipo={e.tipo as TipoDocumento}
           titulo={e.titulo}
           contenido={e.contenido}
-          items={items}
+          items={orden ? orden.items.filter((i) => i.estado !== "cancelada").map((i) => ({ nombre: i.descripcion })) : items}
           medico={medico}
           paciente={paciente ?? "Paciente"}
+          documentoPaciente={documento}
           fechaEntrada={e.creado_en}
+          datos={e.datos}
         />
       )}
     </>
   );
 }
 
-function NuevaEntrada({
+function Destacado({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <div className="rounded-lg bg-marca-suave px-3 py-2">
+      <div className="text-[0.6875rem] text-marca-texto">{etiqueta}</div>
+      <div className="text-sm font-semibold text-marca-texto tabular">{valor}</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/* Historial impreso (lo filtrado o todo)                                   */
+/* ------------------------------------------------------------------------ */
+
+function ImprimirHistorial({
+  abierto,
+  onCerrar,
+  entradas,
+  adendas,
+  paciente,
+  documento,
+  filtrado,
+}: {
+  abierto: boolean;
+  onCerrar: () => void;
+  entradas: EntradaClinica[];
+  adendas: (id: string) => EntradaClinica[];
+  paciente: string;
+  documento?: string | null;
+  filtrado: boolean;
+}) {
+  if (!abierto) return null;
+  const linea = (e: EntradaClinica) => {
+    const campos = Object.entries(e.datos ?? {})
+      .filter(([k, v]) => !OCULTOS.has(k) && v !== "" && v !== null && v !== undefined && typeof v !== "object")
+      .map(([k, v]) => `${ETIQUETAS_CAMPO[k] ?? k}: ${v}`);
+    const items = ((e.datos?.items as ItemReceta[] | undefined) ?? []).map((i) => `• ${i.nombre}${i.detalle ? ` — ${i.detalle}` : ""}${i.indicaciones ? ` (${i.indicaciones})` : ""}`);
+    return { campos, items };
+  };
+  return (
+    <Documento abierto onCerrar={onCerrar} titulo="Historial clínico" nombreArchivo={`Historial clínico ${paciente}`}>
+      <EncabezadoDocumento titulo="Historial clínico" subtitulo={filtrado ? "Selección filtrada" : `${entradas.length} entradas`} />
+      <p className="mb-4">
+        <span className="text-[#475467]">Paciente:</span> <b>{paciente}</b>
+        {documento && <span className="text-[#475467]"> · {documento}</span>}
+      </p>
+      <div className="space-y-4">
+        {entradas.map((e) => {
+          const { campos, items } = linea(e);
+          return (
+            <div key={e.id} className="break-inside-avoid border-b border-[#d0d5dd] pb-3">
+              <p className="font-semibold">
+                {nombreEntrada(e)}
+                {e.titulo && e.titulo !== nombreEntrada(e) ? ` — ${e.titulo}` : ""}
+              </p>
+              <p className="text-[0.75rem] text-[#475467]">
+                {fechaHora(e.creado_en)} · {e.autor?.nombre_completo ?? ""}
+              </p>
+              {campos.length > 0 && <p className="mt-1 text-[0.8125rem]">{campos.join(" · ")}</p>}
+              {items.length > 0 && <p className="mt-1 text-[0.8125rem] whitespace-pre-wrap">{items.join("\n")}</p>}
+              {e.contenido && <p className="mt-1 text-[0.8125rem] whitespace-pre-wrap">{e.contenido}</p>}
+              {adendas(e.id).map((a) => (
+                <p key={a.id} className="mt-1 border-l-2 border-[#98a2b3] pl-2 text-[0.8125rem] whitespace-pre-wrap">
+                  Adenda ({fechaHora(a.creado_en)}, {a.autor?.nombre_completo}): {a.contenido}
+                </p>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </Documento>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/* Nueva entrada (o adenda)                                                 */
+/* ------------------------------------------------------------------------ */
+
+const CON_ADJUNTOS: TipoEntradaClinica[] = ["anexo", "laboratorio", "imagen", "consentimiento"];
+const DOCUMENTOS_FIRMADOS: TipoEntradaClinica[] = ["receta", "certificado", "referimiento", "orden", "licencia", "consentimiento", "formulario"];
+
+export function NuevaEntrada({
   abierto,
   corrige,
+  inicial,
   pacienteId,
   onCerrar,
 }: {
   abierto: boolean;
-  corrige?: Entrada_;
+  corrige?: EntradaClinica;
+  inicial?: { tipo: TipoEntradaClinica; formulario?: string };
   pacienteId: string;
   onCerrar: () => void;
 }) {
@@ -338,19 +727,36 @@ function NuevaEntrada({
   const { perfil } = useSesion();
   const qc = useQueryClient();
   const [tipo, setTipo] = useState<TipoEntradaClinica>("consulta");
+  const [formulario, setFormulario] = useState<string>(FORMULARIOS[0].clave);
   const [titulo, setTitulo] = useState("");
   const [contenido, setContenido] = useState("");
   const [campos, setCampos] = useState<Record<string, string>>({});
   const [items, setItems] = useState<ItemReceta[]>([{ nombre: "", detalle: "", indicaciones: "" }]);
   const [archivos, setArchivos] = useState<File[]>([]);
   const [progreso, setProgreso] = useState<string | null>(null);
+  const [abiertoCon, setAbiertoCon] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
+  // Al abrir desde el catálogo, empezar en ese tipo/formulario.
+  const claveApertura = abierto ? `${inicial?.tipo ?? ""}:${inicial?.formulario ?? ""}:${corrige?.id ?? ""}` : null;
+  if (claveApertura !== abiertoCon) {
+    setAbiertoCon(claveApertura);
+    if (abierto && inicial) {
+      setTipo(inicial.tipo);
+      if (inicial.formulario) setFormulario(inicial.formulario);
+      setCampos({});
+    }
+  }
+
   const tipoEfectivo = corrige ? "adenda" : tipo;
-  const definicion = CAMPOS[tipoEfectivo] ?? [];
+  const definicion = corrige ? [] : camposDe(tipoEfectivo, formulario);
   const indice = imc(campos.peso, campos.talla);
+  const dias = tipoEfectivo === "licencia" ? diasLicencia(campos.desde, campos.hasta) : null;
+  const balance = tipoEfectivo === "formulario" && formulario === "control_hidrico" ? balanceHidrico(campos) : null;
+  const defForm = tipoEfectivo === "formulario" ? FORMULARIO_POR_CLAVE[formulario] : undefined;
   const tiposDisponibles = (Object.keys(TIPOS) as TipoEntradaClinica[]).filter(
-    (k) => k !== "adenda" && (k !== "psicologia" || puedeEscribir.psicologia(roles)),
+    // Las órdenes nuevas van por el formulario estructurado (crear_orden_medica).
+    (k) => k !== "adenda" && k !== "orden" && (k !== "psicologia" || puedeEscribir.psicologia(roles)),
   );
 
   const reiniciar = () => {
@@ -375,21 +781,32 @@ function NuevaEntrada({
       }
       setProgreso(null);
       const valores: Record<string, unknown> = Object.fromEntries(Object.entries(campos).filter(([, v]) => v.trim() !== ""));
-      if (indice && tipoEfectivo === "nutricion") valores.imc = indice.valor;
+      if (indice && (tipoEfectivo === "nutricion" || formulario === "curva_crecimiento")) valores.imc = indice.valor;
+      if (tipoEfectivo === "formulario") valores.formulario = formulario;
       // Receta: renglones estructurados. Documentos: foto del médico que firma (nombre/especialidad/exequátur).
       const itemsLimpios = items.map((i) => ({ nombre: i.nombre.trim(), detalle: i.detalle?.trim() || undefined, indicaciones: i.indicaciones?.trim() || undefined })).filter((i) => i.nombre);
       if (tipoEfectivo === "receta" && itemsLimpios.length) valores.items = itemsLimpios;
-      if (["receta", "certificado", "referimiento", "orden"].includes(tipoEfectivo)) {
+      if (DOCUMENTOS_FIRMADOS.includes(tipoEfectivo)) {
         const { data: mem } = await supabase.from("membresias").select("especialidad, exequatur").eq("sistema_id", sistemaId).eq("usuario_id", u.user!.id).maybeSingle();
         valores.medico = { nombre: perfil?.nombre_completo ?? "", especialidad: mem?.especialidad ?? undefined, exequatur: mem?.exequatur ?? undefined };
       }
-      const texto = contenido.trim() || (subidos.length ? `Anexo: ${subidos.map((s) => s.nombre).join(", ")}` : "");
+      const resumen =
+        tipoEfectivo === "vacuna"
+          ? [campos.vacuna, campos.dosis && `dosis ${campos.dosis}`].filter(Boolean).join(", ")
+          : tipoEfectivo === "licencia" && dias
+            ? `Licencia de ${dias} ${dias === 1 ? "día" : "días"}${campos.diagnostico ? ` por ${campos.diagnostico}` : ""}`
+            : tipoEfectivo === "consentimiento"
+              ? `Consentimiento para ${campos.procedimiento || "procedimiento"}`
+              : defForm
+                ? defForm.nombre
+                : "";
+      const texto = contenido.trim() || (subidos.length ? `Adjunto: ${subidos.map((s) => s.nombre).join(", ")}` : resumen || "Registro estructurado");
       const { error } = await supabase.from("historial_clinico").insert({
         sistema_id: sistemaId,
         paciente_id: pacienteId,
         autor_id: u.user!.id,
         tipo: tipoEfectivo,
-        titulo: titulo.trim() || null,
+        titulo: titulo.trim() || (defForm ? defForm.nombre : null),
         contenido: texto,
         datos: { ...valores, ...(subidos.length ? { archivos: subidos } : {}) } as unknown as Json,
         corrige_a: corrige?.id ?? null,
@@ -399,6 +816,7 @@ function NuevaEntrada({
     onSuccess: () => {
       toast.success("Entrada registrada");
       void qc.invalidateQueries({ queryKey: ["historial", sistemaId, pacienteId] });
+      void qc.invalidateQueries({ queryKey: ["cabecera-clinica", sistemaId, pacienteId] });
       reiniciar();
       onCerrar();
     },
@@ -408,15 +826,19 @@ function NuevaEntrada({
     },
   });
 
-  const valido = contenido.trim() || archivos.length > 0 || Object.values(campos).some((v) => v.trim()) || (tipoEfectivo === "receta" && items.some((i) => i.nombre.trim()));
+  const valido =
+    contenido.trim() ||
+    archivos.length > 0 ||
+    Object.values(campos).some((v) => v.trim()) ||
+    (tipoEfectivo === "receta" && items.some((i) => i.nombre.trim()));
 
   return (
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
       ancho="lg"
-      titulo={corrige ? "Adenda" : "Nueva entrada clínica"}
-      descripcion={corrige ? "Se agregará debajo de la entrada original, sin modificarla." : "Quedará firmada con tu nombre y la hora actual."}
+      titulo={corrige ? "Adenda" : defForm ? defForm.nombre : "Nueva entrada clínica"}
+      descripcion={corrige ? "Se agregará debajo de la entrada original, sin modificarla." : (defForm?.descripcion ?? "Quedará firmada con tu nombre y la hora actual.")}
       pie={
         <>
           {progreso && <span className="mr-auto text-xs text-texto-3">{progreso}</span>}
@@ -446,7 +868,33 @@ function NuevaEntrada({
                 </option>
               ))}
             </Selector>
-            <Entrada etiqueta="Título (opcional)" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+            {tipo === "formulario" ? (
+              <Selector
+                etiqueta="Formulario"
+                value={formulario}
+                onChange={(e) => {
+                  setFormulario(e.target.value);
+                  setCampos({});
+                }}
+              >
+                <optgroup label="Clínicos">
+                  {FORMULARIOS.filter((f) => f.grupo === "clinicos").map((f) => (
+                    <option key={f.clave} value={f.clave}>
+                      {f.nombre}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Enfermería">
+                  {FORMULARIOS.filter((f) => f.grupo === "enfermeria").map((f) => (
+                    <option key={f.clave} value={f.clave}>
+                      {f.nombre}
+                    </option>
+                  ))}
+                </optgroup>
+              </Selector>
+            ) : (
+              <Entrada etiqueta="Título (opcional)" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+            )}
           </div>
         )}
 
@@ -459,7 +907,7 @@ function NuevaEntrada({
         <AnimatePresence initial={false} mode="popLayout">
           {definicion.length > 0 && (
             <motion.div
-              key={tipoEfectivo}
+              key={`${tipoEfectivo}:${formulario}`}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
@@ -496,22 +944,20 @@ function NuevaEntrada({
                     placeholder={c.placeholder}
                     type={c.tipo === "numero" ? "number" : c.tipo === "fecha" ? "date" : "text"}
                     step="any"
-                    contenedor={c.placeholder && c.placeholder.length > 12 ? "col-span-2" : undefined}
+                    contenedor={(c.placeholder && c.placeholder.length > 12) || c.tipo === "fecha" || !c.tipo ? "col-span-2" : undefined}
                     value={campos[c.clave] ?? ""}
                     onChange={(e) => setCampos((s) => ({ ...s, [c.clave]: e.target.value }))}
                   />
                 ),
               )}
-              {indice && (
-                <div className="col-span-2 flex items-center gap-2 rounded-xl bg-marca-suave sm:col-span-4 px-3 py-2 text-sm text-marca-texto">
-                  IMC calculado: <b className="tabular">{indice.valor}</b> · {indice.clase}
-                </div>
-              )}
+              {indice && <Calculado texto={`IMC calculado: ${indice.valor} · ${indice.clase}`} />}
+              {dias && <Calculado texto={`Licencia de ${dias} ${dias === 1 ? "día" : "días"}`} />}
+              {balance !== null && <Calculado texto={`Balance hídrico: ${balance > 0 ? "+" : ""}${balance} ml`} />}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {(tipoEfectivo === "anexo" || tipoEfectivo === "laboratorio" || tipoEfectivo === "imagen") && (
+        {CON_ADJUNTOS.includes(tipoEfectivo) && (
           <div>
             <input
               ref={input}
@@ -534,22 +980,16 @@ function NuevaEntrada({
               className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-borde-fuerte px-4 py-6 text-sm text-texto-2 transition-colors hover:border-marca hover:bg-marca-suave/40"
             >
               <Upload className="size-5 text-texto-3" />
-              Adjuntar PDF o imágenes (máx. 20 MB c/u)
+              {tipoEfectivo === "consentimiento" ? "Adjuntar el consentimiento firmado (opcional)" : "Adjuntar PDF o imágenes (máx. 20 MB c/u)"}
             </button>
             <AnimatePresence initial={false}>
               {archivos.map((f, i) => (
-                <motion.div
-                  key={f.name + i}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
+                <motion.div key={f.name + i} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                   <div className="mt-2 flex items-center gap-2 rounded-lg bg-superficie-2 px-3 py-2 text-sm">
                     <Paperclip className="size-4 text-texto-3" />
                     <span className="min-w-0 flex-1 truncate">{f.name}</span>
                     <span className="text-xs text-texto-3">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
-                    <button onClick={() => setArchivos((a) => a.filter((_, j) => j !== i))} className="text-texto-3 hover:text-peligro">
+                    <button onClick={() => setArchivos((a) => a.filter((_, j) => j !== i))} className="text-texto-3 hover:text-peligro" aria-label={`Quitar ${f.name}`}>
                       <X className="size-4" />
                     </button>
                   </div>
@@ -587,8 +1027,20 @@ function NuevaEntrada({
         )}
 
         <AreaTexto
-          etiqueta={corrige ? "Corrección o ampliación" : tipoEfectivo === "psicologia" ? "Notas de la sesión" : tipoEfectivo === "receta" ? "Indicaciones generales (opcional)" : ["certificado", "referimiento", "orden"].includes(tipoEfectivo) ? "Texto del documento" : "Contenido"}
-          className="min-h-32"
+          etiqueta={
+            corrige
+              ? "Corrección o ampliación"
+              : tipoEfectivo === "psicologia"
+                ? "Notas de la sesión"
+                : tipoEfectivo === "receta"
+                  ? "Indicaciones generales (opcional)"
+                  : ["certificado", "referimiento"].includes(tipoEfectivo)
+                    ? "Texto del documento"
+                    : definicion.length
+                      ? "Observaciones (opcional)"
+                      : "Contenido"
+          }
+          className="min-h-28"
           value={contenido}
           onChange={(e) => setContenido(e.target.value)}
           placeholder={
@@ -598,14 +1050,18 @@ function NuevaEntrada({
                 ? "Certifico que el/la paciente… (motivo, reposo, fechas)"
                 : tipoEfectivo === "referimiento"
                   ? "Refiero al paciente a… por… con estos hallazgos…"
-                  : tipoEfectivo === "orden"
-                    ? "Estudios/indicaciones solicitados…"
-                    : tipoEfectivo === "anexo"
-                      ? "Descripción del documento (opcional)"
+                  : tipoEfectivo === "anexo"
+                    ? "Descripción del documento (opcional)"
+                    : definicion.length
+                      ? ""
                       : "Hallazgos, evolución, plan…"
           }
         />
       </div>
     </Modal>
   );
+}
+
+function Calculado({ texto }: { texto: string }) {
+  return <div className="col-span-2 flex items-center gap-2 rounded-xl bg-marca-suave px-3 py-2 text-sm text-marca-texto sm:col-span-4">{texto}</div>;
 }

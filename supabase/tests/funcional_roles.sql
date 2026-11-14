@@ -582,6 +582,64 @@ begin
   perform pg_temp.ok('Quiosco', 'El quiosco no crea pacientes', n = 0, n::text);
 end $$;
 
+-- ---------------------------------------------------------------- órdenes médicas y checkout
+do $$
+declare
+  v_s uuid := pg_temp.c('s')::uuid;
+  v_p uuid := pg_temp.c('pac')::uuid;
+  j jsonb; n int; v_item uuid; v_est text; v_cita uuid;
+begin
+  perform pg_temp.como(pg_temp.c('medico')::uuid);
+  j := public.crear_orden_medica(v_s, v_p, 'laboratorio', array['Hemograma', 'Hemograma', ' ', 'Creatinina'], 'Lab Demo', 'Control', null, null);
+  select count(*) into n from public.orden_items where orden_id = (j ->> 'id')::uuid;
+  perform pg_temp.ok('Órdenes', 'El médico emite una orden (sin renglones vacíos ni repetidos)', n = 2 and j ->> 'numero' like 'OM-%', j::text || ' items=' || n);
+  select count(*) into n from public.historial_clinico where paciente_id = v_p and tipo = 'orden' and datos ->> 'orden_id' = j ->> 'id';
+  perform pg_temp.ok('Órdenes', 'La orden queda en la historia clínica', n = 1, n::text);
+  select id into v_item from public.orden_items where orden_id = (j ->> 'id')::uuid and posicion = 1;
+
+  perform pg_temp.como(pg_temp.c('enfermeria')::uuid);
+  perform public.marcar_item_orden(v_item, 'entregada');
+  select estado into v_est from public.orden_items where id = v_item;
+  perform pg_temp.ok('Órdenes', 'Enfermería marca una prueba como entregada', v_est = 'entregada', v_est);
+  begin
+    update public.orden_items set estado = 'cancelada' where id = v_item;
+    get diagnostics n = row_count;
+    perform pg_temp.ok('Órdenes', 'Nadie cambia una prueba por fuera de la RPC', n = 0, n::text);
+  exception when others then perform pg_temp.ok('Órdenes', 'Nadie cambia una prueba por fuera de la RPC', true, sqlerrm);
+  end;
+
+  perform pg_temp.como(pg_temp.c('recepcion')::uuid);
+  begin
+    perform public.crear_orden_medica(v_s, v_p, 'laboratorio', array['Hemograma'], null, null, null, null);
+    perform pg_temp.ok('Órdenes', 'Recepción no emite órdenes médicas', false, 'emitió');
+  exception when others then perform pg_temp.ok('Órdenes', 'Recepción no emite órdenes médicas', true, sqlerrm);
+  end;
+
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  select count(*) into n from public.ordenes_medicas where sistema_id = v_s;
+  perform pg_temp.ok('Órdenes', 'Caja no ve órdenes médicas', n = 0, n::text);
+
+  perform pg_temp.como(pg_temp.c('auditor')::uuid);
+  select count(*) into n from public.ordenes_medicas where sistema_id = v_s;
+  perform pg_temp.ok('Órdenes', 'Auditoría ve las órdenes', n >= 1, n::text);
+
+  -- Checkout: una consulta en curso del médico se cierra con su nota y queda completada.
+  perform pg_temp.yo_postgres();
+  insert into public.citas (sistema_id, paciente_id, medico_id, inicio, fin, estado)
+  values (v_s, v_p, pg_temp.c('medico')::uuid, now() + interval '3 hours', now() + interval '3 hours 30 minutes', 'en_consulta')
+  returning id into v_cita;
+  perform pg_temp.como(pg_temp.c('medico')::uuid);
+  perform public.checkout_consulta(v_cita, '{"diagnostico":"Control","plan":"Volver en un mes"}'::jsonb, 'Estable');
+  select estado::text into v_est from public.citas where id = v_cita;
+  select count(*) into n from public.historial_clinico where cita_id = v_cita and tipo = 'formulario' and datos ->> 'formulario' = 'checkout';
+  perform pg_temp.ok('Checkout', 'Cierra la consulta: cita completada y nota de egreso', v_est = 'completada' and n = 1, v_est || ' notas=' || n);
+  begin
+    perform public.checkout_consulta(v_cita, '{}'::jsonb, null);
+    perform pg_temp.ok('Checkout', 'No se cierra dos veces', false, 'cerró otra vez');
+  exception when others then perform pg_temp.ok('Checkout', 'No se cierra dos veces', true, sqlerrm);
+  end;
+end $$;
+
 -- ---------------------------------------------------------------- aislamiento con FUNBIDE real
 do $$
 declare v_real uuid := (select pruebas_de from public.sistemas where id = pg_temp.c('s')::uuid); n int;

@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.17"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       abonos: {
@@ -1854,6 +1879,7 @@ export type Database = {
           actualizado_en: string
           actualizado_por: string | null
           cobro_id: string
+          codigo_modificacion: number | null
           codigo_seguridad: string | null
           creado_en: string
           encf: string
@@ -1861,11 +1887,10 @@ export type Database = {
           fecha_firma: string | null
           id: string
           intentos: number
-          codigo_modificacion: number | null
           mensajes: Json | null
+          monto_total: number
           motivo: string | null
           nota_de: string | null
-          monto_total: number
           qr_url: string | null
           resumen: boolean
           sistema_id: string
@@ -1878,6 +1903,7 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           cobro_id: string
+          codigo_modificacion?: number | null
           codigo_seguridad?: string | null
           creado_en?: string
           encf: string
@@ -1885,11 +1911,10 @@ export type Database = {
           fecha_firma?: string | null
           id?: string
           intentos?: number
-          codigo_modificacion?: number | null
           mensajes?: Json | null
+          monto_total: number
           motivo?: string | null
           nota_de?: string | null
-          monto_total: number
           qr_url?: string | null
           resumen?: boolean
           sistema_id: string
@@ -1902,6 +1927,7 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           cobro_id?: string
+          codigo_modificacion?: number | null
           codigo_seguridad?: string | null
           creado_en?: string
           encf?: string
@@ -1909,11 +1935,10 @@ export type Database = {
           fecha_firma?: string | null
           id?: string
           intentos?: number
-          codigo_modificacion?: number | null
           mensajes?: Json | null
+          monto_total?: number
           motivo?: string | null
           nota_de?: string | null
-          monto_total?: number
           qr_url?: string | null
           resumen?: boolean
           sistema_id?: string
@@ -1923,6 +1948,13 @@ export type Database = {
           xml?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecf_documentos_nota_de_fkey"
+            columns: ["sistema_id", "nota_de"]
+            isOneToOne: false
+            referencedRelation: "ecf_documentos"
+            referencedColumns: ["sistema_id", "id"]
+          },
           {
             foreignKeyName: "ecf_documentos_sistema_id_cobro_id_fkey"
             columns: ["sistema_id", "cobro_id"]
@@ -3334,15 +3366,143 @@ export type Database = {
           },
         ]
       }
+      orden_items: {
+        Row: {
+          actualizado_en: string | null
+          actualizado_por: string | null
+          descripcion: string
+          estado: string
+          id: string
+          orden_id: string
+          posicion: number
+          sistema_id: string
+        }
+        Insert: {
+          actualizado_en?: string | null
+          actualizado_por?: string | null
+          descripcion: string
+          estado?: string
+          id?: string
+          orden_id: string
+          posicion: number
+          sistema_id: string
+        }
+        Update: {
+          actualizado_en?: string | null
+          actualizado_por?: string | null
+          descripcion?: string
+          estado?: string
+          id?: string
+          orden_id?: string
+          posicion?: number
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orden_items_actualizado_por_fkey"
+            columns: ["actualizado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orden_items_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orden_items_sistema_id_orden_id_fkey"
+            columns: ["sistema_id", "orden_id"]
+            isOneToOne: false
+            referencedRelation: "ordenes_medicas"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
+      ordenes_medicas: {
+        Row: {
+          cita_id: string | null
+          creado_en: string
+          diagnostico: string | null
+          id: string
+          indicaciones: string | null
+          medico_id: string
+          numero: string
+          paciente_id: string
+          proveedor: string | null
+          sistema_id: string
+          tipo: string
+        }
+        Insert: {
+          cita_id?: string | null
+          creado_en?: string
+          diagnostico?: string | null
+          id?: string
+          indicaciones?: string | null
+          medico_id: string
+          numero: string
+          paciente_id: string
+          proveedor?: string | null
+          sistema_id: string
+          tipo: string
+        }
+        Update: {
+          cita_id?: string | null
+          creado_en?: string
+          diagnostico?: string | null
+          id?: string
+          indicaciones?: string | null
+          medico_id?: string
+          numero?: string
+          paciente_id?: string
+          proveedor?: string | null
+          sistema_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordenes_medicas_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordenes_medicas_sistema_id_cita_id_fkey"
+            columns: ["sistema_id", "cita_id"]
+            isOneToOne: false
+            referencedRelation: "citas"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "ordenes_medicas_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordenes_medicas_sistema_id_paciente_id_fkey"
+            columns: ["sistema_id", "paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["sistema_id", "id"]
+          },
+        ]
+      }
       pacientes: {
         Row: {
           actualizado_en: string
           actualizado_por: string | null
           alergias: string | null
+          antecedentes: Json
           apellidos: string
           aseguradora_id: string | null
           busqueda: string | null
           condiciones_cronicas: string | null
+          condiciones_especiales: string[]
           contacto_emergencia_nombre: string | null
           contacto_emergencia_telefono: string | null
           creado_en: string
@@ -3355,7 +3515,9 @@ export type Database = {
           expediente: string
           fecha_nacimiento: string | null
           foto_documento: string | null
+          habitos: Json
           id: string
+          medico_cabecera_id: string | null
           nombres: string
           notas: string | null
           numero_afiliado: string | null
@@ -3368,10 +3530,12 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           alergias?: string | null
+          antecedentes?: Json
           apellidos: string
           aseguradora_id?: string | null
           busqueda?: string | null
           condiciones_cronicas?: string | null
+          condiciones_especiales?: string[]
           contacto_emergencia_nombre?: string | null
           contacto_emergencia_telefono?: string | null
           creado_en?: string
@@ -3384,7 +3548,9 @@ export type Database = {
           expediente: string
           fecha_nacimiento?: string | null
           foto_documento?: string | null
+          habitos?: Json
           id?: string
+          medico_cabecera_id?: string | null
           nombres: string
           notas?: string | null
           numero_afiliado?: string | null
@@ -3397,10 +3563,12 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           alergias?: string | null
+          antecedentes?: Json
           apellidos?: string
           aseguradora_id?: string | null
           busqueda?: string | null
           condiciones_cronicas?: string | null
+          condiciones_especiales?: string[]
           contacto_emergencia_nombre?: string | null
           contacto_emergencia_telefono?: string | null
           creado_en?: string
@@ -3413,7 +3581,9 @@ export type Database = {
           expediente?: string
           fecha_nacimiento?: string | null
           foto_documento?: string | null
+          habitos?: Json
           id?: string
+          medico_cabecera_id?: string | null
           nombres?: string
           notas?: string | null
           numero_afiliado?: string | null
@@ -3423,6 +3593,13 @@ export type Database = {
           tipo_sangre?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pacientes_medico_cabecera_id_fkey"
+            columns: ["medico_cabecera_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pacientes_sistema_id_aseguradora_id_fkey"
             columns: ["sistema_id", "aseguradora_id"]
@@ -3475,10 +3652,31 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "pagos_liquidacion_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_liquidacion_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: false
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pagos_liquidacion_sistema_id_liquidacion_id_fkey"
             columns: ["sistema_id", "liquidacion_id"]
             isOneToOne: true
             referencedRelation: "liquidaciones_comision"
+            referencedColumns: ["sistema_id", "id"]
+          },
+          {
+            foreignKeyName: "pagos_liquidacion_sistema_id_movimiento_id_fkey"
+            columns: ["sistema_id", "movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos_financieros"
             referencedColumns: ["sistema_id", "id"]
           },
         ]
@@ -3610,6 +3808,32 @@ export type Database = {
           },
         ]
       }
+      perfiles_portada: {
+        Row: {
+          actualizado_en: string
+          imagen: string
+          perfil_id: string
+        }
+        Insert: {
+          actualizado_en?: string
+          imagen: string
+          perfil_id: string
+        }
+        Update: {
+          actualizado_en?: string
+          imagen?: string
+          perfil_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perfiles_portada_perfil_id_fkey"
+            columns: ["perfil_id"]
+            isOneToOne: true
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planes: {
         Row: {
           activo: boolean
@@ -3648,86 +3872,6 @@ export type Database = {
           precio_sede?: number
         }
         Relationships: []
-      }
-      suscripciones: {
-        Row: {
-          actualizado_en: string
-          creado_en: string
-          elegido_en: string | null
-          elegido_por: string | null
-          estado: string
-          plan_id: string | null
-          precio_sede: number | null
-          proximo_corte: string | null
-          prueba_hasta: string | null
-          sistema_id: string
-        }
-        Insert: {
-          actualizado_en?: string
-          creado_en?: string
-          elegido_en?: string | null
-          elegido_por?: string | null
-          estado: string
-          plan_id?: string | null
-          precio_sede?: number | null
-          proximo_corte?: string | null
-          prueba_hasta?: string | null
-          sistema_id: string
-        }
-        Update: {
-          actualizado_en?: string
-          creado_en?: string
-          elegido_en?: string | null
-          elegido_por?: string | null
-          estado?: string
-          plan_id?: string | null
-          precio_sede?: number | null
-          proximo_corte?: string | null
-          prueba_hasta?: string | null
-          sistema_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "suscripciones_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "planes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "suscripciones_sistema_id_fkey"
-            columns: ["sistema_id"]
-            isOneToOne: true
-            referencedRelation: "sistemas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      perfiles_portada: {
-        Row: {
-          actualizado_en: string
-          imagen: string
-          perfil_id: string
-        }
-        Insert: {
-          actualizado_en?: string
-          imagen: string
-          perfil_id: string
-        }
-        Update: {
-          actualizado_en?: string
-          imagen?: string
-          perfil_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "perfiles_portada_perfil_id_fkey"
-            columns: ["perfil_id"]
-            isOneToOne: true
-            referencedRelation: "perfiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       plataforma: {
         Row: {
@@ -4489,6 +4633,67 @@ export type Database = {
           },
         ]
       }
+      suscripciones: {
+        Row: {
+          actualizado_en: string
+          creado_en: string
+          elegido_en: string | null
+          elegido_por: string | null
+          estado: string
+          plan_id: string | null
+          precio_sede: number | null
+          proximo_corte: string | null
+          prueba_hasta: string | null
+          sistema_id: string
+        }
+        Insert: {
+          actualizado_en?: string
+          creado_en?: string
+          elegido_en?: string | null
+          elegido_por?: string | null
+          estado: string
+          plan_id?: string | null
+          precio_sede?: number | null
+          proximo_corte?: string | null
+          prueba_hasta?: string | null
+          sistema_id: string
+        }
+        Update: {
+          actualizado_en?: string
+          creado_en?: string
+          elegido_en?: string | null
+          elegido_por?: string | null
+          estado?: string
+          plan_id?: string | null
+          precio_sede?: number | null
+          proximo_corte?: string | null
+          prueba_hasta?: string | null
+          sistema_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suscripciones_elegido_por_fkey"
+            columns: ["elegido_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suscripciones_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "planes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suscripciones_sistema_id_fkey"
+            columns: ["sistema_id"]
+            isOneToOne: true
+            referencedRelation: "sistemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       turnos_caja: {
         Row: {
           abierto_en: string
@@ -4807,6 +5012,15 @@ export type Database = {
         Args: { p_paciente: string; p_resultado: string }
         Returns: undefined
       }
+      asignar_suscripcion: {
+        Args: {
+          p_estado: string
+          p_plan: string
+          p_proximo_corte?: string
+          p_sistema: string
+        }
+        Returns: undefined
+      }
       balanza_comprobacion: {
         Args: { p_desde: string; p_hasta: string; p_sistema: string }
         Returns: {
@@ -4853,6 +5067,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      checkout_consulta: {
+        Args: { p_cita: string; p_datos: Json; p_nota?: string }
+        Returns: string
+      }
       cobros_sin_medico: {
         Args: { p_desde: string; p_hasta: string; p_sistema: string }
         Returns: {
@@ -4865,6 +5083,7 @@ export type Database = {
           turno: string
         }[]
       }
+      completar_bienvenida: { Args: never; Returns: undefined }
       conciliar_automatico: {
         Args: { p_cuenta: string; p_sistema: string }
         Returns: Json
@@ -4897,6 +5116,19 @@ export type Database = {
           p_pruebas: string[]
           p_sede?: string
           p_sistema: string
+        }
+        Returns: Json
+      }
+      crear_orden_medica: {
+        Args: {
+          p_cita?: string
+          p_diagnostico?: string
+          p_indicaciones?: string
+          p_items: string[]
+          p_paciente: string
+          p_proveedor?: string
+          p_sistema: string
+          p_tipo: string
         }
         Returns: Json
       }
@@ -4961,12 +5193,13 @@ export type Database = {
           usuario_id: string
         }[]
       }
-      eliminar_empleado: { Args: { p_empleado: string }; Returns: string }
-      eliminar_item: { Args: { p_item: string }; Returns: string }
-      emitir_nota_credito: {
-        Args: { p_cobro: string; p_motivo: string }
+      elegir_nombre_usuario: { Args: { p_usuario: string }; Returns: string }
+      elegir_plan: {
+        Args: { p_plan: string; p_sistema: string }
         Returns: Json
       }
+      eliminar_empleado: { Args: { p_empleado: string }; Returns: string }
+      eliminar_item: { Args: { p_item: string }; Returns: string }
       eliminar_miembro: {
         Args: { p_sistema: string; p_usuario: string }
         Returns: string
@@ -4974,6 +5207,10 @@ export type Database = {
       eliminar_nomina_borrador: {
         Args: { p_nomina: string }
         Returns: undefined
+      }
+      emitir_nota_credito: {
+        Args: { p_cobro: string; p_motivo: string }
+        Returns: Json
       }
       espera_limite: {
         Args: { p_clave: string; p_ventana_seg: number }
@@ -5038,6 +5275,19 @@ export type Database = {
           p_sistema: string
         }
         Returns: Json
+      }
+      guardar_plan: {
+        Args: {
+          p_activo?: boolean
+          p_caracteristicas: string[]
+          p_descripcion: string
+          p_destacado?: boolean
+          p_id: string
+          p_nombre: string
+          p_orden?: number
+          p_precio_sede: number
+        }
+        Returns: string
       }
       ia_consumo_mes: { Args: { p_sistema: string }; Returns: number }
       identificar_turno: {
@@ -5116,6 +5366,10 @@ export type Database = {
       }
       llamar_siguiente: { Args: { p_sistema: string }; Returns: Json }
       llamar_turno: { Args: { p_cita: string }; Returns: Json }
+      marcar_item_orden: {
+        Args: { p_estado: string; p_item: string }
+        Returns: undefined
+      }
       marcar_password_actualizada: { Args: never; Returns: undefined }
       marcar_solicitud_soporte_vista: {
         Args: { p_solicitud: string }
@@ -5147,46 +5401,6 @@ export type Database = {
         }
         Returns: Json
       }
-      pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
-      asignar_suscripcion: {
-        Args: { p_estado: string; p_plan: string; p_proximo_corte?: string; p_sistema: string }
-        Returns: undefined
-      }
-      completar_bienvenida: { Args: never; Returns: undefined }
-      elegir_nombre_usuario: { Args: { p_usuario: string }; Returns: string }
-      elegir_plan: { Args: { p_plan: string; p_sistema: string }; Returns: Json }
-      guardar_plan: {
-        Args: {
-          p_activo?: boolean
-          p_caracteristicas: string[]
-          p_descripcion: string
-          p_destacado?: boolean
-          p_id: string
-          p_nombre: string
-          p_orden?: number
-          p_precio_sede: number
-        }
-        Returns: string
-      }
-      plan_por_elegir: { Args: never; Returns: Json }
-      resumen_suscripciones: {
-        Args: never
-        Returns: {
-          elegido_en: string
-          es_pruebas: boolean
-          estado: string
-          monto_mensual: number
-          plan: string
-          plan_id: string
-          precio_sede: number
-          prueba_hasta: string
-          proximo_corte: string
-          sedes: number
-          sistema: string
-          sistema_id: string
-        }[]
-      }
-      usuario_disponible: { Args: { p_usuario: string }; Returns: boolean }
       pagar_liquidacion: {
         Args: {
           p_liquidacion: string
@@ -5196,6 +5410,7 @@ export type Database = {
         }
         Returns: Json
       }
+      pantalla_llamados: { Args: { p_sistema: string }; Returns: Json }
       partidas_sin_conciliar: {
         Args: { p_desde: string; p_hasta: string; p_sistema: string }
         Returns: {
@@ -5207,6 +5422,7 @@ export type Database = {
           tipo: string
         }[]
       }
+      plan_por_elegir: { Args: never; Returns: Json }
       plataforma_cajas_abiertas: {
         Args: never
         Returns: {
@@ -5534,11 +5750,29 @@ export type Database = {
         }
         Returns: Json
       }
+      resumen_suscripciones: {
+        Args: never
+        Returns: {
+          elegido_en: string
+          es_pruebas: boolean
+          estado: string
+          monto_mensual: number
+          plan: string
+          plan_id: string
+          precio_sede: number
+          proximo_corte: string
+          prueba_hasta: string
+          sedes: number
+          sistema: string
+          sistema_id: string
+        }[]
+      }
       retirar_mensaje_soporte: { Args: { p_mensaje: string }; Returns: string }
       revocar_codigo_invitacion: { Args: { p_id: string }; Returns: undefined }
-      soporte_pendientes: { Args: never; Returns: number }
       salud_tareas: { Args: never; Returns: Json }
+      soporte_pendientes: { Args: never; Returns: number }
       soy_agente_soporte: { Args: never; Returns: boolean }
+      usuario_disponible: { Args: { p_usuario: string }; Returns: boolean }
       verificar_codigo_instalacion: {
         Args: { p_codigo: string }
         Returns: boolean
@@ -5598,6 +5832,10 @@ export type Database = {
         | "certificado"
         | "referimiento"
         | "orden"
+        | "formulario"
+        | "vacuna"
+        | "licencia"
+        | "consentimiento"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5723,6 +5961,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       estado_cita: [
@@ -5780,6 +6021,10 @@ export const Constants = {
         "certificado",
         "referimiento",
         "orden",
+        "formulario",
+        "vacuna",
+        "licencia",
+        "consentimiento",
       ],
     },
   },

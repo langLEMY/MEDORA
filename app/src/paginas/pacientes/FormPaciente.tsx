@@ -1,16 +1,29 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
-import { useAseguradoras } from "@/lib/consultas";
+import type { Json } from "@/lib/database.types";
+import { useAseguradoras, useMedicos } from "@/lib/consultas";
 import { mensajeError, supabase, type Fila } from "@/lib/supabase";
-import { cedula, cedulaVerificada } from "@/lib/utils";
+import { cedula, cedulaVerificada, cn } from "@/lib/utils";
 import { useSistema } from "@/sesion/SesionProvider";
+import { ANTECEDENTES, CONDICIONES, HABITOS, NIVELES_HABITO, type Antecedentes, type Habitos } from "./catalogoClinico";
+
+/** Cabecera clínica (hábitos, antecedentes, condiciones y médico de cabecera): fuera del esquema de zod. */
+interface Clinico {
+  habitos: Habitos;
+  antecedentes: Antecedentes;
+  condiciones: string[];
+  medico: string;
+}
+const CLINICO_VACIO: Clinico = { habitos: {}, antecedentes: {}, condiciones: [], medico: "" };
+// "No" se guarda: que el paciente niegue un hábito también es un dato clínico.
+const sinVacios = (o: Record<string, string | undefined>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v && v.trim()).map(([k, v]) => [k, v!.trim()]));
 
 const opcional = z
   .string()
@@ -99,6 +112,8 @@ export function FormPaciente({
   const { sistemaId } = useSistema();
   const qc = useQueryClient();
   const aseguradoras = useAseguradoras(sistemaId);
+  const medicos = useMedicos(sistemaId);
+  const [clinico, setClinico] = useState<Clinico>(CLINICO_VACIO);
   const esquema = useMemo(() => crearEsquema(paciente?.documento), [paciente?.documento]);
   const { register, handleSubmit, reset, formState, watch } = useForm<Entrada_, unknown, Salida>({
     resolver: zodResolver(esquema),
@@ -119,11 +134,27 @@ export function FormPaciente({
         Object.keys(vacio).map((k) => [k, (paciente as Record<string, unknown>)[k] ?? ""]),
       ) as Entrada_;
       reset(valores);
-    } else reset({ ...vacio, ...inicial });
+      setClinico({
+        habitos: (paciente.habitos ?? {}) as Habitos,
+        antecedentes: (paciente.antecedentes ?? {}) as Antecedentes,
+        condiciones: paciente.condiciones_especiales ?? [],
+        medico: paciente.medico_cabecera_id ?? "",
+      });
+    } else {
+      reset({ ...vacio, ...inicial });
+      setClinico(CLINICO_VACIO);
+    }
   }, [abierto, paciente, inicial, reset]);
 
   const guardar = useMutation({
-    mutationFn: async (d: Salida) => {
+    mutationFn: async (f: Salida) => {
+      const d = {
+        ...f,
+        habitos: sinVacios(clinico.habitos) as Json,
+        antecedentes: sinVacios(clinico.antecedentes) as Json,
+        condiciones_especiales: clinico.condiciones,
+        medico_cabecera_id: clinico.medico || null,
+      };
       if (paciente) {
         const { error } = await supabase.from("pacientes").update(d).eq("id", paciente.id);
         if (error) throw error;
@@ -215,8 +246,72 @@ export function FormPaciente({
               ))}
             </Selector>
           </div>
-          <AreaTexto etiqueta="Alergias" className="min-h-16" placeholder="Ninguna conocida" {...register("alergias")} />
+          <AreaTexto etiqueta="Alergias" className="min-h-16" placeholder="Separadas por coma: penicilina, mariscos, látex" {...register("alergias")} />
           <AreaTexto etiqueta="Condiciones crónicas" className="min-h-16" {...register("condiciones_cronicas")} />
+          <Selector etiqueta="Médico de cabecera" value={clinico.medico} onChange={(e) => setClinico((c) => ({ ...c, medico: e.target.value }))}>
+            <option value="">Sin asignar</option>
+            {medicos.data?.map((m) => (
+              <option key={m.usuario_id} value={m.usuario_id}>
+                {m.perfil?.nombre_completo}
+                {m.especialidad ? ` · ${m.especialidad}` : ""}
+              </option>
+            ))}
+          </Selector>
+          <div>
+            <p className="mb-2 text-[0.8125rem] font-medium text-texto-2">Condiciones especiales</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CONDICIONES.map((c) => {
+                const activo = clinico.condiciones.includes(c.clave);
+                return (
+                  <button
+                    key={c.clave}
+                    type="button"
+                    aria-pressed={activo}
+                    onClick={() =>
+                      setClinico((x) => ({ ...x, condiciones: activo ? x.condiciones.filter((k) => k !== c.clave) : [...x.condiciones, c.clave] }))
+                    }
+                    className={cn(
+                      "h-8 rounded-lg border px-2.5 text-xs font-medium transition-colors",
+                      activo ? "border-marca bg-marca-suave text-marca-texto" : "border-borde text-texto-2 hover:border-borde-fuerte hover:text-texto",
+                    )}
+                  >
+                    {c.etiqueta}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Seccion>
+
+        <Seccion titulo="Hábitos tóxicos">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {HABITOS.map((h) => (
+              <Selector
+                key={h.clave}
+                etiqueta={h.etiqueta}
+                value={clinico.habitos[h.clave] ?? ""}
+                onChange={(e) => setClinico((c) => ({ ...c, habitos: { ...c.habitos, [h.clave]: e.target.value } }))}
+              >
+                <option value="">—</option>
+                {NIVELES_HABITO.map((n) => (
+                  <option key={n}>{n}</option>
+                ))}
+              </Selector>
+            ))}
+          </div>
+        </Seccion>
+
+        <Seccion titulo="Antecedentes">
+          {ANTECEDENTES.map((a) => (
+            <AreaTexto
+              key={a.clave}
+              etiqueta={a.etiqueta}
+              className="min-h-12"
+              placeholder={a.placeholder}
+              value={clinico.antecedentes[a.clave] ?? ""}
+              onChange={(e) => setClinico((c) => ({ ...c, antecedentes: { ...c.antecedentes, [a.clave]: e.target.value } }))}
+            />
+          ))}
         </Seccion>
 
         <Seccion titulo="Seguro médico">
