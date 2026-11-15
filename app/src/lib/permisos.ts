@@ -56,7 +56,7 @@ const MATRIZ: Record<Modulo, Rol[]> = {
   internamiento: ["admin", "medico", "enfermeria", "recepcion", "gerencia"],
   // Preconsulta, procedimientos y (con internamiento) Kardex. Lee la historia: solo roles clínicos.
   enfermeria: ["enfermeria", "medico"],
-  // Fundaciones: reporte y fondos (dirección/finanzas), tarifa social (recepción/caja), jornadas (clínicos).
+  // Fundaciones: reporte y fondos (dirección/finanzas), jornadas (clínicos, recepción y caja las consultan).
   fundacion: ["admin", "gerencia", "contabilidad", "auditor", "caja", "recepcion", "medico", "enfermeria", "psicologia", "nutricion", "terapia"],
   // Conectores (WhatsApp, Azul, correo, SMS): la administración de cada hospital.
   integraciones: ["admin"],
@@ -140,8 +140,6 @@ export const puedeEscribir = {
   reporteFundacion: alguno(["admin", "gerencia", "contabilidad", "auditor"]),
   fondos: alguno(["admin", "gerencia", "contabilidad"]),
   verFondos: alguno(["admin", "gerencia", "contabilidad", "auditor"]),
-  estudioSocial: alguno(["admin", "recepcion", "caja"]),
-  verEstudios: alguno(["admin", "recepcion", "caja", "gerencia", "auditor"]),
   jornadas: alguno(["admin", "gerencia"]),
   atenderJornada: alguno(["medico", "enfermeria", "psicologia", "nutricion", "terapia"]),
   caja: alguno(["admin", "caja"]),

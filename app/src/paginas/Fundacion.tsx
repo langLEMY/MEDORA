@@ -6,22 +6,20 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
 import { SelectorCie10 } from "@/components/SelectorCie10";
-import { TONO_CATEGORIA } from "@/components/TarifaSocial";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
-import { DESCRIPCION_CATEGORIA, TARIFA_SOCIAL_DEFECTO, type Categoria, type TarifaSocial } from "@/lib/fundacion";
 import { puedeEscribir } from "@/lib/permisos";
 import { datos, mensajeError, supabase } from "@/lib/supabase";
 import { cn, fecha, fechaHora, isoDia, moneda, relativo } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
 
-type Vista = "resumen" | "fondos" | "tarifa" | "jornadas";
+type Vista = "resumen" | "fondos" | "jornadas";
 
 /**
  * Fundación (sistemas de naturaleza "fundacion", ASFL Ley 122-05): lo que se rinde a los
- * donantes, los fondos de cada donante, la tarifa social y las jornadas médicas.
+ * donantes, los fondos de cada donante y las jornadas médicas.
  */
 export default function Fundacion() {
   const { roles } = useSistema();
@@ -29,7 +27,6 @@ export default function Fundacion() {
   const opciones = [
     puedeEscribir.reporteFundacion(roles) && { valor: "resumen" as const, etiqueta: "Resumen" },
     puedeEscribir.verFondos(roles) && { valor: "fondos" as const, etiqueta: "Fondos" },
-    puedeEscribir.verEstudios(roles) && { valor: "tarifa" as const, etiqueta: "Tarifa social" },
     { valor: "jornadas" as const, etiqueta: "Jornadas" },
   ].filter(Boolean) as { valor: Vista; etiqueta: string }[];
   const [vista, setVista] = useState<Vista>(opciones[0].valor);
@@ -50,14 +47,13 @@ export default function Fundacion() {
     <>
       <EncabezadoPagina
         titulo="Fundación"
-        descripcion="Donaciones, fondos, tarifa social y jornadas médicas"
+        descripcion="Donaciones, fondos y jornadas médicas"
         acciones={opciones.length > 1 && <Segmentado id="fund-vista" valor={activa} onChange={setVista} opciones={opciones} />}
       />
       <AnimatePresence mode="wait">
         <motion.div key={activa} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.08 } }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}>
           {activa === "resumen" && <Resumen />}
           {activa === "fondos" && <Fondos />}
-          {activa === "tarifa" && <TarifaSocialVista />}
           {activa === "jornadas" && <Jornadas />}
         </motion.div>
       </AnimatePresence>
@@ -87,7 +83,7 @@ interface Reporte {
   por_donante: { donante: string; total: number; n: number }[];
   fondos: { nombre: string; restringido: boolean; recibido: number; usado: number; saldo: number }[];
   beneficiarios: { pacientes: number; consultas: number; jornadas: number; atenciones_jornadas: number };
-  valor_social: { tarifa_social: number; otros_descuentos: number; exonerados: number; estudios: Partial<Record<Categoria, number>> };
+  valor_social: { tarifa_social: number; otros_descuentos: number; exonerados: number };
   voluntarios: { personas: number; consultas: number };
 }
 
@@ -110,7 +106,8 @@ function Resumen() {
     queryFn: async () => datos(await supabase.rpc("reporte_fundacion", { p_sistema: sistemaId, p_desde: r.desde, p_hasta: r.hasta })) as unknown as Reporte,
   });
   const d = q.data;
-  const valorSocial = d ? Number(d.valor_social.tarifa_social) : 0;
+  // Todo descuento dado en caja (el servidor aún lo separa en dos; aquí se suma).
+  const valorSocial = d ? Number(d.valor_social.tarifa_social) + Number(d.valor_social.otros_descuentos) : 0;
 
   return (
     <>
@@ -137,7 +134,7 @@ function Resumen() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Cifra titulo="Donaciones recibidas" icono={<HandCoins />} valor={moneda(d.donaciones.total)} detalle={`${d.donaciones.cantidad} donaciones · ${d.donaciones.donantes} donantes identificados`} />
             <Cifra titulo="Personas atendidas" icono={<Users />} valor={d.beneficiarios.pacientes + d.beneficiarios.atenciones_jornadas} detalle={`${d.beneficiarios.consultas} consultas · ${d.beneficiarios.atenciones_jornadas} en ${d.beneficiarios.jornadas} jornadas`} />
-            <Cifra titulo="Tarifa social otorgada" icono={<HandHeart />} valor={moneda(valorSocial)} detalle={`${d.valor_social.exonerados} turnos exonerados · ${moneda(d.valor_social.otros_descuentos)} en otros descuentos`} />
+            <Cifra titulo="Descuentos y exoneraciones" icono={<HandHeart />} valor={moneda(valorSocial)} detalle={`${moneda(valorSocial)} en descuentos · ${d.valor_social.exonerados} turnos exonerados`} />
             <Cifra titulo="Voluntariado" icono={<Stethoscope />} valor={d.voluntarios.personas} detalle={`${d.voluntarios.consultas} consultas de profesionales voluntarios`} />
           </div>
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -177,20 +174,6 @@ function Resumen() {
               )}
             </Tarjeta>
           </div>
-          {Object.keys(d.valor_social.estudios).length > 0 && (
-            <Tarjeta className="mt-4 p-5">
-              <p className="mb-3 text-sm font-semibold">Estudios socioeconómicos del período</p>
-              <div className="flex flex-wrap gap-2">
-                {(["D", "C", "B", "A"] as Categoria[]).map((c) =>
-                  d.valor_social.estudios[c] ? (
-                    <Insignia key={c} tono={TONO_CATEGORIA[c]}>
-                      {c} · {DESCRIPCION_CATEGORIA[c]}: {d.valor_social.estudios[c]}
-                    </Insignia>
-                  ) : null,
-                )}
-              </div>
-            </Tarjeta>
-          )}
         </>
       )}
 
@@ -200,7 +183,7 @@ function Resumen() {
           <p className="mb-3">
             En el período, {sistema.nombre} recibió <b>{moneda(d.donaciones.total)}</b> en {d.donaciones.cantidad} donaciones y atendió a{" "}
             <b>{d.beneficiarios.pacientes + d.beneficiarios.atenciones_jornadas} personas</b> ({d.beneficiarios.consultas} consultas en la sede y{" "}
-            {d.beneficiarios.atenciones_jornadas} en {d.beneficiarios.jornadas} jornadas médicas). Otorgó <b>{moneda(valorSocial)}</b> en tarifa social y exoneró{" "}
+            {d.beneficiarios.atenciones_jornadas} en {d.beneficiarios.jornadas} jornadas médicas). Otorgó <b>{moneda(valorSocial)}</b> en descuentos y exoneró{" "}
             {d.valor_social.exonerados} turnos. {d.voluntarios.personas} profesionales voluntarios realizaron {d.voluntarios.consultas} consultas.
           </p>
           <p className="mt-4 mb-1 font-semibold">Uso de los fondos</p>
@@ -530,165 +513,6 @@ function MovimientosFondo({ fondo, onCerrar, editable }: { fondo: Fondo | null; 
             </ul>
           )}
         </div>
-      </div>
-    </Modal>
-  );
-}
-
-/* ------------------------------------------------------------------------ */
-/* Tarifa social                                                             */
-/* ------------------------------------------------------------------------ */
-
-interface Estudio {
-  id: string;
-  numero: string;
-  categoria: Categoria;
-  categoria_sugerida: Categoria;
-  descuento_pct: number;
-  ingreso_per_capita: number;
-  vigente_hasta: string;
-  creado_en: string;
-  paciente_id: string;
-  paciente: { nombres: string; apellidos: string; expediente: string } | null;
-}
-
-function TarifaSocialVista() {
-  const { sistemaId, roles } = useSistema();
-  const { tarifaSocial } = useSesion();
-  const t = tarifaSocial ?? TARIFA_SOCIAL_DEFECTO;
-  const [editar, setEditar] = useState(false);
-  const q = useQuery({
-    queryKey: ["estudios", sistemaId],
-    queryFn: async () =>
-      datos(
-        await supabase
-          .from("estudios_socioeconomicos")
-          .select("id, numero, categoria, categoria_sugerida, descuento_pct, ingreso_per_capita, vigente_hasta, creado_en, paciente_id, paciente:pacientes!estudios_socioeconomicos_sistema_id_paciente_id_fkey(nombres, apellidos, expediente)")
-          .eq("sistema_id", sistemaId)
-          .order("creado_en", { ascending: false })
-          .limit(100),
-      ) as unknown as Estudio[],
-  });
-  const hoy = isoDia(new Date());
-  const tramos: { c: Categoria; texto: string }[] = [
-    { c: "D", texto: `menos de ${moneda(t.umbrales[0])}` },
-    { c: "C", texto: `${moneda(t.umbrales[0])} a ${moneda(t.umbrales[1])}` },
-    { c: "B", texto: `${moneda(t.umbrales[1])} a ${moneda(t.umbrales[2])}` },
-    { c: "A", texto: `${moneda(t.umbrales[2])} o más` },
-  ];
-
-  return (
-    <div className="grid gap-4 xl:grid-cols-[22rem_1fr]">
-      <Tarjeta className="h-fit p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <p className="flex-1 text-sm font-semibold">Tabla de la tarifa social</p>
-          {roles.includes("admin") && (
-            <Boton tamano="sm" variante="secundario" onClick={() => setEditar(true)}>
-              Ajustar
-            </Boton>
-          )}
-        </div>
-        <p className="mb-3 text-xs text-texto-3">Ingreso del hogar ÷ personas que viven de él. Vigencia: {t.vigencia_meses} meses.</p>
-        <ul className="space-y-2">
-          {tramos.map(({ c, texto }) => (
-            <li key={c} className="flex items-center gap-3 rounded-xl bg-superficie-2/60 px-3 py-2 text-sm">
-              <Insignia tono={TONO_CATEGORIA[c]}>{c}</Insignia>
-              <span className="min-w-0 flex-1 text-xs text-texto-2">{texto} por persona</span>
-              <b className="tabular">{t.descuentos[c]} %</b>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs text-texto-3">El estudio se hace desde el expediente del paciente; en Caja aparece el botón para aplicar el descuento.</p>
-      </Tarjeta>
-      <Tarjeta className="overflow-hidden">
-        <p className="border-b border-borde px-5 py-3 text-[0.9375rem] font-semibold">Estudios recientes</p>
-        {q.isLoading ? (
-          <div className="space-y-2 p-5">{[0, 1, 2].map((i) => <Esqueleto key={i} className="h-10" />)}</div>
-        ) : !q.data?.length ? (
-          <Vacio icono={<HandHeart />} titulo="Sin estudios todavía" descripcion="Abre el expediente de un paciente y pulsa «Estudio socioeconómico»." />
-        ) : (
-          <ul className="divide-y divide-borde">
-            {q.data.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5 text-sm">
-                <Insignia tono={TONO_CATEGORIA[e.categoria]}>
-                  {e.categoria} · {Number(e.descuento_pct)} %
-                </Insignia>
-                <Link to={`/pacientes/${e.paciente_id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">
-                  {e.paciente ? `${e.paciente.nombres} ${e.paciente.apellidos}` : "Paciente"}
-                </Link>
-                {e.categoria !== e.categoria_sugerida && <Insignia tono="violeta">Ajustada (era {e.categoria_sugerida})</Insignia>}
-                <span className="text-xs text-texto-3 tabular">{moneda(e.ingreso_per_capita)}/persona</span>
-                <span className={cn("text-xs tabular", e.vigente_hasta < hoy ? "text-peligro" : "text-texto-3")}>
-                  {e.vigente_hasta < hoy ? "Vencido" : `Hasta ${fecha(e.vigente_hasta)}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Tarjeta>
-      <AjustarTarifa abierto={editar} onCerrar={() => setEditar(false)} actual={t} />
-    </div>
-  );
-}
-
-function AjustarTarifa({ abierto, onCerrar, actual }: { abierto: boolean; onCerrar: () => void; actual: TarifaSocial }) {
-  const { sistemaId } = useSistema();
-  const qc = useQueryClient();
-  const [u, setU] = useState(actual.umbrales.map(String));
-  const [d, setD] = useState<Record<Categoria, string>>({ A: String(actual.descuentos.A), B: String(actual.descuentos.B), C: String(actual.descuentos.C), D: String(actual.descuentos.D) });
-  const [vig, setVig] = useState(String(actual.vigencia_meses));
-  const m = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc("guardar_tarifa_social", {
-        p_sistema: sistemaId,
-        p_config: { umbrales: u.map(Number), descuentos: { A: Number(d.A), B: Number(d.B), C: Number(d.C), D: Number(d.D) }, vigencia_meses: Number(vig) },
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Tarifa social actualizada (aplica a los estudios nuevos)");
-      void qc.invalidateQueries({ queryKey: ["naturaleza", sistemaId] });
-      onCerrar();
-    },
-    onError: (e) => toast.error(mensajeError(e)),
-  });
-  return (
-    <Modal
-      abierto={abierto}
-      onCerrar={onCerrar}
-      titulo="Ajustar la tarifa social"
-      descripcion="Los estudios ya hechos conservan su categoría hasta vencer."
-      pie={
-        <>
-          <Boton variante="secundario" onClick={onCerrar}>
-            Cancelar
-          </Boton>
-          <Boton cargando={m.isPending} onClick={() => m.mutate()}>
-            Guardar
-          </Boton>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <p className="text-[0.8125rem] font-medium text-texto-2">Ingreso por persona (RD$/mes) que separa las categorías</p>
-        <div className="grid grid-cols-3 gap-3">
-          {["D | C", "C | B", "B | A"].map((etq, i) => (
-            <Entrada key={etq} etiqueta={etq} type="number" min={1} value={u[i]} onChange={(e) => setU((x) => x.map((v, j) => (j === i ? e.target.value : v)))} />
-          ))}
-        </div>
-        <p className="text-[0.8125rem] font-medium text-texto-2">Descuento por categoría (%)</p>
-        <div className="grid grid-cols-4 gap-3">
-          {(["A", "B", "C", "D"] as Categoria[]).map((c) => (
-            <Entrada key={c} etiqueta={c} type="number" min={0} max={100} value={d[c]} onChange={(e) => setD((x) => ({ ...x, [c]: e.target.value }))} />
-          ))}
-        </div>
-        <Selector etiqueta="Vigencia del estudio" value={vig} onChange={(e) => setVig(e.target.value)}>
-          {[3, 6, 12, 18, 24].map((m) => (
-            <option key={m} value={m}>
-              {m} meses
-            </option>
-          ))}
-        </Selector>
       </div>
     </Modal>
   );

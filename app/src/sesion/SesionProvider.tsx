@@ -8,7 +8,7 @@ import type { Permisos } from "@/lib/permisos";
 import { sincronizarDesdePerfil } from "@/lib/preferencias";
 import { contextoMonitoreo } from "@/lib/monitoreo";
 import { capacidadesSede, type Capacidad } from "@/lib/capacidades";
-import type { Naturaleza, TarifaSocial } from "@/lib/fundacion";
+import type { Naturaleza } from "@/lib/fundacion";
 import { aplicarColorMarca } from "@/lib/tema";
 
 /** Sede (local físico) del sistema activo, con su tipo y capacidades. */
@@ -51,8 +51,6 @@ interface ContextoSesion {
   cambiarSede: (id: string) => void;
   /** Cómo se financia el sistema: privada, fundación (ASFL) o pública. Activa los módulos de fundación. */
   naturaleza: Naturaleza;
-  /** Umbrales y descuentos de la tarifa social (fundaciones). */
-  tarifaSocial: TarifaSocial | null;
   roles: Rol[];
   permisos: Permisos;
   /** Falso mientras se usa «ver como» (para probar exactamente lo que ve ese rol). */
@@ -190,7 +188,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     enabled: !!sistema?.id,
     staleTime: 5 * 60_000,
     queryFn: async () =>
-      datos(await supabase.from("sistemas").select("naturaleza, tarifa_social").eq("id", sistema!.id).maybeSingle()) as { naturaleza: Naturaleza; tarifa_social: TarifaSocial } | null,
+      datos(await supabase.from("sistemas").select("naturaleza").eq("id", sistema!.id).maybeSingle()) as { naturaleza: Naturaleza } | null,
   });
 
   const cambiarSede = useCallback((id: string) => {
@@ -289,7 +287,6 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     capacidades,
     cambiarSede,
     naturaleza: naturalezaQ.data?.naturaleza ?? "privada",
-    tarifaSocial: naturalezaQ.data?.tarifa_social ?? null,
     roles: rolesVista,
     // Viendo como otro rol no cuentan los permisos personales (igual que en Postgres).
     permisos: simulando ? {} : (sistema?.permisos ?? {}),

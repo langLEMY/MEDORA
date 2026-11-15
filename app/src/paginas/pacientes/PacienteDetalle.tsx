@@ -17,7 +17,6 @@ import { useSistema } from "@/sesion/SesionProvider";
 import { AccesosExpediente, useRegistrarAcceso } from "@/components/AccesosExpediente";
 import { FotoDocumento } from "@/components/FotoDocumento";
 import { ResultadosLaboratorio } from "@/components/ResultadosLaboratorio";
-import { TarifaSocialPaciente } from "@/components/TarifaSocial";
 import { CabeceraClinica } from "./CabeceraClinica";
 import { ANTECEDENTES, habitosActivos, type Antecedentes } from "./catalogoClinico";
 import { BotonCheckout } from "./Checkout";
@@ -139,9 +138,6 @@ export default function PacienteDetalle() {
               )}
             </div>
             <CabeceraClinica pacienteId={p.id} p={p} verHistorial={verHistorial} onEditar={puedeEscribir.pacientes(roles) ? () => setEditar(true) : undefined} />
-            <div className="mt-2">
-              <TarifaSocialPaciente pacienteId={p.id} nombre={nombre} />
-            </div>
           </div>
           <FotoDocumento pacienteId={p.id} ruta={p.foto_documento} editable={puedeEscribir.pacientes(roles)} />
           <div className="flex flex-col items-end gap-2">
