@@ -27,15 +27,15 @@ export type Modulo =
   | "farmacia"
   | "internamiento"
   | "enfermeria"
-  | "fundacion"
   | "configuracion";
 
 const CLINICOS: Rol[] = ["medico", "enfermeria", "psicologia", "nutricion", "terapia"];
 
 const MATRIZ: Record<Modulo, Rol[]> = {
-  dashboard: ["admin", "medico", "enfermeria", "recepcion", "caja", "farmacia", "auditor", "gerencia", "contabilidad", "psicologia", "nutricion", "terapia"],
-  recepcion: ["admin", "recepcion", "gerencia", ...CLINICOS],
-  agenda: ["admin", "recepcion", "gerencia", "contabilidad", ...CLINICOS],
+  dashboard: ["admin", "medico", "enfermeria", "recepcion", "caja", "farmacia", "laboratorio", "auditor", "gerencia", "contabilidad", "psicologia", "nutricion", "terapia"],
+  // Enfermería no hace recepción: su preconsulta está en Enfermería.
+  recepcion: ["admin", "recepcion", "gerencia", "medico", "psicologia", "nutricion", "terapia"],
+  agenda: ["admin", "recepcion", "gerencia", "medico", "psicologia", "nutricion", "terapia"],
   pacientes: ["admin", "recepcion", "caja", "farmacia", "auditor", "gerencia", ...CLINICOS],
   caja: ["admin", "caja", "auditor", "gerencia", "contabilidad"],
   compras: ["admin", "farmacia", "contabilidad", "gerencia", "auditor"],
@@ -45,19 +45,19 @@ const MATRIZ: Record<Modulo, Rol[]> = {
   nomina: ["admin", "contabilidad", "gerencia", "auditor"],
   contabilidad: ["admin", "contabilidad", "gerencia", "auditor"],
   reportes: ["admin", "contabilidad", "gerencia", "auditor", "caja"],
-  inventario: ["admin", "farmacia", "enfermeria", "medico", "gerencia"],
+  // Enfermería da salidas de insumos; el médico no administra inventario.
+  inventario: ["admin", "farmacia", "enfermeria", "gerencia"],
   personal: ["admin"],
   catalogos: ["admin"],
   aseguradoras: ["admin"],
   auditoria: ["admin", "auditor", "gerencia"],
   // Módulos por tipo de establecimiento (la sede decide si aplican; ver capacidades).
-  laboratorio: ["admin", "laboratorio", "gerencia", "medico", "recepcion"],
+  // El médico ve los resultados en el expediente; el módulo es del laboratorio.
+  laboratorio: ["admin", "laboratorio", "gerencia", "recepcion"],
   farmacia: ["admin", "farmacia", "gerencia"],
   internamiento: ["admin", "medico", "enfermeria", "recepcion", "gerencia"],
   // Preconsulta, procedimientos y (con internamiento) Kardex. Lee la historia: solo roles clínicos.
-  enfermeria: ["enfermeria", "medico"],
-  // Fundaciones: reporte y fondos (dirección/finanzas), jornadas (clínicos, recepción y caja las consultan).
-  fundacion: ["admin", "gerencia", "contabilidad", "auditor", "caja", "recepcion", "medico", "enfermeria", "psicologia", "nutricion", "terapia"],
+  enfermeria: ["enfermeria"],
   // Conectores (WhatsApp, Azul, correo, SMS): la administración de cada hospital.
   integraciones: ["admin"],
   // Identidad del hospital y sedes: solo superadministración (ver migración accesos_superadmin).
@@ -136,12 +136,6 @@ export const puedeEscribir = {
   /** Kardex: el médico indica/suspende (indicar_medicamento); enfermería o medicina registran cada dosis. */
   indicar: alguno(["medico"]),
   administrar: alguno(["enfermeria", "medico"]),
-  /** Fundaciones (ver migración fundaciones). */
-  reporteFundacion: alguno(["admin", "gerencia", "contabilidad", "auditor"]),
-  fondos: alguno(["admin", "gerencia", "contabilidad"]),
-  verFondos: alguno(["admin", "gerencia", "contabilidad", "auditor"]),
-  jornadas: alguno(["admin", "gerencia"]),
-  atenderJornada: alguno(["medico", "enfermeria", "psicologia", "nutricion", "terapia"]),
   caja: alguno(["admin", "caja"]),
   abonos: alguno(["admin", "caja", "contabilidad"]),
   inventario: alguno(["admin", "farmacia"]),

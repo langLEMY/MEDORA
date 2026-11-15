@@ -48,7 +48,7 @@ import {
   puntajeEscala,
   type CampoClinico,
 } from "./catalogoClinico";
-import { NuevaIndicacion } from "./Indicaciones";
+import { IndicacionesActivas, NuevaIndicacion } from "./Indicaciones";
 import { SelectorCie10 } from "@/components/SelectorCie10";
 import { DocumentoClinico, esDocumento, type ItemReceta, type MedicoFirma, type TipoDocumento } from "./DocumentoClinico";
 import { ItemsOrden, NuevaOrden, TIPO_ORDEN, useOrdenesPaciente, type OrdenMedica, type TipoOrden } from "./OrdenesMedicas";
@@ -291,6 +291,8 @@ export function HistorialClinico({ pacienteId, pacienteNombre, documento }: { pa
             </Boton>
           )}
         </div>
+
+        {puedeEscribir.indicar(roles) && <IndicacionesActivas pacienteId={pacienteId} />}
 
         {presentes.length > 1 && (
           <div className="mb-4 flex flex-wrap items-center gap-1">

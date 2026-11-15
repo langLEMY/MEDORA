@@ -9,12 +9,12 @@ import { cn } from "@/lib/utils";
 
 /** Ajustes de interfaz de cada usuario (se guardan en su perfil y lo siguen a cualquier PC). */
 export function Personalizacion() {
-  const { perfil, roles, permisos, esSuperadmin, sede, capacidades, naturaleza } = useSesion();
+  const { perfil, roles, permisos, esSuperadmin, sede, capacidades, modulosApagados } = useSesion();
   const { sistema } = useSistema();
   const p = usePreferencias();
   const cambiar = (c: Partial<Preferencias>) => cambiarPreferencias(c, perfil?.id);
   const propio = soloLoPropio(roles);
-  const paginas = NAVEGACION.filter((i) => !i.soloBusqueda && !i.soloSuperadmin && puedeVer(i, roles, esSuperadmin, permisos, propio, sede ? capacidades : undefined, naturaleza));
+  const paginas = NAVEGACION.filter((i) => !i.soloBusqueda && !i.soloSuperadmin && puedeVer(i, roles, esSuperadmin, permisos, propio, sede ? capacidades : undefined, modulosApagados));
   const modificado = JSON.stringify(p) !== JSON.stringify(PREFERENCIAS_DEFECTO);
 
   const fila = (titulo: string, ayuda: string, control: React.ReactNode) => (

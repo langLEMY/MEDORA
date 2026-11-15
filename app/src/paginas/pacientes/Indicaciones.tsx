@@ -1,10 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pill } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada, Segmentado, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
-import { mensajeError, supabase } from "@/lib/supabase";
+import { Tarjeta } from "@/components/ui/superficies";
+import { datos, mensajeError, supabase } from "@/lib/supabase";
 import { useSistema } from "@/sesion/SesionProvider";
 
 export const VIAS = ["Oral", "IV", "IM", "SC", "Sublingual", "Inhalada", "Tópica", "Rectal", "Oftálmica", "Ótica", "Nasal", "Transdérmica"] as const;
@@ -134,5 +136,89 @@ export function NuevaIndicacion({ abierto, pacienteId, onCerrar }: { abierto: bo
         />
       </div>
     </Modal>
+  );
+}
+
+interface IndicacionActiva {
+  id: string;
+  medicamento: string;
+  dosis: string;
+  via: string;
+  pauta: Pauta;
+  frecuencia_horas: number | null;
+}
+
+/**
+ * Medicamentos activos del Kardex en el expediente: el médico los ve y los suspende
+ * aquí (Enfermería es de enfermería). Sin indicaciones activas no se muestra nada.
+ */
+export function IndicacionesActivas({ pacienteId }: { pacienteId: string }) {
+  const { sistemaId } = useSistema();
+  const qc = useQueryClient();
+  const [suspender, setSuspender] = useState<IndicacionActiva | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const q = useQuery({
+    queryKey: ["kardex", sistemaId, "activas", pacienteId],
+    queryFn: async () =>
+      (datos(
+        await supabase
+          .from("indicaciones_medicamento")
+          .select("id, medicamento, dosis, via, pauta, frecuencia_horas")
+          .eq("sistema_id", sistemaId)
+          .eq("paciente_id", pacienteId)
+          .eq("estado", "activa")
+          .order("creado_en"),
+      ) ?? []) as IndicacionActiva[],
+  });
+  const m = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("suspender_indicacion", { p_indicacion: suspender!.id, p_motivo: motivo.trim() });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Indicación suspendida: sus próximas dosis ya no aparecen");
+      void qc.invalidateQueries({ queryKey: ["kardex", sistemaId] });
+      setMotivo("");
+      setSuspender(null);
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  if (!q.data?.length) return null;
+  return (
+    <Tarjeta className="mb-4 p-4">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-texto-2">
+        <Pill className="size-3.5" /> Medicamentos activos en el Kardex
+      </p>
+      <ul className="divide-y divide-borde">
+        {q.data.map((i) => (
+          <li key={i.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span>
+              <b>{i.medicamento}</b> {i.dosis} · {i.via} · <span className="text-texto-3">{i.pauta === "horario" ? `cada ${i.frecuencia_horas} h` : ETIQUETA_PAUTA[i.pauta]}</span>
+            </span>
+            <Boton variante="fantasma" tamano="sm" onClick={() => setSuspender(i)}>
+              Suspender
+            </Boton>
+          </li>
+        ))}
+      </ul>
+      <Modal
+        abierto={!!suspender}
+        onCerrar={() => setSuspender(null)}
+        titulo="Suspender indicación"
+        descripcion={suspender ? `${suspender.medicamento} ${suspender.dosis}` : ""}
+        pie={
+          <>
+            <Boton variante="secundario" onClick={() => setSuspender(null)}>
+              Cancelar
+            </Boton>
+            <Boton variante="peligro" cargando={m.isPending} disabled={!motivo.trim()} onClick={() => m.mutate()}>
+              Suspender
+            </Boton>
+          </>
+        }
+      >
+        <Entrada etiqueta="Motivo" placeholder="Cambio a vía oral, alergia, alta…" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+      </Modal>
+    </Tarjeta>
   );
 }

@@ -4,11 +4,9 @@ import {
   CalendarDays,
   ChartColumn,
   ClipboardList,
-
   ChartPie,
   FileBarChart,
   FlaskConical,
-  HandHeart,
   HeartPulse,
   LayoutDashboard,
   LifeBuoy,
@@ -27,7 +25,6 @@ import {
 } from "lucide-react";
 import { puede, type Modulo, type Permisos } from "@/lib/permisos";
 import type { Capacidad } from "@/lib/capacidades";
-import type { Naturaleza } from "@/lib/fundacion";
 import type { Rol } from "@/lib/supabase";
 
 export interface ItemNav {
@@ -41,8 +38,6 @@ export interface ItemNav {
   modulos?: Modulo[];
   /** Capacidad que la sede activa debe tener (según su tipo). Si falta, se oculta. */
   capacidad?: Capacidad;
-  /** Solo para instituciones de esta naturaleza (p. ej. los módulos de fundación). */
-  naturaleza?: Naturaleza;
   soloSuperadmin?: boolean;
   /** No aparece en el menú, solo en el buscador (Ctrl+K): secciones dentro de una entrada agrupada. */
   soloBusqueda?: boolean;
@@ -71,7 +66,6 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/laboratorio", etiqueta: "Laboratorio", icono: FlaskConical, modulo: "laboratorio", capacidad: "laboratorio", grupo: "Operación" },
   { ruta: "/farmacia", etiqueta: "Farmacia", icono: Tablets, modulo: "farmacia", capacidad: "farmacia_pos", grupo: "Operación" },
   { ruta: "/internamiento", etiqueta: "Internamiento", icono: BedDouble, modulo: "internamiento", capacidad: "internamiento", grupo: "Operación" },
-  { ruta: "/fundacion", etiqueta: "Fundación", icono: HandHeart, modulo: "fundacion", naturaleza: "fundacion", grupo: "Operación" },
   { ruta: "/caja", etiqueta: "Caja y facturación", icono: Wallet, modulo: "caja", grupo: "Finanzas" },
   { ruta: "/gastos", etiqueta: "Gastos", icono: ReceiptText, modulo: "compras", grupo: "Finanzas" },
   { ruta: "/nomina", etiqueta: "Nómina", icono: WalletCards, modulo: "nomina", grupo: "Finanzas" },
@@ -95,10 +89,20 @@ export const NAVEGACION: ItemNav[] = [
   { ruta: "/administracion?vista=auditoria", etiqueta: "Auditoría", icono: Settings2, modulo: "auditoria", soloBusqueda: true, grupo: "Gestión" },
 ];
 
+/** Rutas que no se pueden apagar por hospital (espejo del check de sistemas.modulos_apagados). */
+export const MODULOS_FIJOS = ["/", "/personal", "/administracion", "/plataforma", "/ayuda"];
+
+/** ¿La ruta (o la sección ?vista= de una ruta) está apagada en este hospital? */
+export function moduloApagado(ruta: string, apagados: readonly string[]) {
+  const base = ruta.split("?")[0];
+  return !MODULOS_FIJOS.includes(base) && apagados.includes(base);
+}
+
 /**
  * ¿Esta persona ve esta entrada? Una sola regla para menú, buscador y Personalización.
  * `capacidades` (opcional) = capacidades de la sede activa; si se pasa, oculta las
  * entradas cuya `capacidad` no esté activa en esa sede. Sin él, no filtra por sede.
+ * `apagados` = rutas que el superadmin apagó para este hospital (sistemas.modulos_apagados).
  */
 export function puedeVer(
   i: ItemNav,
@@ -107,12 +111,11 @@ export function puedeVer(
   permisos: Permisos | null | undefined,
   propio: boolean,
   capacidades?: Partial<Record<Capacidad, boolean>>,
-  naturaleza?: Naturaleza,
+  apagados?: readonly string[],
 ) {
   if (i.soloSuperadmin) return esSuperadmin;
   if (i.ocultoPropio && propio) return false;
-  // Sin naturaleza conocida no se muestran los módulos propios de una (a diferencia de la sede).
-  if (i.naturaleza && i.naturaleza !== naturaleza) return false;
+  if (apagados?.length && moduloApagado(i.ruta, apagados)) return false;
   if (i.capacidad && capacidades && capacidades[i.capacidad] !== true) return false;
   if (i.modulos) return i.modulos.some((m) => puede(roles, m, esSuperadmin, permisos));
   return i.modulo ? puede(roles, i.modulo, esSuperadmin, permisos) : true;
@@ -130,6 +133,7 @@ export function inicioPorRol(roles: Rol[], esSuperadmin: boolean): string {
   if (tiene("caja")) return "/caja";
   if (tiene("medico", "psicologia", "nutricion", "terapia")) return "/recepcion";
   if (tiene("enfermeria")) return "/enfermeria";
+  if (tiene("laboratorio")) return "/laboratorio";
   if (tiene("farmacia")) return "/inventario";
   return "/";
 }

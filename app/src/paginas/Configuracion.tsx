@@ -8,6 +8,7 @@ import { Boton } from "@/components/ui/boton";
 import { Entrada, Interruptor, Selector } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
 import { EncabezadoPagina, Esqueleto, Insignia, Tarjeta, Vacio } from "@/components/ui/superficies";
+import { MODULOS_FIJOS, NAVEGACION } from "@/components/layout/navegacion";
 import { claves, useSedes } from "@/lib/consultas";
 import { ETIQUETA_NATURALEZA, type Naturaleza } from "@/lib/fundacion";
 import { datos, mensajeError, supabase, type Fila } from "@/lib/supabase";
@@ -134,7 +135,7 @@ export default function Configuracion() {
                 </Selector>
                 <p className="self-end pb-2 text-xs text-texto-3">
                   {f.naturaleza === "fundacion"
-                    ? "Activa la sección Fundación: fondos de donantes, tarifa social, voluntarios y jornadas."
+                    ? "Permite marcar voluntarios en Personal (no generan comisión)."
                     : "El tipo de cada sede (abajo) dice qué servicios da; esto dice cómo se financia."}
                 </p>
                 <Entrada
@@ -215,10 +216,60 @@ export default function Configuracion() {
 
         <div className="space-y-4">
           <Sedes />
+          <ModulosActivos />
           <AjustesIa />
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Módulos activos por hospital: apaga del menú, el buscador y el Inicio las secciones
+ * que este hospital no usa. Solo presentación (los permisos siguen en RLS por rol).
+ */
+function ModulosActivos() {
+  const { sistemaId } = useSistema();
+  const { recargar } = useSesion();
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["naturaleza", sistemaId],
+    queryFn: async () => datos(await supabase.from("sistemas").select("naturaleza, modulos_apagados").eq("id", sistemaId).single()) as { naturaleza: string; modulos_apagados: string[] },
+  });
+  const opciones = NAVEGACION.filter((i) => !i.soloBusqueda && !i.soloSuperadmin && !MODULOS_FIJOS.includes(i.ruta));
+  const m = useMutation({
+    mutationFn: async (apagados: string[]) => {
+      const { error } = await supabase.from("sistemas").update({ modulos_apagados: apagados }).eq("id", sistemaId);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["naturaleza", sistemaId] });
+      await recargar();
+    },
+    onError: (e) => toast.error(mensajeError(e)),
+  });
+  const apagados = q.data?.modulos_apagados ?? [];
+  return (
+    <Tarjeta className="p-5">
+      <h2 className="text-[0.9375rem] font-semibold">Módulos activos</h2>
+      <p className="mt-1 mb-3 text-xs text-texto-3">
+        Apaga lo que este hospital no usa: desaparece del menú, el buscador y el Inicio para todo su personal. No borra datos ni cambia permisos; se vuelve a encender cuando quieras.
+      </p>
+      {q.isLoading ? (
+        <Esqueleto className="h-40" />
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {opciones.map((i) => (
+            <Interruptor
+              key={i.ruta}
+              activo={!apagados.includes(i.ruta)}
+              onChange={(v) => m.mutate(v ? apagados.filter((r) => r !== i.ruta) : [...apagados, i.ruta])}
+              etiqueta={i.etiqueta}
+            />
+          ))}
+        </div>
+      )}
+    </Tarjeta>
   );
 }
 

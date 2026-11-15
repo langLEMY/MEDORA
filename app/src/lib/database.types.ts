@@ -5030,6 +5030,7 @@ export type Database = {
           id: string
           logo_factura: string | null
           logo_url: string | null
+          modulos_apagados: string[]
           moneda: string
           naturaleza: string
           nombre: string
@@ -5059,6 +5060,7 @@ export type Database = {
           id?: string
           logo_factura?: string | null
           logo_url?: string | null
+          modulos_apagados?: string[]
           moneda?: string
           naturaleza?: string
           nombre: string
@@ -5088,6 +5090,7 @@ export type Database = {
           id?: string
           logo_factura?: string | null
           logo_url?: string | null
+          modulos_apagados?: string[]
           moneda?: string
           naturaleza?: string
           nombre?: string

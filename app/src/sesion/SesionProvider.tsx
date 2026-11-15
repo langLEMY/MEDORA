@@ -49,8 +49,10 @@ interface ContextoSesion {
   /** Capacidades efectivas de la sede activa (según su tipo + overrides). */
   capacidades: Partial<Record<Capacidad, boolean>>;
   cambiarSede: (id: string) => void;
-  /** Cómo se financia el sistema: privada, fundación (ASFL) o pública. Activa los módulos de fundación. */
+  /** Cómo se financia el sistema: privada, fundación (ASFL) o pública. */
   naturaleza: Naturaleza;
+  /** Rutas del menú que el superadmin apagó para este hospital (solo presentación). */
+  modulosApagados: string[];
   roles: Rol[];
   permisos: Permisos;
   /** Falso mientras se usa «ver como» (para probar exactamente lo que ve ese rol). */
@@ -188,7 +190,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     enabled: !!sistema?.id,
     staleTime: 5 * 60_000,
     queryFn: async () =>
-      datos(await supabase.from("sistemas").select("naturaleza").eq("id", sistema!.id).maybeSingle()) as { naturaleza: Naturaleza } | null,
+      datos(await supabase.from("sistemas").select("naturaleza, modulos_apagados").eq("id", sistema!.id).maybeSingle()) as { naturaleza: Naturaleza; modulos_apagados: string[] } | null,
   });
 
   const cambiarSede = useCallback((id: string) => {
@@ -287,6 +289,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     capacidades,
     cambiarSede,
     naturaleza: naturalezaQ.data?.naturaleza ?? "privada",
+    modulosApagados: naturalezaQ.data?.modulos_apagados ?? [],
     roles: rolesVista,
     // Viendo como otro rol no cuentan los permisos personales (igual que en Postgres).
     permisos: simulando ? {} : (sistema?.permisos ?? {}),

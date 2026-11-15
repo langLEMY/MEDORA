@@ -601,7 +601,7 @@ function EditarMiembro({ miembro, onCerrar }: { miembro: Miembro | null; onCerra
         )}
         <Interruptor activo={agenda} onChange={setAgenda} etiqueta="Atiende citas (aparece como columna en la agenda)" />
         {naturaleza === "fundacion" && (
-          <Interruptor activo={voluntario} onChange={setVoluntario} etiqueta="Voluntario (no genera comisión; cuenta en el reporte de la fundación)" />
+          <Interruptor activo={voluntario} onChange={setVoluntario} etiqueta="Voluntario (no genera comisión)" />
         )}
         {agenda && (
           <Entrada

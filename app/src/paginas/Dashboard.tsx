@@ -30,6 +30,7 @@ import { puede, puedeEscribir } from "@/lib/permisos";
 import { datos, supabase, type EstadoCita } from "@/lib/supabase";
 import { cn, hora, isoDia, moneda } from "@/lib/utils";
 import { useSesion, useSistema } from "@/sesion/SesionProvider";
+import { moduloApagado } from "@/components/layout/navegacion";
 
 interface Resumen {
   hoy: string;
@@ -349,6 +350,7 @@ function RepartoDia({ porEstado, cargando }: { porEstado: Partial<Record<EstadoC
 
 function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: string; ahora: Date }) {
   const { sistemaId, roles, permisos } = useSistema();
+  const { modulosApagados } = useSesion();
   const verFinanzas = puede(roles, "caja", false, permisos);
   const verInventario = puede(roles, "inventario", false, permisos);
   const verRecepcion = puede(roles, "recepcion", false, permisos);
@@ -375,7 +377,7 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
     verFinanzas && { etiqueta: "Cobrar", ruta: "/caja?accion=cobro", icono: Wallet, principal: !verRecepcion },
     puedeEscribir.citas(roles) && { etiqueta: "Programar cita", ruta: "/agenda?accion=nueva", icono: CalendarPlus },
     puedeEscribir.pacientes(roles) && { etiqueta: "Nuevo paciente", ruta: "/pacientes?accion=nuevo", icono: UserPlus },
-  ].filter(Boolean) as Accion[];
+  ].filter((a): a is Accion => !!a && !moduloApagado(a.ruta, modulosApagados));
 
   const frase = resumen.isLoading ? (
     <Esqueleto className="h-4 w-72" />
@@ -519,6 +521,7 @@ function InicioOperacion({ nombre, fecha, ahora }: { nombre: string; fecha: stri
 
 function InicioMedico({ yo, nombre, fecha, ahora }: { yo: string; nombre: string; fecha: string; ahora: Date }) {
   const { sistemaId, roles, permisos } = useSistema();
+  const { modulosApagados } = useSesion();
   const verEstadisticas = puede(roles, "estadisticas", false, permisos);
 
   const inicioHoy = new Date();
@@ -552,7 +555,7 @@ function InicioMedico({ yo, nombre, fecha, ahora }: { yo: string; nombre: string
     { etiqueta: "Ir a mi consulta", ruta: "/recepcion", icono: Stethoscope, principal: true },
     { etiqueta: "Mi agenda", ruta: "/agenda", icono: CalendarCheck },
     verEstadisticas && { etiqueta: "Mis estadísticas", ruta: "/estadisticas", icono: ChartColumn },
-  ].filter(Boolean) as Accion[];
+  ].filter((a): a is Accion => !!a && !moduloApagado(a.ruta, modulosApagados));
 
   const frase = citasQ.isLoading ? (
     <Esqueleto className="h-4 w-72" />
