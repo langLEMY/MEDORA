@@ -1,4 +1,5 @@
 import { datos, supabase, type Fila } from "@/lib/supabase";
+import { codigoCie10 } from "./cie10";
 
 /*
  * Exportación del expediente en HL7 FHIR R4 (Bundle «collection»), para entregarlo a otro
@@ -132,12 +133,17 @@ export function construirBundle(d: DatosFhir, ahora = new Date()): Recurso {
       if (items.length) continue;
     }
     if (h.tipo === "diagnostico") {
+      // Con código CIE-10 (lo que usa Salud Pública), el diagnóstico viaja codificado.
+      const dx = String((h.datos as Record<string, unknown> | null)?.diagnostico ?? "");
+      const cod = codigoCie10(dx);
       recursos.push({
         resourceType: "Condition",
         id: h.id,
         ...comun,
         recordedDate: h.creado_en,
-        code: { text: h.titulo || h.contenido.slice(0, 200) },
+        code: cod
+          ? { coding: [{ system: "http://hl7.org/fhir/sid/icd-10", code: cod, display: dx.slice(dx.indexOf("·") + 1).trim() }], text: dx }
+          : { text: h.titulo || h.contenido.slice(0, 200) },
         ...(h.contenido ? { note: [{ text: h.contenido }] } : {}),
       });
       continue;

@@ -729,6 +729,20 @@ begin
   perform pg_temp.ok('Fundación', 'Enfermería no ve los estudios socioeconómicos', n = 0, n::text);
 end $$;
 
+-- ---------------------------------------------------------------- «ver como»: solo resta, y solo para superadmin
+do $$
+declare v_s uuid := pg_temp.c('s')::uuid;
+begin
+  -- Quien no es superadmin no puede usar la cabecera para cambiar sus permisos.
+  perform pg_temp.como(pg_temp.c('caja')::uuid);
+  perform set_config('request.headers', '{"x-medora-ver-como":"medico"}', true);
+  perform pg_temp.ok('Ver como', 'Un usuario normal no cambia sus permisos con la cabecera',
+    privado.tiene_rol(v_s, '{caja}') and not privado.tiene_rol(v_s, '{medico}'), 'caja=' || privado.tiene_rol(v_s, '{caja}'));
+  perform set_config('request.headers', '{"x-medora-ver-como":"admin"}', true);
+  perform pg_temp.ok('Ver como', 'Pedir un rol que no se tiene no lo da', not privado.tiene_rol(v_s, '{admin}'), 'admin=' || privado.tiene_rol(v_s, '{admin}'));
+  perform set_config('request.headers', '{}', true);
+end $$;
+
 -- ---------------------------------------------------------------- aislamiento con FUNBIDE real
 do $$
 declare v_real uuid := (select pruebas_de from public.sistemas where id = pg_temp.c('s')::uuid); n int;

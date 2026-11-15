@@ -67,7 +67,10 @@ export function DocumentoClinico({
   datos?: Record<string, unknown>;
 }) {
   const formulario = tipo === "formulario" ? FORMULARIO_POR_CLAVE[String(datos.formulario ?? "")] : undefined;
-  const nombreDoc = formulario?.nombre ?? TITULO[tipo];
+  const tipoRef = tipo === "referimiento" ? texto(datos.tipo_referimiento) : "";
+  const nombreDoc =
+    formulario?.nombre ??
+    (tipoRef === "Estudios" ? "Referimiento de estudios" : tipoRef === "Contrarreferencia" ? "Contrarreferencia" : TITULO[tipo]);
 
   return (
     <Documento abierto={abierto} onCerrar={onCerrar} titulo={nombreDoc} nombreArchivo={`${nombreDoc} ${paciente}`}>
@@ -105,6 +108,17 @@ export function DocumentoClinico({
           {contenido?.trim() && tipo === "orden" && contenido.trim() !== (items ?? []).map((i) => i.nombre).join("\n") && (
             <p className="mb-6 whitespace-pre-wrap text-[#475467]">{contenido}</p>
           )}
+        </>
+      ) : tipo === "referimiento" && (texto(datos.destino) || texto(datos.diagnostico) || texto(datos.estudios)) ? (
+        <>
+          {texto(datos.destino) && (
+            <p className="mb-3">
+              <span className="text-[#475467]">Referido a:</span> <b>{texto(datos.destino)}</b>
+              {texto(datos.prioridad) && texto(datos.prioridad) !== "Normal" && <b className="ml-2 text-[#b42318]">· {texto(datos.prioridad).toUpperCase()}</b>}
+            </p>
+          )}
+          <Campos campos={(CAMPOS_TIPO.referimiento ?? []).filter((c) => !["tipo_referimiento", "destino", "prioridad"].includes(c.clave))} datos={datos} />
+          {contenido?.trim() && !/^Registro estructurado$/.test(contenido.trim()) && <p className="mb-6 whitespace-pre-wrap">{contenido}</p>}
         </>
       ) : tipo === "licencia" ? (
         <Licencia datos={datos} paciente={paciente} contenido={contenido} />

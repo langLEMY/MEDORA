@@ -53,6 +53,8 @@ const base = (): DatosFhir => ({
   ],
 });
 
+const condicion = (b: ReturnType<typeof construirBundle>) =>
+  (b.entry as { resource: { resourceType: string } }[]).map((e) => e.resource).find((r) => r.resourceType === "Condition");
 const tipos = (b: ReturnType<typeof construirBundle>) =>
   (b.entry as { resource: { resourceType: string } }[]).map((e) => e.resource.resourceType);
 
@@ -94,6 +96,19 @@ describe("construirBundle (FHIR R4)", () => {
     const refs = JSON.stringify(entradas).match(/"reference":"([^"]+)"/g) ?? [];
     expect(refs.length).toBeGreaterThan(0);
     for (const r of refs) expect(urls.has(r.slice(13, -1))).toBe(true);
+  });
+
+  it("un diagnóstico con código CIE-10 viaja codificado en ICD-10", () => {
+    const d = base();
+    const dx = d.historial.find((h) => h.tipo === "diagnostico")!;
+    dx.datos = { diagnostico: "I10 · Hipertensión esencial (primaria)" };
+    const b = construirBundle(d);
+    const c = condicion(b) as unknown as { code: { coding?: { system: string; code: string; display: string }[]; text: string } };
+    expect(c.code.coding?.[0]).toEqual({ system: "http://hl7.org/fhir/sid/icd-10", code: "I10", display: "Hipertensión esencial (primaria)" });
+    // Sin código (registro viejo) queda solo el texto.
+    dx.datos = null;
+    const c2 = condicion(construirBundle(d)) as unknown as { code: { coding?: unknown[] } };
+    expect(c2.code.coding).toBeUndefined();
   });
 
   it("el texto de las notas va en base64 UTF-8 (acentos incluidos)", () => {

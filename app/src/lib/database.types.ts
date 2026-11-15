@@ -829,6 +829,30 @@ export type Database = {
           },
         ]
       }
+      cie10: {
+        Row: {
+          busqueda: string | null
+          capitulo: string | null
+          codigo: string
+          descripcion: string
+          sinonimos: string | null
+        }
+        Insert: {
+          busqueda?: string | null
+          capitulo?: string | null
+          codigo: string
+          descripcion: string
+          sinonimos?: string | null
+        }
+        Update: {
+          busqueda?: string | null
+          capitulo?: string | null
+          codigo?: string
+          descripcion?: string
+          sinonimos?: string | null
+        }
+        Relationships: []
+      }
       citas: {
         Row: {
           actualizado_en: string
@@ -5570,6 +5594,14 @@ export type Database = {
           tipo: string
         }[]
       }
+      buscar_cie10: {
+        Args: { p_limite?: number; p_texto: string }
+        Returns: {
+          capitulo: string
+          codigo: string
+          descripcion: string
+        }[]
+      }
       cambiar_estado_solicitud_soporte: {
         Args: { p_estado: string; p_prioridad?: string; p_solicitud: string }
         Returns: undefined
@@ -5852,6 +5884,7 @@ export type Database = {
         Args: { p_cita: string; p_paciente: string }
         Returns: undefined
       }
+      importar_cie10: { Args: { p_filas: Json }; Returns: Json }
       importar_coberturas: {
         Args: { p_aseguradora: string; p_filas: Json; p_sistema: string }
         Returns: Json

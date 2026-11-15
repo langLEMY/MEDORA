@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Ban, Check, ClipboardList, FlaskConical, MoreHorizontal, Plus, Printer, RotateCcw, Scan, Stethoscope, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { SelectorCie10 } from "@/components/SelectorCie10";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada, Segmentado } from "@/components/ui/campos";
 import { ItemMenu, Menu } from "@/components/ui/menu";
@@ -434,7 +435,7 @@ export function NuevaOrden({ tipo, pacienteId, onCerrar }: { tipo: TipoOrden | n
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Entrada etiqueta="Proveedor (opcional)" placeholder="Laboratorio o centro de imágenes" value={proveedor} onChange={(e) => setProveedor(e.target.value)} />
-          <Entrada etiqueta="Diagnóstico (opcional)" placeholder="Para la ARS y el proveedor" value={diagnostico} onChange={(e) => setDiagnostico(e.target.value)} />
+          <SelectorCie10 etiqueta="Diagnóstico CIE-10 (lo pide la ARS)" valor={diagnostico} onChange={setDiagnostico} />
         </div>
         <AreaTexto etiqueta="Indicaciones (opcional)" className="min-h-16" placeholder="Ayuno de 8 horas, traer estudios previos…" value={indicaciones} onChange={(e) => setIndicaciones(e.target.value)} />
       </div>

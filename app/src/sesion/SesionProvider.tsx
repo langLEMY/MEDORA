@@ -3,7 +3,7 @@ import { borrarCacheOperativa } from "@/lib/sinConexion";
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { marcarSalidaInvoluntaria } from "@/lib/equipo";
-import { datos, supabase, type Fila, type Rol } from "@/lib/supabase";
+import { datos, fijarVerComo, supabase, type Fila, type Rol } from "@/lib/supabase";
 import type { Permisos } from "@/lib/permisos";
 import { sincronizarDesdePerfil } from "@/lib/preferencias";
 import { contextoMonitoreo } from "@/lib/monitoreo";
@@ -55,7 +55,15 @@ interface ContextoSesion {
   tarifaSocial: TarifaSocial | null;
   roles: Rol[];
   permisos: Permisos;
+  /** Falso mientras se usa «ver como» (para probar exactamente lo que ve ese rol). */
   esSuperadmin: boolean;
+  /** «Ver como» (superadmin): roles simulados, o null. Postgres los usa solo para restar permisos. */
+  verComo: Rol[] | null;
+  cambiarVerComo: (roles: Rol[] | null) => void;
+  /** Superadmin de verdad (aunque esté viendo como otro rol). */
+  esSuperadminReal: boolean;
+  /** Mis roles reales en el sistema activo (los que se pueden simular). */
+  rolesReales: Rol[];
   /** La cuenta tiene 2FA y esta sesión todavía no pasó el código (aal1 → aal2). */
   requiereSegundoPaso: boolean;
   /** Vuelve a leer el nivel de verificación (tras activar o quitar el 2FA). */
@@ -68,6 +76,19 @@ interface ContextoSesion {
 const Contexto = createContext<ContextoSesion | null>(null);
 const CLAVE_SISTEMA = "medora.sistema";
 const CLAVE_SEDE = "medora.sede";
+// En sessionStorage: cerrar la app vuelve a la vista propia.
+const CLAVE_VER_COMO = "medora.ver-como";
+
+function leerVerComo(): Rol[] | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(CLAVE_VER_COMO) ?? "null") as unknown;
+    const roles = Array.isArray(v) ? (v.filter((x) => typeof x === "string") as Rol[]) : null;
+    fijarVerComo(roles);
+    return roles?.length ? roles : null;
+  } catch {
+    return null;
+  }
+}
 
 function leerSistemaGuardado() {
   try {
@@ -83,6 +104,8 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const [sesionLista, setSesionLista] = useState(false);
   const [sistemaId, setSistemaId] = useState<string | null>(leerSistemaGuardado);
   const saliendo = useRef(false);
+  // Se lee antes de cualquier consulta, así la cabecera ya va en la primera petición.
+  const [verComo, setVerComo] = useState<Rol[] | null>(leerVerComo);
   const [sedeId, setSedeId] = useState<string | null>(() => {
     try {
       return localStorage.getItem(CLAVE_SEDE);
@@ -210,8 +233,42 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     [usuarioId],
   );
 
+  // «Ver como»: solo un superadmin real, y solo resta (los roles simulados ∩ los suyos).
+  const esSuperadminReal = !!perfilQ.data?.es_superadmin;
+  const rolesReales = useMemo(() => sistema?.roles ?? [], [sistema?.roles]);
+  const simulando = esSuperadminReal && !!verComo?.length;
+  const rolesVista = useMemo(() => (simulando ? rolesReales.filter((r) => verComo!.includes(r)) : rolesReales), [simulando, rolesReales, verComo]);
+
+  const cambiarVerComo = useCallback(
+    (roles: Rol[] | null) => {
+      const v = roles?.length ? roles : null;
+      setVerComo(v);
+      fijarVerComo(v);
+      try {
+        if (v) sessionStorage.setItem(CLAVE_VER_COMO, JSON.stringify(v));
+        else sessionStorage.removeItem(CLAVE_VER_COMO);
+      } catch {
+        /* sin almacenamiento */
+      }
+      // Lo que se ve depende del rol: se vuelve a pedir todo con la cabecera nueva.
+      void qc.resetQueries();
+    },
+    [qc],
+  );
+
+  // Una cabecera guardada en una PC compartida no sirve a quien no es superadmin.
+  useEffect(() => {
+    if (perfilQ.data && !perfilQ.data.es_superadmin && verComo) cambiarVerComo(null);
+  }, [perfilQ.data, verComo, cambiarVerComo]);
+
   const cerrarSesion = useCallback(async () => {
     saliendo.current = true;
+    fijarVerComo(null);
+    try {
+      sessionStorage.removeItem(CLAVE_VER_COMO);
+    } catch {
+      /* sin almacenamiento */
+    }
     await supabase.rpc("registrar_evento", { p_accion: "LOGOUT", p_sistema: sistema?.id });
     await supabase.auth.signOut();
     await borrarCacheOperativa();
@@ -233,9 +290,14 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     cambiarSede,
     naturaleza: naturalezaQ.data?.naturaleza ?? "privada",
     tarifaSocial: naturalezaQ.data?.tarifa_social ?? null,
-    roles: sistema?.roles ?? [],
-    permisos: sistema?.permisos ?? {},
-    esSuperadmin: !!perfilQ.data?.es_superadmin,
+    roles: rolesVista,
+    // Viendo como otro rol no cuentan los permisos personales (igual que en Postgres).
+    permisos: simulando ? {} : (sistema?.permisos ?? {}),
+    esSuperadmin: esSuperadminReal && !simulando,
+    verComo: simulando ? verComo : null,
+    cambiarVerComo,
+    esSuperadminReal,
+    rolesReales,
     requiereSegundoPaso,
     actualizarVerificacion,
     cambiarSistema,

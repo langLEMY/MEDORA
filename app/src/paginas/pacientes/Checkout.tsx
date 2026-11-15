@@ -3,6 +3,7 @@ import { CalendarPlus, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { SelectorCie10 } from "@/components/SelectorCie10";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada } from "@/components/ui/campos";
 import { Modal } from "@/components/ui/modal";
@@ -195,7 +196,9 @@ function ModalCheckout({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {CAMPOS_CHECKOUT.map((c) =>
-              c.tipo === "area" ? (
+              c.tipo === "cie10" ? (
+                <SelectorCie10 key={c.clave} etiqueta={c.etiqueta} contenedor="sm:col-span-2" valor={campos[c.clave] ?? ""} onChange={(v) => setCampos((s) => ({ ...s, [c.clave]: v }))} />
+              ) : c.tipo === "area" ? (
                 <AreaTexto
                   key={c.clave}
                   etiqueta={c.etiqueta}

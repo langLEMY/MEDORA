@@ -3,6 +3,7 @@ import {
   Building2,
   Check,
   ChevronsUpDown,
+  Eye,
   LogOut,
   Monitor,
   Moon,
@@ -32,6 +33,7 @@ import { BotonAyuda } from "@/components/soporte/BotonAyuda";
 import { PaletaComandos } from "./PaletaComandos";
 import { FranjaPruebas } from "@/paginas/plataforma/EntornoPruebas";
 import { FranjaSinConexion } from "@/components/FranjaSinConexion";
+import { FranjaVerComo, ModalVerComo } from "@/components/VerComo";
 import { BloqueoSesion } from "@/components/BloqueoSesion";
 import { AvisoLlamados } from "@/components/LlamadosEnVivo";
 import { nombrePantalla, useAnunciarPresencia } from "@/lib/presencia";
@@ -39,14 +41,15 @@ import { nombrePantalla, useAnunciarPresencia } from "@/lib/presencia";
 const CLAVE_COLAPSADO = "medora.nav-colapsada";
 
 export function AppShell() {
-  const { roles, permisos, esSuperadmin, sistema, perfil, sesion, sede, capacidades, naturaleza } = useSesion();
+  const { roles, permisos, esSuperadmin, esSuperadminReal, sistema, perfil, sesion, sede, capacidades, naturaleza } = useSesion();
   const location = useLocation();
-  // Presencia: el personal ve quién está conectado; la superadministración no se anuncia.
+  // Presencia: el personal ve quién está conectado; la superadministración no se anuncia
+  // (tampoco mientras usa «ver como»: por eso el superadmin real, no el simulado).
   useAnunciarPresencia(
     sistema?.id,
     sesion ? { id: sesion.user.id, nombre: perfil?.nombre_completo ?? "" } : null,
     nombrePantalla(location.pathname),
-    !esSuperadmin,
+    !esSuperadminReal,
   );
   const [colapsada, setColapsada] = useState(() => {
     try {
@@ -192,6 +195,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <FranjaSinConexion />
         <FranjaPruebas sistemaId={sistema?.id} />
+        <FranjaVerComo />
         <BarraSuperior onBuscar={() => setPaleta(true)} />
         <main className="flex-1 overflow-y-auto">
           <motion.div
@@ -364,7 +368,8 @@ function SelectorSede({ colapsada }: { colapsada: boolean }) {
 }
 
 function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
-  const { perfil, cerrarSesion } = useSesion();
+  const { perfil, cerrarSesion, esSuperadminReal } = useSesion();
+  const [verComo, setVerComo] = useState(false);
   const navigate = useNavigate();
   const { tema, texto } = usePreferencias();
 
@@ -417,6 +422,17 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
             >
               Mi perfil
             </ItemMenu>
+            {esSuperadminReal && (
+              <ItemMenu
+                icono={<Eye />}
+                onClick={() => {
+                  cerrar();
+                  setVerComo(true);
+                }}
+              >
+                Ver como…
+              </ItemMenu>
+            )}
             <div className="flex items-center gap-1 px-2.5 py-1.5">
               <span className="flex-1 text-sm text-texto-2">Tema</span>
               {(
@@ -477,6 +493,7 @@ function BarraSuperior({ onBuscar }: { onBuscar: () => void }) {
           </>
         )}
       </Menu>
+      <ModalVerComo abierto={verComo} onCerrar={() => setVerComo(false)} />
     </header>
   );
 }

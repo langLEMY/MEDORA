@@ -13,7 +13,7 @@ export type CampoClinico = {
   etiqueta: string;
   placeholder?: string;
   opciones?: string[];
-  tipo?: "texto" | "numero" | "fecha" | "area";
+  tipo?: "texto" | "numero" | "fecha" | "area" | "cie10";
 };
 
 export type GrupoFormulario = "clinicos" | "enfermeria";
@@ -62,7 +62,7 @@ export const FORMULARIOS: DefFormulario[] = [
       { clave: "enfermedad_actual", etiqueta: "Historia de la enfermedad actual", tipo: "area" },
       { clave: "revision_sistemas", etiqueta: "Revisión por sistemas", tipo: "area" },
       { clave: "examen_fisico", etiqueta: "Examen físico", tipo: "area" },
-      { clave: "impresion", etiqueta: "Impresión diagnóstica (CIE-10)", placeholder: "I10 Hipertensión esencial" },
+      { clave: "impresion", etiqueta: "Impresión diagnóstica (CIE-10)", tipo: "cie10" },
       { clave: "plan", etiqueta: "Plan", tipo: "area" },
     ],
   },
@@ -131,8 +131,8 @@ export const FORMULARIOS: DefFormulario[] = [
     campos: [
       { clave: "fecha_ingreso", etiqueta: "Fecha de ingreso", tipo: "fecha" },
       { clave: "fecha_egreso", etiqueta: "Fecha de egreso", tipo: "fecha" },
-      { clave: "dx_ingreso", etiqueta: "Diagnóstico de ingreso" },
-      { clave: "dx_egreso", etiqueta: "Diagnóstico de egreso" },
+      { clave: "dx_ingreso", etiqueta: "Diagnóstico de ingreso (CIE-10)", tipo: "cie10" },
+      { clave: "dx_egreso", etiqueta: "Diagnóstico de egreso (CIE-10)", tipo: "cie10" },
       { clave: "condicion", etiqueta: "Condición al egreso", opciones: ["Mejorado", "Igual", "Referido", "Alta voluntaria", "Fallecido"] },
       { clave: "evolucion", etiqueta: "Evolución", tipo: "area" },
       { clave: "tratamiento", etiqueta: "Tratamiento al alta", tipo: "area" },
@@ -354,7 +354,7 @@ export const NIVELES_ESI = ["1 · Reanimación", "2 · Emergencia", "3 · Urgent
 
 /** Cierre de la consulta (lo escribe checkout_consulta). */
 export const CAMPOS_CHECKOUT: CampoClinico[] = [
-  { clave: "diagnostico", etiqueta: "Diagnóstico" },
+  { clave: "diagnostico", etiqueta: "Diagnóstico (CIE-10)", tipo: "cie10" },
   { clave: "plan", etiqueta: "Plan", tipo: "area" },
   { clave: "indicaciones", etiqueta: "Indicaciones al paciente", tipo: "area" },
   { clave: "proxima_cita", etiqueta: "Próxima cita sugerida", tipo: "fecha" },
@@ -366,6 +366,9 @@ export const VACUNAS = [
   "BCG", "Hepatitis B", "Pentavalente", "Polio (IPV)", "Polio (bOPV)", "Rotavirus", "Neumococo", "SRP (sarampión, rubéola, paperas)",
   "DPT", "dT / Td", "Tdap", "Influenza", "VPH", "COVID-19", "Fiebre amarilla", "Varicela", "Hepatitis A", "Antirrábica", "Otra",
 ];
+
+/** Referimientos (a especialista, para estudios, traslado o respuesta del especialista). */
+export const TIPOS_REFERIMIENTO = ["Interconsulta con especialista", "Estudios", "Traslado / internamiento", "Contrarreferencia"];
 
 export const CAMPOS_TIPO: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = {
   vacuna: [
@@ -382,7 +385,17 @@ export const CAMPOS_TIPO: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = 
     { clave: "reposo", etiqueta: "Reposo", opciones: ["Absoluto", "Relativo"] },
     { clave: "desde", etiqueta: "Desde", tipo: "fecha" },
     { clave: "hasta", etiqueta: "Hasta", tipo: "fecha" },
-    { clave: "diagnostico", etiqueta: "Diagnóstico" },
+    { clave: "diagnostico", etiqueta: "Diagnóstico (CIE-10)", tipo: "cie10" },
+  ],
+  referimiento: [
+    { clave: "tipo_referimiento", etiqueta: "Tipo", opciones: TIPOS_REFERIMIENTO },
+    { clave: "prioridad", etiqueta: "Prioridad", opciones: ["Normal", "Preferente", "Urgente"] },
+    { clave: "destino", etiqueta: "Referido a (especialidad, médico o centro)", placeholder: "Cardiología · Hospital Darío Contreras" },
+    { clave: "diagnostico", etiqueta: "Diagnóstico (CIE-10)", tipo: "cie10" },
+    { clave: "estudios", etiqueta: "Estudios solicitados", tipo: "area", placeholder: "Hemograma, perfil lipídico, sonografía abdominal…" },
+    { clave: "motivo", etiqueta: "Motivo del referimiento", tipo: "area" },
+    { clave: "resumen", etiqueta: "Resumen clínico (hallazgos y evolución)", tipo: "area" },
+    { clave: "tratamiento", etiqueta: "Tratamiento actual", tipo: "area" },
   ],
   consentimiento: [
     { clave: "procedimiento", etiqueta: "Procedimiento o tratamiento", placeholder: "Colecistectomía laparoscópica" },

@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Documento, EncabezadoDocumento, TablaDocumento } from "@/components/Documento";
+import { SelectorCie10 } from "@/components/SelectorCie10";
 import { TONO_CATEGORIA } from "@/components/TarifaSocial";
 import { Boton } from "@/components/ui/boton";
 import { AreaTexto, Entrada, Interruptor, Segmentado, Selector } from "@/components/ui/campos";
@@ -1008,7 +1009,7 @@ function RegistrarAtencion({ abierto, onCerrar, jornada }: { abierto: boolean; o
           <Entrada etiqueta="Servicio" contenedor="sm:col-span-2" placeholder="Medicina general, odontología…" value={f.servicio} onChange={(e) => setF({ ...f, servicio: e.target.value })} />
         </div>
         <Entrada etiqueta="Motivo" value={f.motivo} onChange={(e) => setF({ ...f, motivo: e.target.value })} />
-        <Entrada etiqueta="Diagnóstico" value={f.diagnostico} onChange={(e) => setF({ ...f, diagnostico: e.target.value })} />
+        <SelectorCie10 valor={f.diagnostico} onChange={(v) => setF({ ...f, diagnostico: v })} />
         <AreaTexto etiqueta="Medicamentos entregados" className="min-h-14" value={f.medicamentos} onChange={(e) => setF({ ...f, medicamentos: e.target.value })} />
       </div>
     </Modal>

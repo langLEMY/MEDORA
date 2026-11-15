@@ -49,6 +49,7 @@ import {
   type CampoClinico,
 } from "./catalogoClinico";
 import { NuevaIndicacion } from "./Indicaciones";
+import { SelectorCie10 } from "@/components/SelectorCie10";
 import { DocumentoClinico, esDocumento, type ItemReceta, type MedicoFirma, type TipoDocumento } from "./DocumentoClinico";
 import { ItemsOrden, NuevaOrden, TIPO_ORDEN, useOrdenesPaciente, type OrdenMedica, type TipoOrden } from "./OrdenesMedicas";
 
@@ -78,6 +79,13 @@ const TIPOS: Record<TipoEntradaClinica, { etiqueta: string; tono: Tono }> = {
 
 // Campos estructurados de cada tipo (se guardan en historial_clinico.datos).
 const CAMPOS: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = {
+  // Todo diagnóstico se codifica con la CIE-10 (como lo exige Salud Pública).
+  consulta: [{ clave: "diagnostico", etiqueta: "Diagnóstico (CIE-10)", tipo: "cie10" }],
+  diagnostico: [
+    { clave: "diagnostico", etiqueta: "Diagnóstico principal (CIE-10)", tipo: "cie10" },
+    { clave: "diagnostico_2", etiqueta: "Diagnóstico secundario (CIE-10)", tipo: "cie10" },
+    { clave: "tipo_dx", etiqueta: "Tipo", opciones: ["Presuntivo", "Definitivo"] },
+  ],
   signos_vitales: CAMPOS_SIGNOS,
   nutricion: [
     { clave: "peso", etiqueta: "Peso (kg)", tipo: "numero" },
@@ -85,7 +93,7 @@ const CAMPOS: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = {
     { clave: "cintura", etiqueta: "Circ. abdominal (cm)", tipo: "numero" },
     { clave: "grasa", etiqueta: "Grasa corporal (%)", tipo: "numero" },
     { clave: "kcal", etiqueta: "Requerimiento (kcal/día)", tipo: "numero" },
-    { clave: "dx_nutricional", etiqueta: "Diagnóstico nutricional", placeholder: "Sobrepeso grado I" },
+    { clave: "dx_nutricional", etiqueta: "Diagnóstico nutricional (CIE-10)", tipo: "cie10" },
     { clave: "plan", etiqueta: "Plan alimentario", tipo: "area" },
   ],
   anestesia: [
@@ -101,7 +109,7 @@ const CAMPOS: Partial<Record<TipoEntradaClinica, CampoClinico[]>> = {
   psicologia: [
     { clave: "motivo", etiqueta: "Motivo de consulta", tipo: "area" },
     { clave: "estado_mental", etiqueta: "Examen del estado mental", tipo: "area" },
-    { clave: "impresion", etiqueta: "Impresión diagnóstica", placeholder: "CIE-10 / DSM-5" },
+    { clave: "impresion", etiqueta: "Impresión diagnóstica (CIE-10)", tipo: "cie10" },
     { clave: "plan", etiqueta: "Plan terapéutico", tipo: "area" },
     { clave: "proxima_sesion", etiqueta: "Próxima sesión", tipo: "fecha" },
   ],
@@ -148,7 +156,7 @@ export interface EntradaClinica {
 }
 
 /** Lo que se quiere crear desde el catálogo. */
-export type AccionClinica = { tipo: TipoEntradaClinica; formulario?: string } | { orden: TipoOrden } | { indicacion: true };
+export type AccionClinica = { tipo: TipoEntradaClinica; formulario?: string; campos?: Record<string, string> } | { orden: TipoOrden } | { indicacion: true };
 
 function imc(peso?: unknown, talla?: unknown) {
   const p = Number(peso);
@@ -189,7 +197,7 @@ export function useHistorial(pacienteId: string) {
  */
 export function HistorialClinico({ pacienteId, pacienteNombre, documento }: { pacienteId: string; pacienteNombre?: string; documento?: string | null }) {
   const { roles } = useSistema();
-  const [nueva, setNueva] = useState<{ corrige?: EntradaClinica; inicial?: { tipo: TipoEntradaClinica; formulario?: string } } | null>(null);
+  const [nueva, setNueva] = useState<{ corrige?: EntradaClinica; inicial?: { tipo: TipoEntradaClinica; formulario?: string; campos?: Record<string, string> } } | null>(null);
   const [orden, setOrden] = useState<TipoOrden | null>(null);
   const [indicacion, setIndicacion] = useState(false);
   const [selector, setSelector] = useState(false);
@@ -433,7 +441,8 @@ function CatalogoClinico({ onElegir, plano }: { onElegir: (a: AccionClinica) => 
         items: [
           { etiqueta: "Certificado médico", accion: { tipo: "certificado" } },
           { etiqueta: "Licencia médica", accion: { tipo: "licencia" } },
-          { etiqueta: "Referimiento", accion: { tipo: "referimiento" } },
+          { etiqueta: "Referimiento a especialista", accion: { tipo: "referimiento", campos: { tipo_referimiento: "Interconsulta con especialista" } } },
+          { etiqueta: "Referimiento de estudios", accion: { tipo: "referimiento", campos: { tipo_referimiento: "Estudios" } } },
           { etiqueta: "Adjuntos adicionales", accion: { tipo: "anexo" } },
         ],
       },
@@ -524,7 +533,7 @@ function EntradaVista({ e, paciente, documento, orden, pacienteId }: { e: Entrad
   const imprimible = esDocumento(e.tipo, e.datos);
   const archivos = (e.datos?.archivos as Archivo[] | undefined) ?? [];
   const definicion = camposDe(e.tipo, e.datos?.formulario);
-  const esArea = (k: string) => definicion.some((c) => c.clave === k && c.tipo === "area") || ["plan", "indicaciones"].includes(k);
+  const esArea = (k: string) => definicion.some((c) => c.clave === k && (c.tipo === "area" || c.tipo === "cie10")) || ["plan", "indicaciones"].includes(k);
   const esFecha = (k: string) => definicion.some((c) => c.clave === k && c.tipo === "fecha") || k === "proxima_cita";
   const valores = Object.entries(e.datos ?? {}).filter(([k, v]) => !OCULTOS.has(k) && v !== "" && v !== null && v !== undefined && typeof v !== "object");
   const cortos = valores.filter(([k]) => !esArea(k));
@@ -749,7 +758,7 @@ export function NuevaEntrada({
 }: {
   abierto: boolean;
   corrige?: EntradaClinica;
-  inicial?: { tipo: TipoEntradaClinica; formulario?: string };
+  inicial?: { tipo: TipoEntradaClinica; formulario?: string; campos?: Record<string, string> };
   pacienteId: string;
   onCerrar: () => void;
 }) {
@@ -774,7 +783,7 @@ export function NuevaEntrada({
     if (abierto && inicial) {
       setTipo(inicial.tipo);
       if (inicial.formulario) setFormulario(inicial.formulario);
-      setCampos({});
+      setCampos(inicial.campos ?? {});
     }
   }
 
@@ -863,11 +872,14 @@ export function NuevaEntrada({
     },
   });
 
+  // Un referimiento sin destino no sirve a quien lo recibe.
+  const faltaDestino = tipoEfectivo === "referimiento" && !(campos.destino ?? "").trim();
   const valido =
-    contenido.trim() ||
-    archivos.length > 0 ||
-    Object.values(campos).some((v) => v.trim()) ||
-    (tipoEfectivo === "receta" && items.some((i) => i.nombre.trim()));
+    !faltaDestino &&
+    (contenido.trim() ||
+      archivos.length > 0 ||
+      Object.values(campos).some((v) => v.trim()) ||
+      (tipoEfectivo === "receta" && items.some((i) => i.nombre.trim())));
 
   return (
     <Modal
@@ -952,7 +964,15 @@ export function NuevaEntrada({
               className="grid grid-cols-2 gap-3 sm:grid-cols-4"
             >
               {definicion.map((c) =>
-                c.opciones ? (
+                c.tipo === "cie10" ? (
+                  <SelectorCie10
+                    key={c.clave}
+                    etiqueta={c.etiqueta}
+                    contenedor="col-span-2 sm:col-span-4"
+                    valor={campos[c.clave] ?? ""}
+                    onChange={(v) => setCampos((s) => ({ ...s, [c.clave]: v }))}
+                  />
+                ) : c.opciones ? (
                   <Selector
                     key={c.clave}
                     etiqueta={c.etiqueta}
@@ -1073,7 +1093,7 @@ export function NuevaEntrada({
                 ? "Notas de la sesión"
                 : tipoEfectivo === "receta"
                   ? "Indicaciones generales (opcional)"
-                  : ["certificado", "referimiento"].includes(tipoEfectivo)
+                  : tipoEfectivo === "certificado"
                     ? "Texto del documento"
                     : definicion.length
                       ? "Observaciones (opcional)"

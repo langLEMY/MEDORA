@@ -6,8 +6,25 @@ const clave = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 export const SUPABASE_URL = url;
 export const SUPABASE_CLAVE = clave;
 
+/**
+ * «Ver como» (solo superadmin): los roles con los que se quiere probar la app. Viajan en la
+ * cabecera x-medora-ver-como y Postgres los usa SOLO para restar permisos (privado.ver_como).
+ */
+let verComoActual: string | null = null;
+export function fijarVerComo(roles: string[] | null) {
+  verComoActual = roles?.length ? roles.join(",") : null;
+}
+
 export const supabase = createClient<Database>(url, clave, {
   auth: { persistSession: true, autoRefreshToken: true, storageKey: "medora.sesion" },
+  global: {
+    fetch: (entrada, init) => {
+      if (!verComoActual) return fetch(entrada, init);
+      const cabeceras = new Headers(init?.headers);
+      cabeceras.set("x-medora-ver-como", verComoActual);
+      return fetch(entrada, { ...init, headers: cabeceras });
+    },
+  },
 });
 
 export type Tablas = Database["public"]["Tables"];
